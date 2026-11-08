@@ -8,6 +8,10 @@ signals:
   - svg-assets
 installed: []
 candidates:
+  - id: df-opt-docs
+    capabilities:
+      - docs.writing
+    stars: 1600
   - id: df-tokens
     name: Token Builder
     capabilities:
@@ -48,7 +52,8 @@ candidates:
 requiredCapabilities:
   - design.frontend
   - design.thumbnail
-optionalCapabilities: []
+optionalCapabilities:
+  - docs.writing
 expectedRequiredIds:
   - df-tokens
   - df-components
@@ -56,6 +61,8 @@ expectedRequiredIds:
   - df-system
   - df-a11y
 expectedRedundantIds: []
+expectedOptionalIds:
+  - df-opt-docs
 unacceptableIds:
   - pop-test-pilot
   - pop-frame-stats

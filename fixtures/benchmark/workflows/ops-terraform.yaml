@@ -8,6 +8,10 @@ signals:
   - prometheus-config
 installed: []
 candidates:
+  - id: ops-opt-runbook
+    capabilities:
+      - docs.writing
+    stars: 1700
   - id: ops-plan
     name: Plan Reviewer
     capabilities:
@@ -51,7 +55,8 @@ requiredCapabilities:
   - containers.orchestration
   - security.dependencies
   - harness.management
-optionalCapabilities: []
+optionalCapabilities:
+  - docs.writing
 expectedRequiredIds:
   - ops-plan
   - ops-containers
@@ -59,6 +64,8 @@ expectedRequiredIds:
   - ops-harness
   - ops-release
 expectedRedundantIds: []
+expectedOptionalIds:
+  - ops-opt-runbook
 unacceptableIds:
   - pop-caption-pro
   - pop-cite-wise

@@ -8,6 +8,10 @@ signals:
   - matplotlib-figure
 installed: []
 candidates:
+  - id: da-opt-publish
+    capabilities:
+      - publishing.delivery
+    stars: 1400
   - id: da-frames
     name: Frame Analyzer
     capabilities:
@@ -49,7 +53,8 @@ requiredCapabilities:
   - data.analysis
   - docs.writing
   - planning.orchestration
-optionalCapabilities: []
+optionalCapabilities:
+  - publishing.delivery
 expectedRequiredIds:
   - da-frames
   - da-figures
@@ -57,6 +62,8 @@ expectedRequiredIds:
   - da-report
   - da-clean
 expectedRedundantIds: []
+expectedOptionalIds:
+  - da-opt-publish
 unacceptableIds:
   - pop-render-farm
   - pop-pixel-system

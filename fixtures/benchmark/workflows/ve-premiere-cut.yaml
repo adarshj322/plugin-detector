@@ -8,6 +8,10 @@ signals:
   - caption-track
 installed: []
 candidates:
+  - id: ve-opt-publish
+    capabilities:
+      - publishing.delivery
+    stars: 1600
   - id: ve-transcode
     name: Transcode Helper
     capabilities:
@@ -51,7 +55,8 @@ requiredCapabilities:
   - media.transcode
   - speech.captions
   - design.thumbnail
-optionalCapabilities: []
+optionalCapabilities:
+  - publishing.delivery
 expectedRequiredIds:
   - ve-transcode
   - ve-captions
@@ -59,6 +64,8 @@ expectedRequiredIds:
   - ve-pipeline
   - ve-publish
 expectedRedundantIds: []
+expectedOptionalIds:
+  - ve-opt-publish
 unacceptableIds:
   - pop-test-pilot
   - pop-ship-line

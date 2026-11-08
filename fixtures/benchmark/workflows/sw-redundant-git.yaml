@@ -10,6 +10,10 @@ installed:
     capabilities:
       - vcs.workflow
 candidates:
+  - id: sw-git-pop-helper
+    capabilities:
+      - vcs.workflow
+    stars: 99000
   - id: sw-git-tests
     name: Git Test Runner
     capabilities:
@@ -62,7 +66,9 @@ expectedRequiredIds:
   - sw-git-debug
 expectedRedundantIds:
   - sw-git-dup
+  - sw-git-pop-helper
 unacceptableIds:
+  - sw-git-pop-helper
   - pop-render-farm
   - pop-caption-pro
 rationale: The harness already provides git workflow, so that one skill must score redundant while the rest stay required and media skills stay out.

@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +15,7 @@ import {
   formatBenchmarkReport,
   gateBenchmark,
   loadBenchmarkFixtures,
+  MEAN_PRECISION_FLOOR,
   runBenchmark,
   scoreWorkflow,
   type BenchmarkSummary,
@@ -28,6 +35,59 @@ function isolateOffline(): void {
   process.env.PLUGIN_DETECTOR_CACHE_DIR = join(base, "cache");
   process.env.XDG_CACHE_HOME = join(base, "xdg");
 }
+
+// Realistic regression corpus for the CLI-level gate test: a mega-star
+// candidate shares a domain capability (so it is genuinely scored `required`)
+// yet is labeled unacceptable. This exercises the offender gate through real
+// scoring rather than by tampering a label. Built by a test, not shipped.
+const REGRESSION_YAML = `# Regression workflow (built by a test, not a shipped fixture).
+id: regression-pop-fit
+domain: software-development
+declaration: software-development
+signals:
+  - package-manifest
+  - tsconfig
+installed: []
+candidates:
+  - id: core-test-runner
+    capabilities:
+      - testing.runner
+    stars: 4000
+  - id: core-review
+    capabilities:
+      - code-review.quality
+    stars: 3000
+  - id: core-debug
+    capabilities:
+      - debugging.systematic
+    stars: 2000
+  - id: pop-fit-impostor
+    capabilities:
+      - testing.runner
+    stars: 180000
+  - id: pop-render-farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+  - id: pop-caption-pro
+    capabilities:
+      - speech.captions
+    stars: 95000
+requiredCapabilities:
+  - testing.runner
+  - code-review.quality
+  - debugging.systematic
+optionalCapabilities: []
+expectedRequiredIds:
+  - core-test-runner
+  - core-review
+  - core-debug
+expectedRedundantIds: []
+expectedOptionalIds: []
+unacceptableIds:
+  - pop-fit-impostor
+rationale: A mega-star candidate shares a domain capability but is low-value, so the gate must refuse to recommend it as required.
+`;
 
 test("loads 30 labeled workflows across six domains", () => {
   const { workflows, baseline } = loadBenchmarkFixtures(FIXTURE_ROOT);
@@ -61,6 +121,8 @@ test("loads 30 labeled workflows across six domains", () => {
     ],
   );
   assert.ok(baseline.candidates.length >= 10, "baseline needs a frozen pool");
+  // Controller ruling: 30 workflows is canonical; no seventh fixture per
+  // domain is added by this fix round.
 });
 
 test("engine precision beats the popularity baseline with no offenders", () => {
@@ -76,13 +138,18 @@ test("engine precision beats the popularity baseline with no offenders", () => {
     );
     assert.deepEqual(result.missingRequired, [], `${result.id} missing required`);
     assert.deepEqual(result.missingRedundant, [], `${result.id} missing redundant`);
+    assert.deepEqual(result.missingOptional, [], `${result.id} missing optional`);
     assert.ok(
       result.beatBaseline,
       `${result.id}: engine ${result.precisionAt5} vs baseline ${result.baselinePrecisionAt5}`,
     );
+    assert.ok(
+      result.precisionAt5 > result.baselinePrecisionAt5,
+      `${result.id}: beat must be strict >`,
+    );
   }
   assert.ok(
-    summary.meanPrecisionAt5 >= 0.8,
+    summary.meanPrecisionAt5 >= MEAN_PRECISION_FLOOR,
     `mean precision ${summary.meanPrecisionAt5}`,
   );
 });
@@ -110,6 +177,7 @@ test("gate fails when a low-value candidate is returned as required", () => {
         top: [],
         missingRequired: [],
         missingRedundant: [],
+        missingOptional: [],
       },
     ],
     meanPrecisionAt5: 0.8,
@@ -130,6 +198,7 @@ test("gate fails when a low-value candidate is returned as required", () => {
         top: [],
         missingRequired: [],
         missingRedundant: [],
+        missingOptional: [],
       },
     ],
     meanPrecisionAt5: 0.2,
@@ -139,29 +208,87 @@ test("gate fails when a low-value candidate is returned as required", () => {
   assert.equal(gateBenchmark(baselineLoss, { failOnLowValue: true }).exitCode, 1);
 });
 
-test("verdicts are capability-based, not id-memorized", () => {
+test("gate enforces the mean floor and strict beat, not just offenders", () => {
+  const degenerate: BenchmarkSummary = {
+    workflows: [
+      {
+        id: "degenerate",
+        domain: "software-development",
+        precisionAt5: 0.5,
+        baselinePrecisionAt5: 0.5,
+        beatBaseline: true,
+        offenders: [],
+        top: [],
+        missingRequired: [],
+        missingRedundant: [],
+        missingOptional: [],
+      },
+    ],
+    meanPrecisionAt5: 0.5,
+    meanBaselinePrecisionAt5: 0.5,
+    offenderCount: 0,
+  };
+  const gated = gateBenchmark(degenerate, { failOnLowValue: true });
+  assert.equal(gated.exitCode, 1, "a degenerate engine must not pass");
+  assert.ok(gated.failures.some((f) => /floor/.test(f)), "mean floor failure");
+  assert.ok(
+    gated.failures.some((f) => /not above baseline/.test(f)),
+    "a tie is not a beat",
+  );
+
+  // Even with the mean above the floor, a workflow that merely ties the
+  // baseline must fail (strict > recomputed inside the gate).
+  const tie: BenchmarkSummary = {
+    workflows: [
+      {
+        id: "tie",
+        domain: "software-development",
+        precisionAt5: 0.9,
+        baselinePrecisionAt5: 0.9,
+        beatBaseline: true,
+        offenders: [],
+        top: [],
+        missingRequired: [],
+        missingRedundant: [],
+        missingOptional: [],
+      },
+    ],
+    meanPrecisionAt5: 0.9,
+    meanBaselinePrecisionAt5: 0.9,
+    offenderCount: 0,
+  };
+  assert.equal(gateBenchmark(tie, { failOnLowValue: true }).exitCode, 1);
+  assert.equal(gateBenchmark(tie, { failOnLowValue: false }).exitCode, 0);
+  assert.equal(MEAN_PRECISION_FLOOR, 0.8);
+});
+
+test("verdicts are capability-based, not id-memorized (all 30 workflows)", () => {
   isolateOffline();
   const { workflows, baseline } = loadBenchmarkFixtures(FIXTURE_ROOT);
-  const original = workflows.find((w) => w.id === "sw-node-api");
-  assert.ok(original, "sw-node-api fixture must exist");
-  const before = scoreWorkflow(original, baseline.candidates);
-  const anonymized = {
-    ...original,
-    candidates: original.candidates.map((c, i) => ({ ...c, id: `anon-${i}` })),
-    unacceptableIds: [],
-    expectedRequiredIds: [],
-    expectedRedundantIds: [],
-  };
-  const after = scoreWorkflow(anonymized, baseline.candidates);
-  assert.equal(after.precisionAt5, before.precisionAt5);
-  assert.deepEqual(
-    after.top.map((t) => t.verdict).sort(),
-    before.top.map((t) => t.verdict).sort(),
-  );
-  assert.deepEqual(
-    after.top.map((t) => t.score).sort((a, b) => b - a),
-    before.top.map((t) => t.score).sort((a, b) => b - a),
-  );
+  assert.equal(workflows.length, 30);
+  for (const original of workflows) {
+    const before = scoreWorkflow(original, baseline.candidates);
+    const anonymized = {
+      ...original,
+      candidates: original.candidates.map((c, i) => ({ ...c, id: `anon-${i}` })),
+      unacceptableIds: [],
+      expectedRequiredIds: [],
+      expectedRedundantIds: [],
+      expectedOptionalIds: [],
+    };
+    const after = scoreWorkflow(anonymized, baseline.candidates);
+    assert.equal(after.precisionAt5, before.precisionAt5, `${original.id} precision`);
+    assert.deepEqual(
+      after.top.map((t) => t.verdict).sort(),
+      before.top.map((t) => t.verdict).sort(),
+      `${original.id} verdicts`,
+    );
+    assert.deepEqual(
+      after.top.map((t) => t.score).sort((a, b) => b - a),
+      before.top.map((t) => t.score).sort((a, b) => b - a),
+      `${original.id} scores`,
+    );
+  }
 });
 
 test("benchmark command reports precision and gates on low value", async () => {
@@ -257,6 +384,7 @@ test("report and gate print every offending recommendation", () => {
         top: [],
         missingRequired: [],
         missingRedundant: [],
+        missingOptional: [],
       },
     ],
     meanPrecisionAt5: 0.8,
@@ -269,4 +397,109 @@ test("report and gate print every offending recommendation", () => {
   const failures = gateBenchmark(summary, { failOnLowValue: true }).failures;
   assert.equal(failures.length, 2);
   assert.ok(failures.every((f) => /pop-render-farm|pop-caption-pro/.test(f)));
+});
+
+test("expected useful-optional labels are validated by the runner", () => {
+  const { workflows, baseline } = loadBenchmarkFixtures(FIXTURE_ROOT);
+  const withOptional = workflows.filter((w) => w.expectedOptionalIds.length > 0);
+  assert.ok(
+    withOptional.length >= 3,
+    "a meaningful subset of fixtures must carry optional labels",
+  );
+  for (const workflow of withOptional) {
+    const result = scoreWorkflow(workflow, baseline.candidates);
+    assert.deepEqual(
+      result.missingOptional,
+      [],
+      `${workflow.id} expected-optional candidates must score useful-optional`,
+    );
+  }
+  // Tamper: give the optional candidate a required (profile) capability so it
+  // is no longer useful-optional; the runner must report it as a miss.
+  const sample = withOptional[0] as (typeof withOptional)[number];
+  const optId = sample.expectedOptionalIds[0] as string;
+  const tampered = {
+    ...sample,
+    candidates: sample.candidates.map((c) =>
+      c.id === optId
+        ? { ...c, capabilities: [sample.requiredCapabilities[0] as string] }
+        : c,
+    ),
+  };
+  const result = scoreWorkflow(tampered, baseline.candidates);
+  assert.ok(
+    result.missingOptional.includes(optId),
+    "tampered optional candidate must be reported as a miss",
+  );
+});
+
+test("realistic regression: installed-duplicate is redundant, gate flags it if overlap regresses", () => {
+  const { workflows, baseline } = loadBenchmarkFixtures(FIXTURE_ROOT);
+  const original = workflows.find((w) => w.id === "sw-redundant-git");
+  assert.ok(original, "sw-redundant-git fixture must exist");
+  const dupId = "sw-git-pop-helper";
+  assert.ok(
+    original.unacceptableIds.includes(dupId),
+    "fixture must carry the high-popularity regression candidate",
+  );
+  assert.ok(
+    original.expectedRedundantIds.includes(dupId),
+    "fixture must expect that candidate redundant",
+  );
+
+  // Correct behavior: the high-popularity candidate shares a domain
+  // capability but duplicates an installed equivalent, so it is `redundant`,
+  // never `required`, and the gate stays clean.
+  const correct = scoreWorkflow(original, baseline.candidates);
+  assert.deepEqual(correct.missingRedundant, [], "duplicate must score redundant");
+  assert.deepEqual(correct.offenders, [], "redundant duplicate is not an offender");
+
+  // Regression: the installed equivalent is no longer detected (overlap gate
+  // regresses), so the same candidate is now scored `required` and unacceptable.
+  const regressed = scoreWorkflow({ ...original, installed: [] }, baseline.candidates);
+  assert.ok(
+    regressed.offenders.some((o) => o.candidateId === dupId),
+    `offenders: ${JSON.stringify(regressed.offenders)}`,
+  );
+  const summary: BenchmarkSummary = {
+    workflows: [regressed],
+    meanPrecisionAt5: regressed.precisionAt5,
+    meanBaselinePrecisionAt5: regressed.baselinePrecisionAt5,
+    offenderCount: regressed.offenders.length,
+  };
+  const gated = gateBenchmark(summary, { failOnLowValue: true });
+  assert.equal(gated.exitCode, 1);
+  assert.ok(gated.failures.some((f) => f.includes(dupId)));
+});
+
+test("CLI-level gate fails on a realistic regression and prints the offender", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "pd-bench-cli-"));
+  const logs: string[] = [];
+  const errors: string[] = [];
+  const origLog = console.log;
+  const origErr = console.error;
+  console.log = (...args: unknown[]): void => {
+    logs.push(args.map(String).join(" "));
+  };
+  console.error = (...args: unknown[]): void => {
+    errors.push(args.map(String).join(" "));
+  };
+  try {
+    mkdirSync(join(dir, "workflows"), { recursive: true });
+    mkdirSync(join(dir, "baselines"), { recursive: true });
+    writeFileSync(
+      join(dir, "baselines", "popular-repo.json"),
+      readFileSync(join(FIXTURE_ROOT, "baselines", "popular-repo.json")),
+    );
+    writeFileSync(join(dir, "workflows", "regression.yaml"), REGRESSION_YAML);
+    const code = (await benchmark(["--fixtures", dir, "--fail-on-low-value"])).exitCode;
+    assert.equal(code, 1);
+  } finally {
+    console.log = origLog;
+    console.error = origErr;
+    rmSync(dir, { recursive: true, force: true });
+  }
+  const output = `${logs.join("\n")}\n${errors.join("\n")}`;
+  assert.match(output, /offenders=pop-fit-impostor/);
+  assert.match(output, /fail:.*pop-fit-impostor/);
 });

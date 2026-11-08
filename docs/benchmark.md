@@ -37,8 +37,10 @@ to beat the baseline makes the command exit 1, which fails CI.
 - Each workflow declares a use case (`declaration`), project `signals`, an
   optional installed-harness `inventory`, a candidate corpus, capability labels
   (`requiredCapabilities`, `optionalCapabilities`), expected verdict IDs
-  (`expectedRequiredIds`, `expectedRedundantIds`), `unacceptableIds`, and a
-  written `rationale`.
+  (`expectedRequiredIds`, `expectedRedundantIds`, `expectedOptionalIds`),
+  `unacceptableIds`, and a written `rationale`. The runner reports expected
+  `useful-optional` candidates that do not receive that verdict as
+  `missingOptional` misses (asserted empty across the corpus in CI).
 - The runner resolves the profile and scores **every** candidate through the
   production `scoreCandidate` — the same function `recommend` uses. Scoring uses
   capabilities, installed inventory, and signal match; it never reads the label
@@ -55,7 +57,10 @@ to beat the baseline makes the command exit 1, which fails CI.
 - **Baseline**: `baselines/popular-repo.json` is a hand-frozen pool of the most
   popular repos by raw stars, with **no fit filtering**. The benchmark ranks it
   by stars, takes the top 5, and scores those on identical fixtures. A workflow
-  "beats" the baseline when the engine's precision@5 is `>=` the baseline's.
+  "beats" the baseline only when the engine's precision@5 is strictly `>` the
+  baseline's (a tie is not a beat — the gate recomputes this rather than trusting
+  a precomputed flag). The gate also fails when mean precision@5 drops below
+  `0.8` (enforced inside `gateBenchmark`/the CLI, not only in a unit assertion).
   The baseline is deliberately a star-count dump: it represents the failure
   mode the product must avoid (see the spec: "Not a star-count dump", "Rank by
   use-case fit and marginal value, never by stars alone").
@@ -72,12 +77,19 @@ duplicates an already-installed capability. Concretely, in this gate:
 - a `required` candidate with no capability in the workflow's required or
   optional capability set, or
 - a candidate that should be `redundant` (duplicates installed inventory) but
-  is surfaced as `required`.
+  is surfaced as `required`. The corpus deliberately includes such a case:
+  `sw-redundant-git` has a high-popularity candidate (`sw-git-pop-helper`) that
+  shares a domain capability but duplicates the installed `vcs.workflow`
+  equivalent, so correct overlap scoring makes it `redundant`. A committed test
+  removes the installed equivalent to simulate an overlap regression and proves
+  the candidate then becomes `required`, is flagged as an offender, and fails
+  the gate — so the offender gate is exercised by a realistic regression, not
+  only by label tampering.
 
 `requiredCapabilities` / `optionalCapabilities` / `unacceptableIds` are
 capability-based labels. IDs appear only for reporting (`expectedRequiredIds`,
-`expectedRedundantIds`, `unacceptableIds`) and for owner review; they are never
-an input to scoring.
+`expectedRedundantIds`, `expectedOptionalIds`, `unacceptableIds`) and for owner
+review; they are never an input to scoring.
 
 ## Label review process
 
@@ -107,6 +119,10 @@ an input to scoring.
 Each workflow line shows `precision@5`, `baseline`, `beat`/`FAIL`, and any
 `offenders=...`. A final summary line gives workflow count, mean precision@5,
 mean baseline, and total offenders. A `FAIL` or any `offenders=` value means the
-engine surfaced a low-value candidate or lost to popularity-only ranking; CI
-with `--fail-on-low-value` exits 1. Mean precision >= 0.8 and zero offenders
-are the current pass bar asserted by `packages/cli/test/benchmark.test.ts`.
+engine surfaced a low-value candidate or did not strictly beat popularity-only
+ranking; CI with `--fail-on-low-value` exits 1. The gate itself enforces: zero
+offenders, every workflow strictly beating the baseline, and mean precision@5
+>= 0.8. `packages/cli/test/benchmark.test.ts` asserts the same bars on the
+shipped corpus, `packages/cli/test/entry.test.ts` guards CLI auto-run through
+the bin symlink, and `packages/cli/test/workspace-lock.test.ts` guards the
+workspace/lockfile drift that would otherwise break `npm ci` in every CI job.

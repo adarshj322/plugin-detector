@@ -8,6 +8,10 @@ signals:
   - citation-style
 installed: []
 candidates:
+  - id: rw-opt-cover
+    capabilities:
+      - design.thumbnail
+    stars: 1300
   - id: rw-draft
     name: Draft Assistant
     capabilities:
@@ -50,7 +54,8 @@ requiredCapabilities:
   - planning.brainstorm
   - data.analysis
   - publishing.delivery
-optionalCapabilities: []
+optionalCapabilities:
+  - design.thumbnail
 expectedRequiredIds:
   - rw-draft
   - rw-brainstorm
@@ -58,6 +63,8 @@ expectedRequiredIds:
   - rw-publish
   - rw-outline
 expectedRedundantIds: []
+expectedOptionalIds:
+  - rw-opt-cover
 unacceptableIds:
   - pop-ship-line
   - pop-render-farm

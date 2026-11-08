@@ -41,6 +41,7 @@ const WorkflowSchema = z.object({
   optionalCapabilities: z.array(z.string().min(1)).optional().default([]),
   expectedRequiredIds: z.array(z.string().min(1)).optional().default([]),
   expectedRedundantIds: z.array(z.string().min(1)).optional().default([]),
+  expectedOptionalIds: z.array(z.string().min(1)).optional().default([]),
   unacceptableIds: z.array(z.string().min(1)).min(1),
   rationale: z.string().min(1),
 });
@@ -74,6 +75,7 @@ export interface WorkflowResult {
   top: WorkflowTop[];
   missingRequired: string[];
   missingRedundant: string[];
+  missingOptional: string[];
 }
 
 export interface BenchmarkSummary {
@@ -378,12 +380,16 @@ export function scoreWorkflow(
   const redundantVerdicts = new Set(
     scored.filter((s) => s.rec.verdict === "redundant").map((s) => s.candidate.id),
   );
+  const optionalVerdicts = new Set(
+    scored.filter((s) => s.rec.verdict === "useful-optional").map((s) => s.candidate.id),
+  );
   return {
     id: workflow.id,
     domain: workflow.domain,
     precisionAt5,
     baselinePrecisionAt5,
-    beatBaseline: precisionAt5 >= baselinePrecisionAt5,
+    // A tie is not a beat.
+    beatBaseline: precisionAt5 > baselinePrecisionAt5,
     offenders,
     top: top.map((s) => ({
       candidateId: s.candidate.id,
@@ -392,6 +398,7 @@ export function scoreWorkflow(
     })),
     missingRequired: workflow.expectedRequiredIds.filter((id) => !requiredVerdicts.has(id)),
     missingRedundant: workflow.expectedRedundantIds.filter((id) => !redundantVerdicts.has(id)),
+    missingOptional: workflow.expectedOptionalIds.filter((id) => !optionalVerdicts.has(id)),
   };
 }
 
@@ -439,6 +446,9 @@ export function runBenchmark({ fixturesDir }: { fixturesDir: string }): Benchmar
   };
 }
 
+// Enforced inside the CLI gate, not only in a unit assertion.
+export const MEAN_PRECISION_FLOOR = 0.8;
+
 export function gateBenchmark(
   summary: BenchmarkSummary,
   { failOnLowValue }: { failOnLowValue: boolean },
@@ -449,11 +459,18 @@ export function gateBenchmark(
     for (const offender of result.offenders) {
       failures.push(`${result.id}: low-value ${offender.candidateId} (${offender.reason})`);
     }
-    if (!result.beatBaseline) {
+    // Recompute strict > here rather than trusting a possibly-stale
+    // beatBaseline flag: a tie must never count as a beat.
+    if (!(result.precisionAt5 > result.baselinePrecisionAt5)) {
       failures.push(
-        `${result.id}: engine precision@5 ${result.precisionAt5.toFixed(2)} below baseline ${result.baselinePrecisionAt5.toFixed(2)}`,
+        `${result.id}: engine precision@5 ${result.precisionAt5.toFixed(2)} not above baseline ${result.baselinePrecisionAt5.toFixed(2)}`,
       );
     }
+  }
+  if (summary.meanPrecisionAt5 < MEAN_PRECISION_FLOOR) {
+    failures.push(
+      `mean precision@5 ${summary.meanPrecisionAt5.toFixed(3)} below ${MEAN_PRECISION_FLOOR.toFixed(3)} floor`,
+    );
   }
   return { exitCode: failures.length === 0 ? 0 : 1, failures };
 }

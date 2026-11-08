@@ -8,6 +8,10 @@ signals:
   - eslint-config
 installed: []
 candidates:
+  - id: sw-opt-planner
+    capabilities:
+      - planning.orchestration
+    stars: 2100
   - id: sw-api-tests
     name: API Test Runner
     capabilities:
@@ -53,7 +57,8 @@ requiredCapabilities:
   - debugging.systematic
   - vcs.workflow
   - docs.writing
-optionalCapabilities: []
+optionalCapabilities:
+  - planning.orchestration
 expectedRequiredIds:
   - sw-api-tests
   - sw-review-lint
@@ -61,6 +66,8 @@ expectedRequiredIds:
   - sw-git-flow
   - sw-api-docs
 expectedRedundantIds: []
+expectedOptionalIds:
+  - sw-opt-planner
 unacceptableIds:
   - pop-render-farm
   - pop-caption-pro
