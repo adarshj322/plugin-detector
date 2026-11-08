@@ -7,6 +7,7 @@
     { "path": "packages/adapters/shared" },
     { "path": "packages/adapters/opencode" },
     { "path": "packages/adapters/claude-code" },
-    { "path": "packages/adapters/codex" }
+    { "path": "packages/adapters/codex" },
+    { "path": "packages/adapters/cursor" }
   ]
 }

@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "reviewer": {
+      "command": "node",
+      "args": ["review-server.js"],
+      "env": {
+        "REVIEW_TOKEN": "sk-cursor-secret-value-that-must-never-appear"
+      }
+    },
+    "disabled-docs": {
+      "url": "https://docs.example.com/mcp",
+      "enabled": false
+    }
+  }
+}

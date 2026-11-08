@@ -1,0 +1,21 @@
+{
+  "name": "@plugin-detector/cursor",
+  "version": "0.0.0",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": "./dist/src/index.js",
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/src/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@plugin-detector/adapter-shared": "*",
+    "@plugin-detector/core": "*"
+  }
+}
