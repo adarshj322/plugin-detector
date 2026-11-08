@@ -114,6 +114,29 @@ export const CliErrorSchema = z.object({
 });
 export type CliError = z.infer<typeof CliErrorSchema>;
 
+export const ApproveJsonSchema = z.object({
+  command: z.literal("approve"),
+  facts: z.object({
+    candidateId: z.string().min(1),
+    planHash: z.string().min(1),
+    token: z.string().min(1),
+    expiresAt: z.string().min(1),
+  }),
+});
+export type ApproveJson = z.infer<typeof ApproveJsonSchema>;
+
+export const InstallJsonSchema = z.object({
+  command: z.literal("install"),
+  facts: z.object({
+    status: z.enum(["applied", "recipe"]),
+    candidateId: z.string().min(1),
+    writes: z.array(z.string()),
+    restored: z.array(z.string()),
+    recipe: z.string().optional(),
+  }),
+});
+export type InstallJson = z.infer<typeof InstallJsonSchema>;
+
 // Section printers keep the same three headers on stdout so scripted
 // consumers can split on them as reliably as --json consumers split keys.
 export function printSection(

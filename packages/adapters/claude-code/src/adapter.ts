@@ -6,7 +6,20 @@ import type {
   CapabilityRecord,
   InstallPlan,
 } from "@plugin-detector/core";
-import { capabilityId } from "@plugin-detector/core";
+import {
+  atomicWriteFile,
+  backupFile,
+  capabilityId,
+  defaultRunCommand,
+  InstallError,
+  isRunnableSource,
+  parseAppendOp,
+  parseMcpOp,
+  parseRunSource,
+  restoreBackups,
+  verifyParseableJson,
+  type RunCommand,
+} from "@plugin-detector/core";
 import {
   skillCapabilitiesFromFrontmatter,
   skillNameFromFrontmatter,
@@ -19,6 +32,9 @@ export interface ClaudeCodeAdapterOptions {
   root?: string;
   // Fakeable home holding .claude.json and user-scope .claude/.
   home?: string;
+  // Runs `npx skills add` for verified skill installs. Inject a stub in
+  // tests; the default spawns npx and never runs during inventory.
+  runCommand?: RunCommand;
 }
 
 export interface DetectResult {
@@ -42,14 +58,15 @@ export interface RollbackResult {
   restored: string[];
 }
 
-// v1 HarnessAdapter surface. Task 13 owns applyPlan/rollback writes; until
-// then applyPlan throws and rollback restores the (empty) nothing written.
+// v1 HarnessAdapter surface. applyPlan executes only verified, fully
+// structured plans (consent is enforced upstream by applyInstallPlan);
+// recipe-only or mixed plans throw and change nothing.
 export interface HarnessAdapter {
   detect(): Promise<DetectResult>;
   inventory(): Promise<InventoryResult>;
   compatibility(candidate: Candidate): number;
   installPlan(candidate: Candidate, trust?: TrustLabel): InstallPlan;
-  applyPlan(plan: InstallPlan): Promise<unknown>;
+  applyPlan(plan: InstallPlan): Promise<{ applied: string[] }>;
   rollback(plan: InstallPlan): Promise<RollbackResult>;
 }
 
@@ -98,13 +115,37 @@ function hasPinnedRef(ref: unknown): boolean {
   return !MUTABLE_REFS.has(ref.trim().toLowerCase());
 }
 
+// Missing file reads as an empty config; anything unparseable or
+// non-object throws so the caller's backup + rollback path engages.
+function readExistingObject(file: string): Record<string, unknown> {
+  if (!existsSync(file)) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripJsonc(readFileSync(file, "utf8"))) as unknown;
+  } catch (error) {
+    throw new InstallError(
+      "apply-failed",
+      `Cannot parse ${file}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (!isRecord(parsed)) {
+    throw new InstallError(
+      "apply-failed",
+      `Ignoring ${file}: top-level value is not an object.`,
+    );
+  }
+  return parsed;
+}
+
 export class ClaudeCodeAdapter implements HarnessAdapter {
   private readonly root: string;
   private readonly home: string;
+  private readonly runCommand: RunCommand;
 
   constructor(options: ClaudeCodeAdapterOptions = {}) {
     this.home = options.home ?? homedir();
     this.root = options.root ?? options.home ?? process.cwd();
+    this.runCommand = options.runCommand ?? defaultRunCommand;
   }
 
   async detect(): Promise<DetectResult> {
@@ -252,12 +293,110 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
     };
   }
 
-  async applyPlan(_plan: InstallPlan): Promise<never> {
-    throw new Error("Inventory-only milestone: applyPlan lands in Task 13.");
+  async applyPlan(plan: InstallPlan): Promise<{ applied: string[] }> {
+    if (
+      plan.operations.length === 0 ||
+      plan.operations.some((op) => op.kind === "recipe")
+    ) {
+      throw new InstallError(
+        "recipe-only",
+        "Claude Code applyPlan refuses recipe-only or mixed plans: follow the manual recipe instead.",
+      );
+    }
+    const applied: string[] = [];
+    try {
+      for (const op of plan.operations) {
+        if (op.kind === "append") applied.push(this.applyPluginAppend(op));
+        else if (op.kind === "write") applied.push(this.applyMcpWrite(op));
+        else applied.push(this.applySkillRun(op));
+      }
+    } catch (error) {
+      restoreBackups(plan.backupRefs);
+      throw error instanceof InstallError
+        ? error
+        : new InstallError(
+            "apply-failed",
+            `Claude Code install failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+    }
+    return { applied };
   }
 
-  async rollback(_plan: InstallPlan): Promise<RollbackResult> {
-    return { restored: [] };
+  // Byte-for-byte restore of every backed-up preimage. Directories created
+  // by external commands are never deleted; the plan's rollback recipe
+  // covers their manual removal.
+  async rollback(plan: InstallPlan): Promise<RollbackResult> {
+    return { restored: restoreBackups(plan.backupRefs) };
+  }
+
+  private applyPluginAppend(op: InstallPlan["operations"][number]): string {
+    const edit = parseAppendOp(op);
+    if (edit.mode !== "map" || edit.key !== "enabledPlugins") {
+      throw new InstallError(
+        "apply-failed",
+        `Unsupported append target for Claude Code: ${op.summary}`,
+      );
+    }
+    backupFile(edit.file);
+    const current = readExistingObject(edit.file);
+    const map = current["enabledPlugins"] ?? {};
+    if (!isRecord(map)) {
+      throw new InstallError(
+        "apply-failed",
+        `Cannot append in ${edit.file}: "enabledPlugins" is not an object.`,
+      );
+    }
+    if (!(edit.source in map)) map[edit.source] = true;
+    current["enabledPlugins"] = map;
+    atomicWriteFile(edit.file, `${JSON.stringify(current, null, 2)}\n`);
+    verifyParseableJson(edit.file);
+    return edit.file;
+  }
+
+  private applyMcpWrite(op: InstallPlan["operations"][number]): string {
+    const edit = parseMcpOp(op);
+    if (edit.section !== "mcpServers") {
+      throw new InstallError(
+        "apply-failed",
+        `Unsupported MCP section for Claude Code: ${op.summary}`,
+      );
+    }
+    if (!isRunnableSource(edit.source)) {
+      throw new InstallError(
+        "apply-failed",
+        `Cannot derive an MCP command from URL source "${edit.source}"; follow the plan's manual recipe.`,
+      );
+    }
+    backupFile(edit.file);
+    const current = readExistingObject(edit.file);
+    const section = current["mcpServers"] ?? {};
+    if (!isRecord(section)) {
+      throw new InstallError(
+        "apply-failed",
+        `Cannot merge in ${edit.file}: "mcpServers" is not an object.`,
+      );
+    }
+    // shortcut: minimal stdio form; richer transports need a manual edit —
+    // upgrade if a verified spec lands.
+    if (!(edit.serverId in section)) {
+      section[edit.serverId] = { command: "npx", args: [edit.source] };
+    }
+    current["mcpServers"] = section;
+    atomicWriteFile(edit.file, `${JSON.stringify(current, null, 2)}\n`);
+    verifyParseableJson(edit.file);
+    return edit.file;
+  }
+
+  private applySkillRun(op: InstallPlan["operations"][number]): string {
+    const source = parseRunSource(op.summary);
+    const result = this.runCommand("npx", ["skills", "add", source]);
+    if (result.status !== 0) {
+      throw new InstallError(
+        "apply-failed",
+        `npx skills add ${source} failed with status ${result.status}.`,
+      );
+    }
+    return `npx skills add ${source}`;
   }
 
   private evidencePaths(): string[] {

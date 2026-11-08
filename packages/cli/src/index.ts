@@ -5,6 +5,8 @@ import { recommend } from "./commands/recommend.js";
 import { explain } from "./commands/explain.js";
 import { validateProfile } from "./commands/profiles-validate.js";
 import { registryRefresh } from "./commands/registry-refresh.js";
+import { approve } from "./commands/approve.js";
+import { install } from "./commands/install.js";
 
 export const PACKAGE_NAME = "@plugin-detector/cli";
 
@@ -17,18 +19,25 @@ function usage(): number {
       "  explain <candidate-id> [--show-untrusted] [--json] [--cache-dir DIR] [--home DIR] [--root DIR]",
       "  profiles validate <file>",
       "  registry refresh [--cache-dir <dir>] [--limit <n>]",
+      "  approve --candidate <id> --plan <sha256> [--plan-file <file>] [--ttl-minutes N] [--json]",
+      "  install --plan-file <file> [--approval-token <token>] [--json] [--home DIR] [--root DIR] [--cache-dir DIR]",
+      "install takes the token from --approval-token or PLUGIN_DETECTOR_APPROVAL_TOKEN,",
+      "else prompts on a TTY; non-TTY without a token refuses.",
     ].join("\n"),
   );
   return 2;
 }
 
 // Exit codes: 0 ok, 1 error, 2 usage, 3 needs-clarification, 4 blocked.
-// Commands never write except `registry refresh` (explicit cache refresh).
+// Only `registry refresh` (explicit cache refresh), `approve` (token store),
+// and consented `install` (verified writers) touch the filesystem.
 export async function main(argv: string[] = process.argv.slice(2)): Promise<number> {
   const [command, sub, ...rest] = argv;
   if (command === "inventory") return (await inventory(sub ? [sub, ...rest] : [])).exitCode;
   if (command === "recommend") return (await recommend(sub ? [sub, ...rest] : [])).exitCode;
   if (command === "explain") return (await explain(sub ? [sub, ...rest] : [])).exitCode;
+  if (command === "approve") return (await approve(sub ? [sub, ...rest] : [])).exitCode;
+  if (command === "install") return (await install(sub ? [sub, ...rest] : [])).exitCode;
   if (command === "profiles" && sub === "validate") return (await validateProfile(rest)).exitCode;
   if (command === "registry" && sub === "refresh") {
     return (await registryRefresh(rest)).exitCode;

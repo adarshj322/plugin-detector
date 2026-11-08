@@ -49,7 +49,12 @@ harness config files by hand when a CLI command owns that write.
    is the sha256 of the exact install plan shown to the user (commands,
    config changes, files, rollback). The token is one-shot and scoped to
    that candidate plus that plan hash; TTL is at most 30 minutes (default
-   10). Then run the install with the token. Install requires the token or
+   10). Then run the install with the token: pass it as
+   `plugin-detector install --plan-file <plan.json> --approval-token <token>`
+   or export `PLUGIN_DETECTOR_APPROVAL_TOKEN` and omit the flag. With
+   neither, install prompts for interactive TTY confirmation showing
+   candidate, source, trust, operations, and rollback — non-TTY without a
+   token refuses. Install requires the token or
    interactive TTY confirmation — never install unapproved or unverified
    candidates automatically, and never execute candidate code (skills,
    plugins, hooks, install scripts) to "try it out".

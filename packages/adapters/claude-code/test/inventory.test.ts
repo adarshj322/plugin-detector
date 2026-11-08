@@ -226,10 +226,10 @@ test("installPlan is verified only for verified trust plus supported type", () =
   assert.ok(unsupported.operations.every((op) => op.kind === "recipe"));
 });
 
-test("applyPlan throws until task 13", async () => {
+test("applyPlan refuses recipe-only plans with zero mutation", async () => {
   const adapter = adapterFor("empty");
   const plan = adapter.installPlan(candidate(), "unverified");
-  await assert.rejects(() => adapter.applyPlan(plan), /Inventory-only milestone/);
+  await assert.rejects(() => adapter.applyPlan(plan), /recipe-only/);
 });
 
 test("rollback restores nothing when nothing was written", async () => {
