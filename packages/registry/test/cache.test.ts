@@ -65,6 +65,32 @@ test("loadSnapshot falls back to bundled snapshot when cache is empty", () => {
   assert.equal(snapshot.schemaVersion, 1);
 });
 
+test("older populated cache wins over newer bundled snapshot", () => {
+  // Bundled generatedAt (2026-11-08) is newer than this cache seed; the
+  // cache must still win so a shipped snapshot never shadows user data.
+  const dir = tmpCache();
+  const kept = normalizeCandidate(
+    rawCandidate({
+      id: "cached-one",
+      lastVerified: "2026-10-01T00:00:00.000Z",
+    }),
+  );
+  const seed = buildSnapshot(
+    [{ candidate: kept, sourceUrl: SOURCE_URL, trust: "unverified" }],
+    new Date("2026-10-01T00:00:00.000Z"),
+  );
+  writeFileSync(join(dir, "registry-snapshot.json"), JSON.stringify(seed));
+  const loaded = loadSnapshot({ cacheDir: dir });
+  assert.equal(loaded.candidates[0]?.id, "cached-one");
+});
+
+test("corrupt cache falls back to bundled snapshot", () => {
+  const dir = tmpCache();
+  writeFileSync(join(dir, "registry-snapshot.json"), "{not json");
+  const loaded = loadSnapshot({ cacheDir: dir });
+  assert.equal(loaded.schemaVersion, 1);
+});
+
 test("refresh writes snapshot and prefers cache over bundled", async () => {
   const dir = tmpCache();
   const result = await refreshSnapshot({

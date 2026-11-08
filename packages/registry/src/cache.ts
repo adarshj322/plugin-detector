@@ -106,22 +106,19 @@ function readManifestFile(path: string): CacheManifest | null {
   }
 }
 
-// Newest generatedAt wins; the bundled snapshot is the offline fallback so a
-// machine that never refreshed still resolves candidates.
+// A valid user cache always wins; the bundled snapshot is strictly the
+// offline fallback. Timestamp comparison is deliberately avoided: a newly
+// shipped bundled snapshot (newer generatedAt, possibly empty) must never
+// shadow an older populated user cache.
 export function loadSnapshot(opts?: { cacheDir?: string }): RegistrySnapshot {
   const dir = resolveCacheDir(opts?.cacheDir);
   const cached = readSnapshotFile(join(dir, SNAPSHOT_FILENAME));
+  if (cached) return cached;
   const bundled = readSnapshotFile(bundledSnapshotPath());
-  if (cached && bundled) {
-    return cached.generatedAt >= bundled.generatedAt ? cached : bundled;
-  }
-  const found = cached ?? bundled;
-  if (!found) {
-    throw new Error(
-      "no registry snapshot found: run `plugin-detector registry refresh`",
-    );
-  }
-  return found;
+  if (bundled) return bundled;
+  throw new Error(
+    "no registry snapshot found: run `plugin-detector registry refresh`",
+  );
 }
 
 function defaultFetchers(
