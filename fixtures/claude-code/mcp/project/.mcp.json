@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "project-db": {
+      "command": ["node", "db-server.js"],
+      "env": {
+        "DB_PASSWORD": "db-secret-value-that-must-never-appear"
+      }
+    }
+  }
+}

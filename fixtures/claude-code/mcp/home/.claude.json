@@ -1,0 +1,18 @@
+{
+  // User-scope MCP servers. The adapter records names and config refs only;
+  // env values stay on disk and must never appear in inventory output.
+  "mcpServers": {
+    "reviewer": {
+      "command": ["node", "review-server.js"],
+      "env": {
+        "REVIEW_TOKEN": "sk-ant-secret-value-that-must-never-appear",
+        "PUBLIC_FLAG": "true"
+      },
+      "enabled": true
+    },
+    "disabled-docs": {
+      "url": "https://docs.example.com/mcp",
+      "enabled": false
+    }
+  }
+}
