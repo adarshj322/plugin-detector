@@ -10,6 +10,9 @@
     ".": "./dist/src/index.js",
     "./package.json": "./package.json"
   },
+  "dependencies": {
+    "@plugin-detector/registry": "*"
+  },
   "types": "./dist/src/index.d.ts",
   "files": [
     "dist"

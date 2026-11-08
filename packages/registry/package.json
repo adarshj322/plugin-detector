@@ -12,9 +12,11 @@
   },
   "types": "./dist/src/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "data"
   ],
   "dependencies": {
-    "@plugin-detector/core": "*"
+    "@plugin-detector/core": "*",
+    "zod": "4.6.7"
   }
 }
