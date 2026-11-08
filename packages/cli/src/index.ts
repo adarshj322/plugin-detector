@@ -1,1 +1,60 @@
+#!/usr/bin/env node
+import { pathToFileURL } from "node:url";
+import { inventory } from "./commands/inventory.js";
+import { recommend } from "./commands/recommend.js";
+import { explain } from "./commands/explain.js";
+import { validateProfile } from "./commands/profiles-validate.js";
+import { registryRefresh } from "./commands/registry-refresh.js";
+
 export const PACKAGE_NAME = "@plugin-detector/cli";
+
+function usage(): number {
+  console.error(
+    [
+      "usage: plugin-detector <command> [options]",
+      "  inventory [--json] [--home DIR] [--root DIR]",
+      "  recommend --use-case <id> [--signal S ...] [--json] [--cache-dir DIR] [--home DIR] [--root DIR] [--harness H] [--threshold N]",
+      "  explain <candidate-id> [--show-untrusted] [--json] [--cache-dir DIR] [--home DIR] [--root DIR]",
+      "  profiles validate <file>",
+      "  registry refresh [--cache-dir <dir>] [--limit <n>]",
+    ].join("\n"),
+  );
+  return 2;
+}
+
+// Exit codes: 0 ok, 1 error, 2 usage, 3 needs-clarification, 4 blocked.
+// Commands never write except `registry refresh` (explicit cache refresh).
+export async function main(argv: string[] = process.argv.slice(2)): Promise<number> {
+  const [command, sub, ...rest] = argv;
+  if (command === "inventory") return (await inventory(sub ? [sub, ...rest] : [])).exitCode;
+  if (command === "recommend") return (await recommend(sub ? [sub, ...rest] : [])).exitCode;
+  if (command === "explain") return (await explain(sub ? [sub, ...rest] : [])).exitCode;
+  if (command === "profiles" && sub === "validate") return (await validateProfile(rest)).exitCode;
+  if (command === "registry" && sub === "refresh") {
+    return (await registryRefresh(rest)).exitCode;
+  }
+  if (command === "--help" || command === "-h") {
+    console.log("plugin-detector: local-first harness plugin recommender");
+    return usage();
+  }
+  return usage();
+}
+
+const invoked = process.argv[1] !== undefined;
+if (invoked) {
+  try {
+    if (import.meta.url === pathToFileURL(process.argv[1] as string).href) {
+      main().then(
+        (code) => {
+          process.exitCode = code;
+        },
+        (error) => {
+          console.error(error instanceof Error ? error.message : String(error));
+          process.exitCode = 1;
+        },
+      );
+    }
+  } catch {
+    // Imported as a library (tests): never auto-run.
+  }
+}

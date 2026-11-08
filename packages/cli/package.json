@@ -6,12 +6,22 @@
   "engines": {
     "node": ">=22"
   },
+  "bin": {
+    "plugin-detector": "./dist/src/index.js"
+  },
   "exports": {
     ".": "./dist/src/index.js",
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@plugin-detector/registry": "*"
+    "@plugin-detector/claude-code": "*",
+    "@plugin-detector/codex": "*",
+    "@plugin-detector/core": "*",
+    "@plugin-detector/cursor": "*",
+    "@plugin-detector/opencode": "*",
+    "@plugin-detector/profiles": "*",
+    "@plugin-detector/registry": "*",
+    "zod": "4.6.7"
   },
   "types": "./dist/src/index.d.ts",
   "files": [
