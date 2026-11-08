@@ -143,7 +143,7 @@ The skill runs the CLI and presents:
 2. any clarifying questions
 3. a short candidate set, not a dump
 4. evidence and reasoning per candidate
-5. required / useful-optional / redundant / risky / no-good-candidates-found verdict
+5. required / useful-optional / redundant / risky / no-good-candidates verdict
 6. an install plan only for approved candidates
 
 ### CLI shape
