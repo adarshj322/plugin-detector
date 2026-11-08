@@ -16,7 +16,7 @@ a popularity-only ranking on the same fixtures?
 
 ```bash
 npm run build
-npm run benchmark -w @plugin-detector/cli
+npm run benchmark -w plugin-detector
 # equivalent, from the repo root:
 npx plugin-detector benchmark --fixtures fixtures/benchmark --fail-on-low-value
 # or directly, with no bin linking:
@@ -106,7 +106,7 @@ review; they are never an input to scoring.
 3. **Changing a label** requires editing the fixture YAML, writing the reason
    into its `rationale`, and committing the change with a message that states
    what changed and why (e.g. `test(benchmark): reclassify X as unacceptable
-   for Y — rationale`). Re-run `npm run benchmark -w @plugin-detector/cli` in
+   for Y — rationale`). Re-run `npm run benchmark -w plugin-detector` in
    the same commit; a label change that lowers precision or introduces an
    offender must be justified, not silenced by weakening the gate.
 4. **Changing the baseline** follows the same rule: `popular-repo.json` is

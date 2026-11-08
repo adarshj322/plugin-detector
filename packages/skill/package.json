@@ -1,10 +1,19 @@
 {
   "name": "@plugin-detector/skill",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "license": "MIT",
   "engines": {
     "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adarshj322/plugin-detector.git",
+    "directory": "packages/skill"
+  },
+  "homepage": "https://github.com/adarshj322/plugin-detector#readme",
+  "bugs": {
+    "url": "https://github.com/adarshj322/plugin-detector/issues"
   },
   "exports": {
     "./package.json": "./package.json"
@@ -14,5 +23,9 @@
     "agents",
     "assets",
     "scripts"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
 }

@@ -3,6 +3,10 @@ dist/
 *.tsbuildinfo
 *.tgz
 .npm/
+# Local refresh output next to the bundled snapshot: the snapshot is reviewed
+# and committed, the per-run manifest is not a release artifact.
+packages/registry/data/registry-manifest.json
+release-artifacts/
 coverage/
 .DS_Store
 .env

@@ -1,10 +1,19 @@
 {
   "name": "@plugin-detector/claude-code",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "license": "MIT",
   "engines": {
     "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adarshj322/plugin-detector.git",
+    "directory": "packages/adapters/claude-code"
+  },
+  "homepage": "https://github.com/adarshj322/plugin-detector#readme",
+  "bugs": {
+    "url": "https://github.com/adarshj322/plugin-detector/issues"
   },
   "exports": {
     ".": "./dist/src/index.js",
@@ -12,10 +21,14 @@
   },
   "types": "./dist/src/index.d.ts",
   "files": [
-    "dist"
+    "dist/src"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "dependencies": {
-    "@plugin-detector/core": "*",
-    "@plugin-detector/adapter-shared": "*"
+    "@plugin-detector/core": "0.1.0",
+    "@plugin-detector/adapter-shared": "0.1.0"
   }
 }

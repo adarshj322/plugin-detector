@@ -10,7 +10,7 @@ import { approve } from "./commands/approve.js";
 import { install } from "./commands/install.js";
 import { benchmark } from "./commands/benchmark.js";
 
-export const PACKAGE_NAME = "@plugin-detector/cli";
+export const PACKAGE_NAME = "plugin-detector";
 
 function usage(): number {
   console.error(

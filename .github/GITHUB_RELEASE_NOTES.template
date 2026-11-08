@@ -1,0 +1,51 @@
+# plugin-detector {{VERSION}}
+
+Local-first harness plugin recommender. This release was published from commit
+`{{COMMIT}}` and tag `{{TAG}}`.
+
+## Install
+
+```bash
+npx plugin-detector@{{VERSION}} inventory
+npm install --global plugin-detector@{{VERSION}}
+```
+
+Companion skill: `@plugin-detector/skill@{{VERSION}}` (manual install in this
+release; see the README).
+
+## Highlights
+
+<!-- Summarize the user-visible changes in this release. Keep claims honest:
+     name which adapters have tested writers (OpenCode, Claude Code) and which
+     are recipe-only (Codex, Cursor), and link the changelog. -->
+
+- See [CHANGELOG.md](https://github.com/adarshj322/plugin-detector/blob/{{TAG}}/CHANGELOG.md).
+
+## Verification
+
+- npm packages publish with provenance (`publishConfig.provenance` and
+  `npm publish --provenance`).
+- SHA-256 checksums for every packed tarball are attached to this release and
+  listed in the release notes.
+- The tag is signed by a maintainer. Verify locally with:
+
+  ```bash
+  git tag -v {{TAG}}
+  sha256sum -c SHA256SUMS
+  ```
+
+## Safety
+
+This is **not** a certification of any third-party candidate. Read
+[SECURITY.md](https://github.com/adarshj322/plugin-detector/blob/{{TAG}}/SECURITY.md)
+and the
+[security model](https://github.com/adarshj322/plugin-detector/blob/{{TAG}}/docs/security-model.md)
+before installing anything.
+
+## Known limitations
+
+- Codex and Cursor installation is recipe-only.
+- The bundled registry snapshot is a reviewed release input; if this release
+  notes a seed/placeholder, `recommend` returns `no-good-candidates` until a
+  refresh is reviewed.
+- Scores are editorial estimates, not calibrated probabilities.
