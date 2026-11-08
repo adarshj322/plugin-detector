@@ -4,6 +4,7 @@
     { "path": "packages/core" },
     { "path": "packages/registry" },
     { "path": "packages/cli" },
+    { "path": "packages/adapters/shared" },
     { "path": "packages/adapters/opencode" },
     { "path": "packages/adapters/claude-code" }
   ]

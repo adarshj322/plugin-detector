@@ -15,6 +15,7 @@
     "dist"
   ],
   "dependencies": {
+    "@plugin-detector/adapter-shared": "*",
     "@plugin-detector/core": "*"
   }
 }

@@ -7,7 +7,11 @@ import type {
   InstallPlan,
 } from "@plugin-detector/core";
 import { capabilityId } from "@plugin-detector/core";
-import { stripJsonc } from "./jsonc.js";
+import {
+  skillCapabilitiesFromFrontmatter,
+  skillNameFromFrontmatter,
+  stripJsonc,
+} from "@plugin-detector/adapter-shared";
 
 export interface ClaudeCodeAdapterOptions {
   // Project root holding .claude/ and .mcp.json. Defaults to cwd, or to
@@ -87,35 +91,6 @@ interface ParsedConfig {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function skillNameFromFrontmatter(text: string): string | null {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
-  if (!match?.[1]) return null;
-  const body = match[1];
-  for (const line of body.split("\n")) {
-    const name = /^\s*name\s*:\s*(.+?)\s*$/.exec(line)?.[1];
-    if (name && !/[[{\]]/.test(name)) return name.replace(/^["']|["']$/g, "");
-    if (name) return null;
-  }
-  return null;
-}
-
-function skillCapabilitiesFromFrontmatter(text: string): string[] | null {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
-  if (!match?.[1]) return null;
-  for (const line of match[1].split("\n")) {
-    const raw = /^\s*capabilities\s*:\s*(.+?)\s*$/.exec(line)?.[1];
-    if (raw === undefined) continue;
-    if (/[[{\]]/.test(raw)) return null;
-    const out: string[] = [];
-    for (const part of raw.split(",")) {
-      const mapped = capabilityId(part.trim());
-      if (mapped) out.push(mapped);
-    }
-    return out;
-  }
-  return [];
 }
 
 function hasPinnedRef(ref: unknown): boolean {

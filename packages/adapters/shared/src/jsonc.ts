@@ -1,5 +1,5 @@
 // Tolerantly strips `//` and `/* */` comments outside string literals so
-// opencode.jsonc parses like JSON. Only `"` strings exist in JSON; a `\`
+// JSONC config parses like JSON. Only `"` strings exist in JSON; a `\`
 // escape inside a string never starts a comment. Node built-ins only.
 export function stripJsonc(input: string): string {
   let out = "";
