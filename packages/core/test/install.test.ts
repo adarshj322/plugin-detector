@@ -289,3 +289,44 @@ test("parse-back validation failure restores the preimage", () => {
   assert.deepEqual(restoreBackups([target], stateDir), [target]);
   assert.equal(readFileSync(target, "utf8"), preimage);
 });
+
+test("adapter failure triggers orchestrator rollback and apply-failed", async () => {
+  const target = join(workDir, "cfg.json");
+  const preimage = '{"plugin":[]}\n';
+  writeFileSync(target, preimage);
+  backupFile(target, stateDir);
+  let rolled = 0;
+  const failing = {
+    async applyPlan(_plan: InstallPlan): Promise<never> {
+      writeFileSync(target, "PARTIAL");
+      throw new Error("boom");
+    },
+    async rollback(_plan: InstallPlan): Promise<{ restored: string[] }> {
+      rolled += 1;
+      return { restored: restoreBackups([target], stateDir) };
+    },
+  };
+  const plan = InstallPlanSchema.parse({
+    candidateId: "cand-1",
+    harness: "opencode",
+    operations: [
+      {
+        kind: "append",
+        target,
+        summary: `Append "pkg" to the "plugin" array in ${target}.`,
+      },
+    ],
+    backupRefs: [target],
+    rollbackOperations: [{ kind: "recipe", summary: "Restore the backup." }],
+    approvalTokenRequired: true,
+  });
+  const token = mint(plan);
+  await assert.rejects(applyInstallPlan(plan, token, failing), (error: unknown) => {
+    assert.ok(error instanceof InstallError);
+    assert.equal((error as { code: unknown }).code, "apply-failed");
+    assert.match((error as Error).message, /boom/);
+    return true;
+  });
+  assert.equal(rolled, 1);
+  assert.equal(readFileSync(target, "utf8"), preimage);
+});

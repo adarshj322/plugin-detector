@@ -193,3 +193,19 @@ test("skill rollback never deletes the pre-existing skills dir", async () => {
   assert.deepEqual(rolled.restored, []);
   assert.ok(existsSync(dest));
 });
+
+test("empty operations fall through to the recipe-only throw", async () => {
+  const plan = InstallPlanSchema.parse({
+    candidateId: "c1",
+    harness: "claude-code",
+    operations: [],
+    backupRefs: [],
+    rollbackOperations: [],
+    approvalTokenRequired: true,
+  });
+  await assert.rejects(adapter().applyPlan(plan), (error: unknown) => {
+    assert.ok(error instanceof InstallError);
+    assert.equal((error as { code: unknown }).code, "recipe-only");
+    return true;
+  });
+});

@@ -1,7 +1,8 @@
 import test, { beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { mkdtempSync } from "node:fs";
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -216,4 +217,59 @@ test("store file contents round-trip through the written file", () => {
     tokens: Record<string, { candidateId: string }>;
   };
   assert.equal(raw.tokens[record.token]?.candidateId, "cand-1");
+});
+
+function runConsumer(
+  planFile: string,
+  token: string,
+  modUrl: string,
+  stateDir: string,
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        [
+          'import { readFileSync } from "node:fs";',
+          "const [planFile, token, modUrl] = process.argv.slice(1);",
+          "const plan = JSON.parse(readFileSync(planFile, 'utf8'));",
+          "const mod = await import(modUrl);",
+          "try { mod.consumeApprovalToken(token, plan); process.exitCode = 0; }",
+          "catch (error) { process.exitCode = error && error.code === 'reused' ? 4 : 1; }",
+        ].join("\n"),
+        planFile,
+        token,
+        modUrl,
+      ],
+      { env: { ...process.env, PLUGIN_DETECTOR_STATE_DIR: stateDir }, stdio: "ignore" },
+    );
+    child.on("error", reject);
+    child.on("close", (code) => resolve(code ?? 1));
+  });
+}
+
+test("concurrent consumers split exactly one success and one reuse", async () => {
+  const stateDir = process.env[ENV_KEY] as string;
+  const modUrl = new URL("../src/approval.js", import.meta.url).href;
+  for (let round = 0; round < 5; round += 1) {
+    const plan = makePlan();
+    const planFile = join(stateDir, `plan-${round}.json`);
+    writeFileSync(planFile, JSON.stringify(plan));
+    const token = createApprovalToken({
+      candidateId: plan.candidateId,
+      planHash: planHash(plan),
+    }).token;
+    const [first, second] = await Promise.all([
+      runConsumer(planFile, token, modUrl, stateDir),
+      runConsumer(planFile, token, modUrl, stateDir),
+    ]);
+    assert.deepEqual(
+      [first, second].sort(),
+      [0, 4],
+      `round ${round}: expected one consume and one reuse`,
+    );
+  }
+  assert.ok(!existsSync(join(stateDir, "approvals.lock")));
 });

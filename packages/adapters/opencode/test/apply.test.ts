@@ -224,3 +224,19 @@ test("url-source mcp stays manual and writes nothing", async () => {
   await assert.rejects(adapter().applyPlan(plan), /manual recipe/);
   assert.ok(!existsSync(configPath));
 });
+
+test("empty operations fall through to the recipe-only throw", async () => {
+  const plan = InstallPlanSchema.parse({
+    candidateId: "c1",
+    harness: "opencode",
+    operations: [],
+    backupRefs: [],
+    rollbackOperations: [],
+    approvalTokenRequired: true,
+  });
+  await assert.rejects(adapter().applyPlan(plan), (error: unknown) => {
+    assert.ok(error instanceof InstallError);
+    assert.equal((error as { code: unknown }).code, "recipe-only");
+    return true;
+  });
+});

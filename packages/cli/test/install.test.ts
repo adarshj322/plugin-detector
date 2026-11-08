@@ -355,3 +355,56 @@ test("describeCandidate falls back without a snapshot", () => {
     {},
   );
 });
+
+test("TTY yes reaches the writer without a token", async () => {
+  const { ttyHooks } = await import("../src/commands/install.js");
+  const plan = pluginPlan();
+  writePlan(plan);
+  const origTTY = ttyHooks.isTTY;
+  const origConfirm = ttyHooks.confirm;
+  let prompted: string[] = [];
+  ttyHooks.isTTY = () => true;
+  ttyHooks.confirm = async (lines: string[]) => {
+    prompted = lines;
+    return true;
+  };
+  try {
+    let code = -1;
+    const { logs } = await capture(async () => {
+      code = (await install(["--plan-file", planFile, "--home", home, "--root", root])).exitCode;
+    });
+    assert.equal(code, 0);
+    assert.ok(logs.some((line) => line.includes("status: applied")));
+    assert.ok(prompted.some((line) => line.includes("candidate: c1")));
+    assert.ok(prompted.some((line) => line.includes("Append")));
+    assert.ok(prompted.some((line) => line.includes("rollback:")));
+    const merged = JSON.parse(
+      readFileSync(join(root, "opencode.json"), "utf8"),
+    ) as { plugin: string[] };
+    assert.deepEqual(merged.plugin, ["@ex/c1"]);
+  } finally {
+    ttyHooks.isTTY = origTTY;
+    ttyHooks.confirm = origConfirm;
+  }
+});
+
+test("TTY decline refuses with zero writes", async () => {
+  const { ttyHooks } = await import("../src/commands/install.js");
+  writePlan(pluginPlan());
+  const origTTY = ttyHooks.isTTY;
+  const origConfirm = ttyHooks.confirm;
+  ttyHooks.isTTY = () => true;
+  ttyHooks.confirm = async () => false;
+  try {
+    let code = -1;
+    const { errors } = await capture(async () => {
+      code = (await install(["--plan-file", planFile, "--home", home, "--root", root])).exitCode;
+    });
+    assert.equal(code, 4);
+    assert.ok(errors.some((line) => line.includes("declined")));
+    assert.ok(!existsSync(join(root, "opencode.json")));
+  } finally {
+    ttyHooks.isTTY = origTTY;
+    ttyHooks.confirm = origConfirm;
+  }
+});

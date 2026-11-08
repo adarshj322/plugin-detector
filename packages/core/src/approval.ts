@@ -1,11 +1,15 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
   chmodSync,
+  closeSync,
   existsSync,
   mkdirSync,
+  openSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync,
+  writeSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -119,6 +123,76 @@ function saveStore(file: string, store: TokenStore): void {
   chmodSync(file, 0o600);
 }
 
+// Cross-process mutual exclusion for store mutations (mint + consume), so
+// two concurrent installs cannot both consume one token. The lock file is
+// created with O_EXCL ("wx") and held through the whole read-check-write
+// section; stale locks (crashed holder) are broken after STALE_LOCK_MS.
+const STORE_LOCK_TIMEOUT_MS = 2000;
+const STALE_LOCK_MS = 10_000;
+
+function breakStaleLock(lockPath: string): boolean {
+  let content: string;
+  try {
+    content = readFileSync(lockPath, "utf8");
+  } catch {
+    return false;
+  }
+  const takenAt = Number(content.split("\n")[1]);
+  if (!Number.isFinite(takenAt) || Date.now() - takenAt <= STALE_LOCK_MS) {
+    return false;
+  }
+  try {
+    rmSync(lockPath);
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+function sleepMs(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function withStoreLock<T>(dir: string, fn: () => T): T {
+  const lockPath = path.join(dir, "approvals.lock");
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const deadline = Date.now() + STORE_LOCK_TIMEOUT_MS;
+  for (;;) {
+    let fd: number | null = null;
+    try {
+      fd = openSync(lockPath, "wx", 0o600);
+    } catch (error) {
+      if ((error as { code?: string })?.code !== "EEXIST") throw error;
+      if (breakStaleLock(lockPath)) continue;
+      if (Date.now() > deadline) {
+        throw new Error("Approval store is busy; retry the command.");
+      }
+      sleepMs(10);
+      continue;
+    }
+    try {
+      try {
+        chmodSync(lockPath, 0o600);
+      } catch {
+        // Best effort: the wx mode already requests owner-only access.
+      }
+      writeSync(fd, `${process.pid}\n${Date.now()}\n`);
+      return fn();
+    } finally {
+      try {
+        if (fd !== null) closeSync(fd);
+      } catch {
+        // Best effort: a broken close must not orphan the lock file.
+      }
+      try {
+        rmSync(lockPath);
+      } catch {
+        // Best effort: a stale lock is broken by the next holder.
+      }
+    }
+  }
+}
+
 export function createApprovalToken(args: {
   candidateId: string;
   planHash: string;
@@ -143,9 +217,11 @@ export function createApprovalToken(args: {
     usedAt: null,
   };
   const file = approvalsPath();
-  const store = loadStore(file);
-  store.tokens[record.token] = record;
-  saveStore(file, store);
+  withStoreLock(path.dirname(file), () => {
+    const store = loadStore(file);
+    store.tokens[record.token] = record;
+    saveStore(file, store);
+  });
   return record;
 }
 
@@ -191,8 +267,9 @@ export function verifyApprovalToken(
   return checkRecord(store.tokens[tokenValue], plan, opts?.now ?? Date.now());
 }
 
-// Atomic single-use consumption: verify + mark used in one step so a reused
-// token refuses before any write happens.
+// Single-use consumption, atomic across processes: the store lock file is
+// held through verify + mark-used, so two concurrent consumers cannot both
+// see `usedAt: null`. A reused token refuses before any write happens.
 export function consumeApprovalToken(
   tokenValue: string | null | undefined,
   plan: InstallPlan,
@@ -202,17 +279,16 @@ export function consumeApprovalToken(
     throw new ApprovalError("missing", "No approval token was provided.");
   }
   const file = approvalsPath();
-  const store = loadStore(file);
-  const record = checkRecord(
-    store.tokens[tokenValue],
-    plan,
-    opts?.now ?? Date.now(),
-  );
-  const consumed: ApprovalToken = {
-    ...record,
-    usedAt: new Date(opts?.now ?? Date.now()).toISOString(),
-  };
-  store.tokens[tokenValue] = consumed;
-  saveStore(file, store);
-  return consumed;
+  const at = opts?.now ?? Date.now();
+  return withStoreLock(path.dirname(file), () => {
+    const store = loadStore(file);
+    const record = checkRecord(store.tokens[tokenValue], plan, at);
+    const consumed: ApprovalToken = {
+      ...record,
+      usedAt: new Date(at).toISOString(),
+    };
+    store.tokens[tokenValue] = consumed;
+    saveStore(file, store);
+    return consumed;
+  });
 }

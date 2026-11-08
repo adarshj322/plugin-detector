@@ -21,6 +21,13 @@ export interface InstallResult {
   exitCode: number;
 }
 
+// Seams for the TTY transport (overridden in tests; production reads the
+// real stdin TTY flag and prompts over readline).
+export const ttyHooks = {
+  isTTY: (): boolean => process.stdin.isTTY ?? false,
+  confirm: (lines: string[]): Promise<boolean> => promptTTYConfirm(lines),
+};
+
 // Exit codes: 0 ok (applied or recipe), 1 apply failure, 2 usage/input,
 // 4 blocked (approval missing/expired/mismatched/reused, declined, non-TTY
 // without a token). The token itself is never printed here.
@@ -112,12 +119,12 @@ export async function install(argv: string[]): Promise<InstallResult> {
     return { exitCode: 2 };
   }
   const enriched = describeCandidate(plan.candidateId, cacheDir);
-  const isTTY = process.stdin.isTTY ?? false;
+  const isTTY = ttyHooks.isTTY();
   try {
     const receipt = await applyInstallPlan(plan, approvalToken ?? null, adapter, {
       isTTY,
       confirm: async (shown) =>
-        promptTTYConfirm(buildConsentLines({ ...shown, ...enriched })),
+        ttyHooks.confirm(buildConsentLines({ ...shown, ...enriched })),
     });
     if (json) {
       printJson(
