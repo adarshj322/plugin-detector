@@ -1,0 +1,20 @@
+{
+  // JSONC comment: MCP servers with secret env values. The adapter must
+  // record config refs but never secret values.
+  "mcp": {
+    "reviewer": {
+      "type": "local",
+      "command": ["node", "review-server.js"],
+      "enabled": true,
+      "environment": {
+        "REVIEW_TOKEN": "sk-ant-secret-value-that-must-never-appear",
+        "PUBLIC_FLAG": "true"
+      }
+    },
+    "disabled-docs": {
+      "type": "remote",
+      "url": "https://docs.example.com/mcp",
+      "enabled": false
+    }
+  }
+}
