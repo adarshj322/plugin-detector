@@ -1,0 +1,18 @@
+{
+  "name": "@plugin-detector/skill",
+  "version": "0.0.0",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "SKILL.md",
+    "agents",
+    "assets",
+    "scripts"
+  ]
+}
