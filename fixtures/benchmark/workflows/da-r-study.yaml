@@ -1,0 +1,62 @@
+# Benchmark workflow. R project expecting stats and reporting.
+id: da-r-study
+domain: data-analysis
+declaration: data-analysis
+signals:
+  - r-project
+  - csv-dataset
+  - matplotlib-figure
+installed: []
+candidates:
+  - id: da-stats
+    name: Stats Runner
+    capabilities:
+      - data.analysis
+    stars: 3000
+  - id: da-writeup
+    name: Study Writeup
+    capabilities:
+      - docs.writing
+    stars: 2200
+  - id: da-steps
+    name: Step Planner
+    capabilities:
+      - planning.orchestration
+    stars: 1600
+  - id: da-models
+    name: Model Compare
+    capabilities:
+      - data.analysis
+    stars: 1500
+  - id: da-slides
+    name: Results Slides
+    capabilities:
+      - docs.writing
+      - data.analysis
+    stars: 1200
+  - id: pop-render-farm
+    name: Render Farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+  - id: pop-pixel-system
+    name: Pixel System
+    capabilities:
+      - design.frontend
+    stars: 105000
+requiredCapabilities:
+  - data.analysis
+  - docs.writing
+  - planning.orchestration
+optionalCapabilities: []
+expectedRequiredIds:
+  - da-stats
+  - da-writeup
+  - da-steps
+  - da-models
+  - da-slides
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-render-farm
+  - pop-pixel-system
+rationale: R study research stresses stats plus reporting, so labels track analysis capabilities and popular media and design skills are unacceptable.

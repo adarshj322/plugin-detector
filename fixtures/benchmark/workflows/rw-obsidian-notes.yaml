@@ -1,0 +1,64 @@
+# Benchmark workflow. Obsidian vault expecting brainstorming and drafting.
+id: rw-obsidian-notes
+domain: research-writing
+declaration: research-writing
+signals:
+  - obsidian-vault
+  - markdown-notes
+  - arxiv-queue
+installed: []
+candidates:
+  - id: rw-vault-draft
+    name: Vault Drafter
+    capabilities:
+      - docs.writing
+    stars: 3000
+  - id: rw-vault-ideas
+    name: Vault Ideation
+    capabilities:
+      - planning.brainstorm
+    stars: 2400
+  - id: rw-vault-maps
+    name: Vault Mapper
+    capabilities:
+      - planning.brainstorm
+      - docs.writing
+    stars: 1700
+  - id: rw-vault-data
+    name: Vault Data Notes
+    capabilities:
+      - data.analysis
+    stars: 1400
+  - id: rw-vault-export
+    name: Vault Exporter
+    capabilities:
+      - publishing.delivery
+    stars: 1200
+  - id: pop-ship-line
+    name: Ship Line
+    capabilities:
+      - ci.release
+      - containers.orchestration
+    stars: 130000
+  - id: pop-render-farm
+    name: Render Farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+requiredCapabilities:
+  - docs.writing
+  - planning.brainstorm
+  - data.analysis
+  - publishing.delivery
+optionalCapabilities: []
+expectedRequiredIds:
+  - rw-vault-draft
+  - rw-vault-ideas
+  - rw-vault-maps
+  - rw-vault-data
+  - rw-vault-export
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-ship-line
+  - pop-render-farm
+rationale: Vault research links notes to brainstorming, so labels track those capabilities and popular devops and media skills are unacceptable.

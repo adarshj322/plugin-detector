@@ -1,0 +1,56 @@
+# Benchmark workflow. Weak-signal ops folder with only generic files.
+id: ops-weak-signal
+domain: devops-infrastructure
+declaration: devops-infrastructure
+signals:
+  - editorconfig
+installed: []
+candidates:
+  - id: ops-weak-release
+    name: Weak Releaser
+    capabilities:
+      - ci.release
+    stars: 2800
+  - id: ops-weak-scale
+    name: Weak Scaler
+    capabilities:
+      - containers.orchestration
+    stars: 2300
+  - id: ops-weak-scan
+    name: Weak Scanner
+    capabilities:
+      - security.dependencies
+    stars: 2000
+  - id: ops-weak-hosts
+    name: Weak Hosts
+    capabilities:
+      - harness.management
+    stars: 1600
+  - id: pop-caption-pro
+    name: Caption Pro
+    capabilities:
+      - speech.captions
+      - design.thumbnail
+    stars: 95000
+  - id: pop-cite-wise
+    name: Cite Wise
+    capabilities:
+      - docs.writing
+      - publishing.delivery
+    stars: 88000
+requiredCapabilities:
+  - ci.release
+  - containers.orchestration
+  - security.dependencies
+  - harness.management
+optionalCapabilities: []
+expectedRequiredIds:
+  - ops-weak-release
+  - ops-weak-scale
+  - ops-weak-scan
+  - ops-weak-hosts
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-caption-pro
+  - pop-cite-wise
+rationale: With only a generic signal the profile resolves partial, yet delivery capability overlap still beats raw popularity.

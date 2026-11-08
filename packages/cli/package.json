@@ -6,6 +6,9 @@
   "engines": {
     "node": ">=22"
   },
+  "scripts": {
+    "benchmark": "node dist/src/index.js benchmark --fixtures ../../fixtures/benchmark --fail-on-low-value"
+  },
   "bin": {
     "plugin-detector": "./dist/src/index.js"
   },

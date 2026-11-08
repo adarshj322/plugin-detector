@@ -1,0 +1,64 @@
+# Benchmark workflow. LaTeX thesis expecting citations and drafting help.
+id: rw-thesis
+domain: research-writing
+declaration: research-writing
+signals:
+  - latex-manifest
+  - bibtex-library
+  - citation-style
+installed: []
+candidates:
+  - id: rw-draft
+    name: Draft Assistant
+    capabilities:
+      - docs.writing
+    stars: 4100
+  - id: rw-brainstorm
+    name: Brainstorm Partner
+    capabilities:
+      - planning.brainstorm
+    stars: 2700
+  - id: rw-charts
+    name: Chart Builder
+    capabilities:
+      - data.analysis
+    stars: 2300
+  - id: rw-publish
+    name: Publish Checker
+    capabilities:
+      - publishing.delivery
+    stars: 1900
+  - id: rw-outline
+    name: Outline Maker
+    capabilities:
+      - docs.writing
+      - planning.brainstorm
+    stars: 1600
+  - id: pop-ship-line
+    name: Ship Line
+    capabilities:
+      - ci.release
+      - containers.orchestration
+    stars: 130000
+  - id: pop-render-farm
+    name: Render Farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+requiredCapabilities:
+  - docs.writing
+  - planning.brainstorm
+  - data.analysis
+  - publishing.delivery
+optionalCapabilities: []
+expectedRequiredIds:
+  - rw-draft
+  - rw-brainstorm
+  - rw-charts
+  - rw-publish
+  - rw-outline
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-ship-line
+  - pop-render-farm
+rationale: Thesis research pairs LaTeX drafting with citations, so labels mirror writing capabilities and popular devops and media skills are unacceptable.

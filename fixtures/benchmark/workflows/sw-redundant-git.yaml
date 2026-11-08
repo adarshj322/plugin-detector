@@ -1,0 +1,68 @@
+# Benchmark workflow. Git workflow already installed, so that skill is redundant.
+id: sw-redundant-git
+domain: software-development
+declaration: software-development
+signals:
+  - package-manifest
+  - git-repo
+installed:
+  - id: installed-git
+    capabilities:
+      - vcs.workflow
+candidates:
+  - id: sw-git-tests
+    name: Git Test Runner
+    capabilities:
+      - testing.runner
+    stars: 3200
+  - id: sw-git-quality
+    name: Git Quality Review
+    capabilities:
+      - code-review.quality
+    stars: 2600
+  - id: sw-git-docs
+    name: Git Docs Writer
+    capabilities:
+      - docs.writing
+    stars: 1000
+  - id: sw-git-debug
+    name: Git Debugger
+    capabilities:
+      - debugging.systematic
+    stars: 1800
+  - id: sw-git-dup
+    name: Duplicate Git Helper
+    capabilities:
+      - vcs.workflow
+    stars: 900
+  - id: pop-render-farm
+    name: Render Farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+  - id: pop-caption-pro
+    name: Caption Pro
+    capabilities:
+      - speech.captions
+      - design.thumbnail
+    stars: 95000
+requiredCapabilities:
+  - testing.runner
+  - testing.e2e
+  - code-review.quality
+  - code-review.security
+  - debugging.systematic
+  - vcs.workflow
+  - docs.writing
+optionalCapabilities: []
+expectedRequiredIds:
+  - sw-git-tests
+  - sw-git-quality
+  - sw-git-docs
+  - sw-git-debug
+expectedRedundantIds:
+  - sw-git-dup
+unacceptableIds:
+  - pop-render-farm
+  - pop-caption-pro
+rationale: The harness already provides git workflow, so that one skill must score redundant while the rest stay required and media skills stay out.

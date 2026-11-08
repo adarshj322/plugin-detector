@@ -1,0 +1,62 @@
+# Benchmark workflow. Storybook expecting component docs and thumbnails.
+id: df-storybook
+domain: design-frontend
+declaration: design-frontend
+signals:
+  - storybook-config
+  - svg-assets
+  - design-tokens
+installed: []
+candidates:
+  - id: df-stories
+    name: Story Writer
+    capabilities:
+      - design.frontend
+    stars: 2900
+  - id: df-previews
+    name: Preview Thumbs
+    capabilities:
+      - design.thumbnail
+    stars: 2100
+  - id: df-variants
+    name: Variant Explorer
+    capabilities:
+      - design.frontend
+      - design.thumbnail
+    stars: 1700
+  - id: df-docs
+    name: Component Docs
+    capabilities:
+      - design.frontend
+    stars: 1500
+  - id: df-icons
+    name: Icon Set
+    capabilities:
+      - design.thumbnail
+    stars: 1200
+  - id: pop-test-pilot
+    name: Test Pilot
+    capabilities:
+      - testing.runner
+      - testing.e2e
+    stars: 180000
+  - id: pop-frame-stats
+    name: Frame Stats
+    capabilities:
+      - data.analysis
+    stars: 110000
+requiredCapabilities:
+  - design.frontend
+  - design.thumbnail
+optionalCapabilities: []
+expectedRequiredIds:
+  - df-stories
+  - df-previews
+  - df-variants
+  - df-docs
+  - df-icons
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-test-pilot
+  - pop-frame-stats
+rationale: Storybook research links components with previews, so labels track design capabilities and popular test and data skills are unacceptable.

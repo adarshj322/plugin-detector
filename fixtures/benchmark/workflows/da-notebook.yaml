@@ -1,0 +1,63 @@
+# Benchmark workflow. Jupyter analysis expecting pandas and figures.
+id: da-notebook
+domain: data-analysis
+declaration: data-analysis
+signals:
+  - jupyter-notebook
+  - pandas-import
+  - matplotlib-figure
+installed: []
+candidates:
+  - id: da-frames
+    name: Frame Analyzer
+    capabilities:
+      - data.analysis
+    stars: 4400
+  - id: da-figures
+    name: Figure Builder
+    capabilities:
+      - data.analysis
+      - docs.writing
+    stars: 2800
+  - id: da-plan
+    name: Analysis Planner
+    capabilities:
+      - planning.orchestration
+    stars: 1900
+  - id: da-report
+    name: Report Writer
+    capabilities:
+      - docs.writing
+    stars: 1700
+  - id: da-clean
+    name: Data Cleaner
+    capabilities:
+      - data.analysis
+      - planning.orchestration
+    stars: 1500
+  - id: pop-render-farm
+    name: Render Farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+  - id: pop-pixel-system
+    name: Pixel System
+    capabilities:
+      - design.frontend
+    stars: 105000
+requiredCapabilities:
+  - data.analysis
+  - docs.writing
+  - planning.orchestration
+optionalCapabilities: []
+expectedRequiredIds:
+  - da-frames
+  - da-figures
+  - da-plan
+  - da-report
+  - da-clean
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-render-farm
+  - pop-pixel-system
+rationale: Notebook research centers on analysis plus figures, so labels mirror analysis capabilities and popular media and design skills are unacceptable.

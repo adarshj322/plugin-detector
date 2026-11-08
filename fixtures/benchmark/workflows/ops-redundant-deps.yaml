@@ -1,0 +1,67 @@
+# Benchmark workflow. Dependency scanning already installed, so that skill is redundant.
+id: ops-redundant-deps
+domain: devops-infrastructure
+declaration: devops-infrastructure
+signals:
+  - terraform-root
+  - github-actions
+installed:
+  - id: installed-deps
+    capabilities:
+      - security.dependencies
+candidates:
+  - id: ops-rd-release
+    name: RD Releaser
+    capabilities:
+      - ci.release
+    stars: 3000
+  - id: ops-rd-scale
+    name: RD Scaler
+    capabilities:
+      - containers.orchestration
+    stars: 2400
+  - id: ops-rd-hosts
+    name: RD Hosts
+    capabilities:
+      - harness.management
+    stars: 1800
+  - id: ops-rd-pipe
+    name: RD Pipeline
+    capabilities:
+      - ci.release
+      - harness.management
+    stars: 1600
+  - id: ops-rd-dup
+    name: Duplicate Scanner
+    capabilities:
+      - security.dependencies
+    stars: 900
+  - id: pop-caption-pro
+    name: Caption Pro
+    capabilities:
+      - speech.captions
+      - design.thumbnail
+    stars: 95000
+  - id: pop-cite-wise
+    name: Cite Wise
+    capabilities:
+      - docs.writing
+      - publishing.delivery
+    stars: 88000
+requiredCapabilities:
+  - ci.release
+  - containers.orchestration
+  - security.dependencies
+  - harness.management
+optionalCapabilities: []
+expectedRequiredIds:
+  - ops-rd-release
+  - ops-rd-scale
+  - ops-rd-hosts
+  - ops-rd-pipe
+expectedRedundantIds:
+  - ops-rd-dup
+unacceptableIds:
+  - pop-caption-pro
+  - pop-cite-wise
+rationale: Dependency scanning is already installed and enabled, so the duplicate must score redundant while release skills stay required.

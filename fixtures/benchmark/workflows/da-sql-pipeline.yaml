@@ -1,0 +1,63 @@
+# Benchmark workflow. SQL migrations expecting dataset profiling and docs.
+id: da-sql-pipeline
+domain: data-analysis
+declaration: data-analysis
+signals:
+  - sql-migrations
+  - csv-dataset
+  - duckdb-store
+installed: []
+candidates:
+  - id: da-profile
+    name: Dataset Profiler
+    capabilities:
+      - data.analysis
+    stars: 3300
+  - id: da-dict
+    name: Data Dictionary
+    capabilities:
+      - docs.writing
+    stars: 2100
+  - id: da-schedule
+    name: Refresh Scheduler
+    capabilities:
+      - planning.orchestration
+    stars: 1800
+  - id: da-quality
+    name: Quality Report
+    capabilities:
+      - data.analysis
+      - docs.writing
+    stars: 1600
+  - id: da-lineage
+    name: Lineage Tracker
+    capabilities:
+      - data.analysis
+      - planning.orchestration
+    stars: 1400
+  - id: pop-render-farm
+    name: Render Farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+  - id: pop-pixel-system
+    name: Pixel System
+    capabilities:
+      - design.frontend
+    stars: 105000
+requiredCapabilities:
+  - data.analysis
+  - docs.writing
+  - planning.orchestration
+optionalCapabilities: []
+expectedRequiredIds:
+  - da-profile
+  - da-dict
+  - da-schedule
+  - da-quality
+  - da-lineage
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-render-farm
+  - pop-pixel-system
+rationale: Pipeline research pairs SQL profiling with dictionaries, so labels use analysis capabilities and popular media and design skills are unacceptable.

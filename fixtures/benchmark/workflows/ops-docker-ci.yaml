@@ -1,0 +1,65 @@
+# Benchmark workflow. Docker plus CI expecting containers and releases.
+id: ops-docker-ci
+domain: devops-infrastructure
+declaration: devops-infrastructure
+signals:
+  - dockerfile
+  - ci-config
+  - helm-chart
+installed: []
+candidates:
+  - id: ops-image
+    name: Image Builder
+    capabilities:
+      - containers.orchestration
+    stars: 3500
+  - id: ops-pipe
+    name: Pipeline Runner
+    capabilities:
+      - ci.release
+    stars: 3100
+  - id: ops-scan
+    name: Image Scanner
+    capabilities:
+      - security.dependencies
+    stars: 2700
+  - id: ops-fleet
+    name: Fleet Manager
+    capabilities:
+      - harness.management
+    stars: 1900
+  - id: ops-deploy
+    name: Deployer
+    capabilities:
+      - ci.release
+      - harness.management
+    stars: 1600
+  - id: pop-caption-pro
+    name: Caption Pro
+    capabilities:
+      - speech.captions
+      - design.thumbnail
+    stars: 95000
+  - id: pop-cite-wise
+    name: Cite Wise
+    capabilities:
+      - docs.writing
+      - publishing.delivery
+    stars: 88000
+requiredCapabilities:
+  - ci.release
+  - containers.orchestration
+  - security.dependencies
+  - harness.management
+optionalCapabilities: []
+expectedRequiredIds:
+  - ops-image
+  - ops-pipe
+  - ops-scan
+  - ops-fleet
+  - ops-deploy
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-caption-pro
+  - pop-cite-wise
+rationale: Docker CI research pairs images with pipelines, so labels use delivery capabilities and popular media and writing skills are unacceptable.

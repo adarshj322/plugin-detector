@@ -1,0 +1,67 @@
+# Benchmark workflow. Node API service expecting test, review, and debug help.
+id: sw-node-api
+domain: software-development
+declaration: software-development
+signals:
+  - package-manifest
+  - tsconfig
+  - eslint-config
+installed: []
+candidates:
+  - id: sw-api-tests
+    name: API Test Runner
+    capabilities:
+      - testing.runner
+      - testing.e2e
+    stars: 4200
+  - id: sw-review-lint
+    name: Review Linter
+    capabilities:
+      - code-review.quality
+    stars: 3100
+  - id: sw-debug-aid
+    name: Debug Aid
+    capabilities:
+      - debugging.systematic
+    stars: 1800
+  - id: sw-git-flow
+    name: Git Flow Helper
+    capabilities:
+      - vcs.workflow
+    stars: 2500
+  - id: sw-api-docs
+    name: API Docs Writer
+    capabilities:
+      - docs.writing
+    stars: 1200
+  - id: pop-render-farm
+    name: Render Farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+  - id: pop-caption-pro
+    name: Caption Pro
+    capabilities:
+      - speech.captions
+      - design.thumbnail
+    stars: 95000
+requiredCapabilities:
+  - testing.runner
+  - testing.e2e
+  - code-review.quality
+  - code-review.security
+  - debugging.systematic
+  - vcs.workflow
+  - docs.writing
+optionalCapabilities: []
+expectedRequiredIds:
+  - sw-api-tests
+  - sw-review-lint
+  - sw-debug-aid
+  - sw-git-flow
+  - sw-api-docs
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-render-farm
+  - pop-caption-pro
+rationale: Research areas show Node API work centers on tests and review, so required labels mirror the profile capabilities and the two mega-star media skills are unacceptable here.

@@ -1,0 +1,63 @@
+# Benchmark workflow. Thumbnails already installed, so that skill is redundant.
+id: df-redundant-thumb
+domain: design-frontend
+declaration: design-frontend
+signals:
+  - figma-file
+  - tailwind-config
+installed:
+  - id: installed-thumbs
+    capabilities:
+      - design.thumbnail
+candidates:
+  - id: df-rt-tokens
+    name: RT Tokens
+    capabilities:
+      - design.frontend
+    stars: 3000
+  - id: df-rt-system
+    name: RT System
+    capabilities:
+      - design.frontend
+    stars: 2200
+  - id: df-rt-layout
+    name: RT Layout
+    capabilities:
+      - design.frontend
+    stars: 1800
+  - id: df-rt-palette
+    name: RT Palette
+    capabilities:
+      - design.frontend
+    stars: 1500
+  - id: df-rt-dup
+    name: Duplicate Thumbs
+    capabilities:
+      - design.thumbnail
+    stars: 900
+  - id: pop-test-pilot
+    name: Test Pilot
+    capabilities:
+      - testing.runner
+      - testing.e2e
+    stars: 180000
+  - id: pop-frame-stats
+    name: Frame Stats
+    capabilities:
+      - data.analysis
+    stars: 110000
+requiredCapabilities:
+  - design.frontend
+  - design.thumbnail
+optionalCapabilities: []
+expectedRequiredIds:
+  - df-rt-tokens
+  - df-rt-system
+  - df-rt-layout
+  - df-rt-palette
+expectedRedundantIds:
+  - df-rt-dup
+unacceptableIds:
+  - pop-test-pilot
+  - pop-frame-stats
+rationale: Thumbnails are already installed and enabled, so the duplicate must score redundant while frontend skills stay required.

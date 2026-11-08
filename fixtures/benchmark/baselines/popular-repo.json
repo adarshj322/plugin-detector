@@ -1,0 +1,78 @@
+{
+  "frozenAt": "2026-11-08",
+  "note": "Hand-frozen popularity-only baseline for the precision@5 gate: the most-starred repos/skills from the v1 harvest, ordered by raw GitHub/skills.sh stars with NO fit filtering. This list is deliberately not capability-matched to any workflow; it represents the star-count-dump failure mode the fit-based engine must beat. The benchmark ranks this pool by raw stars, takes the top 5, and scores them on the same fixtures. Frozen: do not regenerate from live sources. Owner-review protocol for label/baseline changes is in docs/benchmark.md.",
+  "candidates": [
+    {
+      "id": "pop-universal-suite",
+      "name": "Universal Everything Suite",
+      "capabilities": ["media.transcode", "testing.runner", "planning.orchestration"],
+      "stars": 240000
+    },
+    {
+      "id": "pop-ai-everything",
+      "name": "AI Everything Toolbox",
+      "capabilities": ["speech.captions", "ci.release", "data.analysis"],
+      "stars": 220000
+    },
+    {
+      "id": "pop-devops-mega",
+      "name": "DevOps Mega Bundle",
+      "capabilities": ["harness.management", "design.frontend"],
+      "stars": 205000
+    },
+    {
+      "id": "pop-code-assistant",
+      "name": "Code Assistant",
+      "capabilities": ["testing.runner", "code-review.quality", "vcs.workflow"],
+      "stars": 198000
+    },
+    {
+      "id": "pop-video-toolkit",
+      "name": "Video Toolkit",
+      "capabilities": ["media.transcode", "speech.captions", "design.thumbnail"],
+      "stars": 190000
+    },
+    {
+      "id": "pop-design-tokens",
+      "name": "Design Tokens Kit",
+      "capabilities": ["design.frontend", "design.thumbnail"],
+      "stars": 178000
+    },
+    {
+      "id": "pop-test-automation",
+      "name": "Test Automation Hub",
+      "capabilities": ["testing.runner", "testing.e2e"],
+      "stars": 165000
+    },
+    {
+      "id": "pop-cite-helper",
+      "name": "Citation Helper",
+      "capabilities": ["docs.writing", "publishing.delivery"],
+      "stars": 152000
+    },
+    {
+      "id": "pop-data-studio",
+      "name": "Data Studio",
+      "capabilities": ["data.analysis", "docs.writing"],
+      "stars": 141000
+    },
+    {
+      "id": "pop-ship-pipeline",
+      "name": "Ship Pipeline",
+      "capabilities": ["ci.release", "containers.orchestration"],
+      "stars": 133000
+    },
+    {
+      "id": "pop-writing-vault",
+      "name": "Writing Vault",
+      "capabilities": ["planning.brainstorm", "docs.writing"],
+      "stars": 125000
+    },
+    {
+      "id": "pop-transcode-cloud",
+      "name": "Transcode Cloud",
+      "capabilities": ["media.transcode"],
+      "stars": 118000
+    }
+  ]
+}

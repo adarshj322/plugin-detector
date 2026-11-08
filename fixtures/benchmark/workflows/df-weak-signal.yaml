@@ -1,0 +1,54 @@
+# Benchmark workflow. Weak-signal design folder with only generic files.
+id: df-weak-signal
+domain: design-frontend
+declaration: design-frontend
+signals:
+  - editorconfig
+installed: []
+candidates:
+  - id: df-weak-tokens
+    name: Weak Tokens
+    capabilities:
+      - design.frontend
+    stars: 2600
+  - id: df-weak-thumbs
+    name: Weak Thumbs
+    capabilities:
+      - design.thumbnail
+    stars: 2000
+  - id: df-weak-system
+    name: Weak System
+    capabilities:
+      - design.frontend
+      - design.thumbnail
+    stars: 1700
+  - id: df-weak-palette
+    name: Weak Palette
+    capabilities:
+      - design.frontend
+    stars: 1400
+  - id: pop-test-pilot
+    name: Test Pilot
+    capabilities:
+      - testing.runner
+      - testing.e2e
+    stars: 180000
+  - id: pop-frame-stats
+    name: Frame Stats
+    capabilities:
+      - data.analysis
+    stars: 110000
+requiredCapabilities:
+  - design.frontend
+  - design.thumbnail
+optionalCapabilities: []
+expectedRequiredIds:
+  - df-weak-tokens
+  - df-weak-thumbs
+  - df-weak-system
+  - df-weak-palette
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-test-pilot
+  - pop-frame-stats
+rationale: With only a generic signal the profile resolves partial, yet design capability overlap still beats raw popularity.

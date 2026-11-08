@@ -1,0 +1,58 @@
+# Benchmark workflow. Weak-signal repo where only generic files were seen.
+id: sw-docs-partial
+domain: software-development
+declaration: software-development
+signals:
+  - editorconfig
+installed: []
+candidates:
+  - id: sw-partial-docs
+    name: Partial Docs Writer
+    capabilities:
+      - docs.writing
+    stars: 1500
+  - id: sw-partial-quality
+    name: Partial Quality Review
+    capabilities:
+      - code-review.quality
+    stars: 2300
+  - id: sw-partial-tests
+    name: Partial Test Runner
+    capabilities:
+      - testing.runner
+    stars: 2800
+  - id: sw-partial-debug
+    name: Partial Debugger
+    capabilities:
+      - debugging.systematic
+    stars: 1700
+  - id: pop-render-farm
+    name: Render Farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+  - id: pop-caption-pro
+    name: Caption Pro
+    capabilities:
+      - speech.captions
+      - design.thumbnail
+    stars: 95000
+requiredCapabilities:
+  - testing.runner
+  - testing.e2e
+  - code-review.quality
+  - code-review.security
+  - debugging.systematic
+  - vcs.workflow
+  - docs.writing
+optionalCapabilities: []
+expectedRequiredIds:
+  - sw-partial-docs
+  - sw-partial-quality
+  - sw-partial-tests
+  - sw-partial-debug
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-render-farm
+  - pop-caption-pro
+rationale: With only a generic editorconfig signal the profile resolves partial, yet capability overlap still separates code skills from popular media skills.

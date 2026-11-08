@@ -1,0 +1,55 @@
+# Benchmark workflow. Weak-signal writing folder with only generic files.
+id: rw-weak-signal
+domain: research-writing
+declaration: research-writing
+signals:
+  - editorconfig
+installed: []
+candidates:
+  - id: rw-weak-draft
+    name: Weak Drafter
+    capabilities:
+      - docs.writing
+    stars: 2500
+  - id: rw-weak-ideas
+    name: Weak Ideation
+    capabilities:
+      - planning.brainstorm
+    stars: 1900
+  - id: rw-weak-pub
+    name: Weak Publisher
+    capabilities:
+      - publishing.delivery
+    stars: 1500
+  - id: rw-weak-data
+    name: Weak Data Notes
+    capabilities:
+      - data.analysis
+    stars: 1300
+  - id: pop-ship-line
+    name: Ship Line
+    capabilities:
+      - ci.release
+      - containers.orchestration
+    stars: 130000
+  - id: pop-render-farm
+    name: Render Farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+requiredCapabilities:
+  - docs.writing
+  - planning.brainstorm
+  - data.analysis
+  - publishing.delivery
+optionalCapabilities: []
+expectedRequiredIds:
+  - rw-weak-draft
+  - rw-weak-ideas
+  - rw-weak-pub
+  - rw-weak-data
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-ship-line
+  - pop-render-farm
+rationale: With only a generic signal the profile resolves partial, yet writing capability overlap still beats raw popularity.
