@@ -1,0 +1,16 @@
+{
+  "model": "gpt-5-codex",
+  "plugins": ["json-plugin@2.1.0"],
+  "mcp_servers": {
+    "json-mcp": {
+      "command": "node",
+      "enabled": true,
+      "env": {
+        "JSON_TOKEN": "json-secret-value-that-must-never-appear"
+      }
+    }
+  },
+  "labFeatures": {
+    "turbo": true
+  }
+}

@@ -1,0 +1,10 @@
+model = "gpt-5-codex"
+plugins = []
+
+[mcp_servers.ok-server]
+command = "node"
+enabled = true
+
+[lab_features]
+turbo = true
+budget.tokens = 5000
