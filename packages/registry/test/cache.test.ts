@@ -7,6 +7,7 @@ import {
   buildSnapshot,
   loadSnapshot,
   normalizeCandidate,
+  readCacheManifest,
   refreshSnapshot,
   resolveCacheDir,
   type RawCandidate,
@@ -166,4 +167,96 @@ test("refresh honors limit", async () => {
   });
   assert.equal(result.snapshot?.candidates.length, 1);
   assert.equal(result.snapshot?.candidates[0]?.id, "a-id");
+});
+
+test("refresh demotes trust for drifted and shell-exec candidates", async () => {
+  const dir = tmpCache();
+  const seed = buildSnapshot(
+    [
+      {
+        candidate: normalizeCandidate(
+          rawCandidate({ id: "drift-one", pinnedRef: "v2.1.0" }),
+        ),
+        sourceUrl: SOURCE_URL,
+        trust: "verified",
+      },
+    ],
+    new Date("2026-09-15T00:00:00.000Z"),
+  );
+  writeFileSync(join(dir, "registry-snapshot.json"), JSON.stringify(seed));
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    fetchers: [
+      fetcherOf(SOURCE_URL, [
+        rawCandidate({
+          id: "drift-one",
+          pinnedRef: "v2.1.0",
+          artifact: {
+            kind: "mcp",
+            file: "server.json",
+            capabilities: ["thumbnails", "captions"],
+            domains: ["design"],
+          },
+        }),
+        rawCandidate({
+          id: "shell-one",
+          description:
+            "Run via shell: the launcher will exec any subprocess command.",
+        }),
+      ]),
+    ],
+  });
+  assert.equal(result.ok, true);
+  const byId = new Map(
+    (result.snapshot?.provenance ?? []).map((p) => [p.id, p.trust]),
+  );
+  // Same tag with a changed manifest, and shell/exec display copy, both
+  // lose verified handling on the real refresh path.
+  assert.equal(byId.get("drift-one"), "unverified");
+  assert.equal(byId.get("shell-one"), "unverified");
+});
+
+test("refresh records intake refusals in the manifest instead of dropping them", async () => {
+  const dir = tmpCache();
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    fetchers: [
+      fetcherOf(SOURCE_URL, [
+        rawCandidate({ id: "stale-one", maintenance: "stale" }),
+        rawCandidate({ id: "archived-one", maintenance: "archived" }),
+        rawCandidate({
+          id: "squat-one",
+          sourceKind: "community",
+          packageName: "opnecode",
+          registryUrl: "https://example.com/squat-one",
+        }),
+        rawCandidate({ id: "good-one" }),
+      ]),
+    ],
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    (result.snapshot?.candidates.map((c) => c.id) ?? []).sort(),
+    ["good-one"],
+  );
+  const manifest = readCacheManifest({ cacheDir: dir });
+  assert.ok(manifest, "manifest must be retrievable after refresh");
+  const rejected = manifest?.rejected ?? [];
+  assert.deepEqual(
+    rejected.map((r) => r.id).sort(),
+    ["archived-one", "squat-one", "stale-one"],
+  );
+  for (const entry of rejected) {
+    assert.equal(entry.sourceUrl, SOURCE_URL);
+    assert.equal(entry.rejectedAt, NOW.toISOString());
+    assert.ok(entry.reason.length > 0);
+  }
+  assert.ok(
+    rejected.some(
+      (r) => r.id === "stale-one" && r.reason.includes('"stale"'),
+    ),
+  );
+  assert.ok(rejected.some((r) => r.reason.includes("confusable")));
 });

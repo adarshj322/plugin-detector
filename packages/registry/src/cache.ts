@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import type { Candidate } from "@plugin-detector/core";
-import { normalizeCandidate } from "./normalize.js";
+import { normalizeCandidate, type NormalizedCandidate } from "./normalize.js";
 import type { RawCandidate } from "./probe.js";
-import { classifyTrust } from "./trust.js";
+import { classifyTrust, detectDrift } from "./trust.js";
 import {
   buildSnapshot,
   parseSnapshot,
@@ -47,6 +47,19 @@ const CacheManifestSchema = z.object({
   schemaVersion: z.literal(1),
   generatedAt: isoDate,
   sources: z.record(z.string(), ManifestSourceSchema),
+  // Intake refusals are recorded, not dropped: id + reason + source + time
+  // so rejected candidates surface for review instead of vanishing. Only
+  // the current refresh run is listed; a later successful refresh clears
+  // the entry by replacing the manifest.
+  rejected: z.array(
+    z.object({
+      id: z.string().min(1),
+      reason: z.string().min(1),
+      sourceUrl: z.string().url(),
+      rejectedAt: isoDate,
+      pinnedRef: z.string().optional(),
+    }),
+  ).optional(),
 });
 export type CacheManifest = z.infer<typeof CacheManifestSchema>;
 
@@ -104,6 +117,16 @@ function readManifestFile(path: string): CacheManifest | null {
   } catch {
     return null;
   }
+}
+
+// Retrieval for recorded intake refusals (finding: refusals must surface,
+// not vanish). Returns null when no manifest has been written yet.
+export function readCacheManifest(
+  opts?: { cacheDir?: string },
+): CacheManifest | null {
+  return readManifestFile(
+    join(resolveCacheDir(opts?.cacheDir), MANIFEST_FILENAME),
+  );
 }
 
 // A valid user cache always wins; the bundled snapshot is strictly the
@@ -190,6 +213,7 @@ export async function refreshSnapshot(
   const entries: SnapshotEntry[] = [];
   const failures: Record<string, string> = {};
   const manifestSources: CacheManifest["sources"] = {};
+  const rejected: NonNullable<CacheManifest["rejected"]> = [];
   let succeeded = 0;
 
   for (const fetcher of fetchers) {
@@ -232,12 +256,32 @@ export async function refreshSnapshot(
         ...raw,
         lastVerified: raw.lastVerified ?? nowIso,
       };
-      let candidate: Candidate;
+      let candidate: NormalizedCandidate;
       try {
         candidate = normalizeCandidate(stamped);
-      } catch {
+      } catch (err) {
+        // Recorded, not dropped: the hard gate holds, but the refusal
+        // surfaces in the manifest for review instead of vanishing.
+        rejected.push({
+          id:
+            stamped.id ??
+            stamped.packageName ??
+            stamped.artifact?.artifactId ??
+            "unknown",
+          reason: err instanceof Error ? err.message : String(err),
+          sourceUrl: fetcher.url,
+          rejectedAt: nowIso,
+          ...(stamped.pinnedRef === undefined
+            ? {}
+            : { pinnedRef: stamped.pinnedRef }),
+        });
         continue; // Per-candidate isolation: bad records never sink a source.
       }
+      const prevCandidate = prevById.get(candidate.id);
+      const drift =
+        prevCandidate === undefined
+          ? null
+          : detectDrift(prevCandidate, candidate);
       entries.push({
         candidate,
         sourceUrl: fetcher.url,
@@ -246,6 +290,10 @@ export async function refreshSnapshot(
           maintainerVerified: candidate.provenance === "official",
           activity: candidate.maintenance,
           reviewEvidence: false,
+          ...(drift !== null && drift.drifted ? { drifted: true as const } : {}),
+          ...(candidate.untrustedCopyRisk
+            ? { untrustedCopyRisk: true as const }
+            : {}),
         }),
       });
       count += 1;
@@ -303,6 +351,7 @@ export async function refreshSnapshot(
     schemaVersion: 1,
     generatedAt: nowIso,
     sources: manifestSources,
+    rejected,
   };
   writeFileSync(join(dir, MANIFEST_FILENAME), JSON.stringify(manifest, null, 2));
   return { ok: true, exitCode: 0, snapshot, failures, written: true };

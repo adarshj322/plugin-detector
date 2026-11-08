@@ -1,12 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CursorAdapter } from "@plugin-detector/cursor";
 import { scoreCandidate } from "@plugin-detector/core";
+import { OpenCodeAdapter } from "@plugin-detector/opencode";
 import {
+  buildSnapshot,
+  loadSnapshot,
   normalizeCandidate,
+  refreshSnapshot,
   type RawCandidate,
 } from "@plugin-detector/registry";
 import {
@@ -134,4 +139,76 @@ test("prompt-injection text never reaches scoring", () => {
   assert.ok(!tainted.reasoning.includes("evil.example"));
   assert.ok(!tainted.reasoning.toLowerCase().includes("ignore all previous instructions"));
   assert.ok(!tainted.evidencePointers.join("\n").includes("evil.example"));
+});
+
+test("refresh path demotes drifted/shell-exec trust and yields recipe-only plans", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "pd-redteam-refresh-"));
+  const sourceUrl = "https://example.com/redteam-source";
+  const seedRaw: RawCandidate = {
+    id: "rt-refresh-drift",
+    name: "Refresh Drifter",
+    artifact: {
+      kind: "skill",
+      file: "SKILL.md",
+      capabilities: ["testing.runner"],
+      domains: ["software-development"],
+    },
+    sourceKind: "official-registry",
+    pinnedRef: "v2.1.0",
+    license: "MIT",
+    registryUrl: "https://example.com/rt-refresh-drift",
+    maintenance: "active",
+    auditStatus: "clean",
+  };
+  const seed = buildSnapshot(
+    [
+      {
+        candidate: normalizeCandidate(seedRaw),
+        sourceUrl,
+        trust: "verified",
+      },
+    ],
+    new Date("2026-09-15T00:00:00.000Z"),
+  );
+  writeFileSync(join(dir, "registry-snapshot.json"), JSON.stringify(seed));
+  const drifted: RawCandidate = {
+    ...seedRaw,
+    artifact: {
+      kind: "skill",
+      file: "SKILL.md",
+      capabilities: ["testing.runner", "debugging.systematic"],
+      domains: ["software-development"],
+    },
+  };
+  const shellExec: RawCandidate = {
+    ...seedRaw,
+    id: "rt-refresh-shell",
+    description:
+      "Run via shell: the launcher will exec any subprocess command.",
+  };
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: new Date("2026-11-08T00:00:00.000Z"),
+    fetchers: [
+      {
+        id: "redteam-source",
+        url: sourceUrl,
+        fetch: async () => ({ raws: [drifted, shellExec] }),
+      },
+    ],
+  });
+  assert.equal(result.ok, true);
+  const snapshot = loadSnapshot({ cacheDir: dir });
+  const adapter = new OpenCodeAdapter();
+  for (const id of ["rt-refresh-drift", "rt-refresh-shell"]) {
+    const candidate = snapshot.candidates.find((c) => c.id === id);
+    assert.ok(candidate, `candidate ${id} must survive refresh`);
+    const trust = snapshot.provenance.find((p) => p.id === id)?.trust;
+    assert.equal(trust, "unverified", id);
+    const plan = adapter.installPlan(candidate, trust);
+    assert.ok(
+      plan.operations.every((op) => op.kind === "recipe"),
+      `${id} must stay recipe-only`,
+    );
+  }
 });

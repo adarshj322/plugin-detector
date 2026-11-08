@@ -125,9 +125,11 @@ function oneEditAway(a: string, b: string): boolean {
 
 // Reserved-name/dependency-confusion block, or null when the name is fine.
 // Returns a human-readable reason so normalize surfaces it in the rejection.
+// `label` names the inspected field (package name or candidate id).
 export function blockedPackageName(
   packageName: string | undefined,
   sourceKind: string | undefined,
+  label: string = "package name",
 ): string | null {
   if (isOfficialSource(sourceKind)) return null;
   const lower = (packageName ?? "").trim().toLowerCase();
@@ -139,15 +141,19 @@ export function blockedPackageName(
   const name = scoped ? segments.slice(1).join("/") : lower;
   for (const reserved of RESERVED_NAMESPACES) {
     if (scope !== null && scope !== "" && scope === reserved)
-      return `package scope "@${scope}" squats reserved namespace "${reserved}"`;
+      return `${label} scope "@${scope}" squats reserved namespace "${reserved}"`;
     if (scope !== null && scope !== "" && oneEditAway(scope, reserved))
-      return `package scope "@${scope}" is confusable with reserved namespace "${reserved}"`;
+      return `${label} scope "@${scope}" is confusable with reserved namespace "${reserved}"`;
     if (name === reserved)
-      return `package name "${packageName}" squats reserved name "${reserved}"`;
+      return `${label} "${packageName}" squats reserved name "${reserved}"`;
+    // Reserved-prefix rule: only non-official sources reach this function,
+    // so a community/marketplace "<reserved>-*" name claiming the vendor
+    // namespace is confusion, not coincidence. The official channel (which
+    // owns these namespaces) is exempt above, with tests pinning both sides.
     if (name.startsWith(`${reserved}-`) || name.startsWith(`${reserved}_`))
-      return `package name "${packageName}" claims reserved prefix "${reserved}"`;
+      return `${label} "${packageName}" claims reserved prefix "${reserved}"`;
     if (name !== "" && oneEditAway(name, reserved))
-      return `package name "${packageName}" is confusable with reserved name "${reserved}"`;
+      return `${label} "${packageName}" is confusable with reserved name "${reserved}"`;
   }
   return null;
 }
@@ -175,7 +181,11 @@ export function probeArtifact(input: RawCandidate): ArtifactProbe {
         "prompt-injection language in display copy: instruction-override text is never evidence",
     };
   }
-  const blocked = blockedPackageName(input.packageName, input.sourceKind);
+  // Both the registry name and the candidate id are inspected: an id-only
+  // squat (no packageName set) must not evade the block.
+  const blocked =
+    blockedPackageName(input.packageName, input.sourceKind) ??
+    blockedPackageName(input.id, input.sourceKind, "candidate id");
   if (blocked !== null) {
     return { found: false, evidence: [], reason: blocked };
   }
