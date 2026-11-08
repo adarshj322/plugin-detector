@@ -3,6 +3,7 @@
   "references": [
     { "path": "packages/core" },
     { "path": "packages/registry" },
+    { "path": "packages/profiles" },
     { "path": "packages/cli" },
     { "path": "packages/adapters/shared" },
     { "path": "packages/adapters/opencode" },

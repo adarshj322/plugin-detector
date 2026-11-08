@@ -1,0 +1,30 @@
+# v1 use-case profile: research and long-form writing.
+id: research-writing
+version: 1
+displayName: Research Writing
+description: Academic and long-form writing with citations and reference management.
+capabilities:
+  - docs.writing
+  - planning.brainstorm
+  - data.analysis
+  - publishing.delivery
+signalQueries:
+  - latex-manifest
+  - bibtex-library
+  - zotero-library
+  - obsidian-vault
+  - markdown-notes
+  - citation-style
+  - arxiv-queue
+negativeSignals:
+  - premiere-project
+  - terraform-root
+  - cargo-manifest
+  - kubernetes-manifest
+defaultDomains:
+  - writing
+  - publishing
+  - research
+expectedValueTiers:
+  - time-saved
+  - quality-uplift

@@ -1,0 +1,27 @@
+# v1 use-case profile: frontend and interface design.
+id: design-frontend
+version: 1
+displayName: Design Frontend
+description: Designing interfaces, tokens, and prototypes for the web.
+capabilities:
+  - design.frontend
+  - design.thumbnail
+signalQueries:
+  - figma-file
+  - tailwind-config
+  - storybook-config
+  - svg-assets
+  - design-tokens
+  - css-modules
+  - framer-project
+negativeSignals:
+  - terraform-root
+  - pytest
+  - latex-manifest
+  - kubernetes-manifest
+defaultDomains:
+  - design
+  - prototyping
+expectedValueTiers:
+  - time-saved
+  - quality-uplift

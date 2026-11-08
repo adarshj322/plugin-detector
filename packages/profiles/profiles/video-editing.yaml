@@ -1,0 +1,32 @@
+# v1 use-case profile: video editing and publishing.
+id: video-editing
+version: 1
+displayName: Video Editing
+description: Editing video, captioning audio, and publishing with thumbnails.
+capabilities:
+  - media.transcode
+  - speech.captions
+  - design.thumbnail
+signalQueries:
+  - premiere-project
+  - final-cut-library
+  - davinci-project
+  - ffmpeg-preset
+  - caption-track
+  - thumbnail-brief
+  - channel-uploads
+  - podcast-feed
+negativeSignals:
+  - python-manifest
+  - pytest
+  - package-manifest
+  - cargo-manifest
+  - go-module
+  - terraform-root
+  - latex-manifest
+defaultDomains:
+  - publishing
+  - cleanup
+expectedValueTiers:
+  - time-saved
+  - quality-uplift
