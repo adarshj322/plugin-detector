@@ -1,0 +1,42 @@
+{
+  "query": "mcp",
+  "searchType": "fuzzy",
+  "searchVersion": "algolia",
+  "skills": [
+    {
+      "id": "anthropics/skills/mcp-builder",
+      "source": "anthropics/skills",
+      "skillId": "mcp-builder",
+      "name": "mcp-builder",
+      "installs": 138895
+    },
+    {
+      "id": "mcp-use/mcp-use/mcp-apps-builder",
+      "source": "mcp-use/mcp-use",
+      "skillId": "mcp-apps-builder",
+      "name": "mcp-apps-builder",
+      "installs": 33132
+    },
+    {
+      "id": "wind-alice/alicemarket/wind-mcp-skill",
+      "source": "wind-alice/alicemarket",
+      "skillId": "wind-mcp-skill",
+      "name": "wind-mcp-skill",
+      "installs": 241563
+    },
+    {
+      "id": "github/awesome-copilot/mcp-cli",
+      "source": "github/awesome-copilot",
+      "skillId": "mcp-cli",
+      "name": "mcp-cli",
+      "installs": 9669
+    },
+    {
+      "id": "anthropics/claude-plugins-official/build-mcp-server",
+      "source": "anthropics/claude-plugins-official",
+      "skillId": "build-mcp-server",
+      "name": "build-mcp-server",
+      "installs": 7338
+    }
+  ]
+}

@@ -167,7 +167,7 @@ function defaultFetchers(
     {
       id: SKILLS_SH_ID,
       url: SKILLS_SH_URL,
-      fetch: () => fetchSkillsSh(bound(SKILLS_SH_ID)),
+      fetch: () => fetchSkillsSh({ get: bound(SKILLS_SH_ID) }),
     },
     {
       id: MCP_REGISTRY_ID,
