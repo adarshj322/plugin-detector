@@ -84,12 +84,15 @@ npx plugin-detector recommend --use-case design-frontend --harness cursor
 
 ## Safety model: read first, install only on explicit consent
 
-- `inventory`, `recommend`, `explain`, `plan`, and `profiles validate` are
-  **read-only** by default. They never write harness config or install anything.
-  `plan --out <file>` writes only the plan file you explicitly request.
+- `inventory`, `recommend`, `explain`, `plan`, `registry review`, and
+  `profiles validate` are **read-only** by default. They never write harness
+  config or install anything. `plan --out <file>` writes only the plan file you
+  explicitly request; `registry review --out <file>` writes only the review
+  report.
 - The commands that write are `registry refresh` (cache/snapshot update),
-  `approve` (the one-shot token store), a consented `install`, and `rollback`
-  (restores the exact preimages a plan recorded). `install` refuses unless the
+  `registry review --out` (explicit report file), `approve` (the one-shot token
+  store), a consented `install`, and `rollback` (restores the exact preimages a
+  plan recorded). `install` refuses unless the
   plan re-derives exactly from the registry snapshot, the candidate's artifact
   was actually probed, and a valid one-shot token or interactive TTY
   confirmation is present.
@@ -217,9 +220,13 @@ To build a real snapshot:
 npm run registry:refresh   # live public sources; writes the snapshot + local manifest
 # Optional discovery boost: --use-case <id> appends that profile's signal terms
 # to the skills.sh and GitHub search queries (capped; never evidence).
+node packages/cli/dist/src/index.js registry review \
+  --cache-dir packages/registry/data --json --out registry-review.json
+# Review provenance, trust flags, license, pin, hash, snippets, and the
+# unprobed/rejected intake entries. The report is evidence, not a certification.
+# See docs/registry-review.md for the accept/reject criteria.
 git diff -- packages/registry/data/registry-snapshot.json
-# Review provenance, trust flags, unprobed/rejected intake entries, and generatedAt.
-git add packages/registry/data/registry-snapshot.json
+git add packages/registry/data/registry-snapshot.json registry-review.json
 git commit -m "data: pin reviewed registry snapshot"
 ```
 
@@ -278,6 +285,7 @@ review protocol, and release checklist.
 ## Documentation
 
 - [Adapter matrix and verification status](docs/adapters.md)
+- [Registry snapshot review workflow](docs/registry-review.md)
 - [Security model](docs/security-model.md)
 - [Profile schema](docs/profile-schema.md)
 - [Benchmark and owner-review protocol](docs/benchmark.md)

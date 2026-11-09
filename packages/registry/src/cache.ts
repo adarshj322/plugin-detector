@@ -176,6 +176,33 @@ export function readCacheManifest(
   );
 }
 
+// Review must not silently mask a corrupt cache as "no cache": a present but
+// invalid snapshot fails instead of falling back to the bundled seed.
+export function loadSnapshotForReview(opts?: {
+  cacheDir?: string;
+}): RegistrySnapshot {
+  const cachedPath = join(resolveCacheDir(opts?.cacheDir), SNAPSHOT_FILENAME);
+  const snapshot = existsSync(cachedPath)
+    ? parseSnapshot(readFileSync(cachedPath, "utf8"))
+    : readSnapshotFile(bundledSnapshotPath());
+  if (snapshot === null) {
+    throw new Error(
+      "no registry snapshot found: run `plugin-detector registry refresh`",
+    );
+  }
+  return snapshot;
+}
+
+// A corrupt manifest is a review failure, not an empty ledger: dropping it
+// would hide rejected and unprobed records from the report.
+export function readCacheManifestStrict(opts?: {
+  cacheDir?: string;
+}): CacheManifest | null {
+  const path = join(resolveCacheDir(opts?.cacheDir), MANIFEST_FILENAME);
+  if (!existsSync(path)) return null;
+  return CacheManifestSchema.parse(JSON.parse(readFileSync(path, "utf8")));
+}
+
 // A valid user cache always wins; the bundled snapshot is strictly the
 // offline fallback. Timestamp comparison is deliberately avoided: a newly
 // shipped bundled snapshot (newer generatedAt, possibly empty) must never

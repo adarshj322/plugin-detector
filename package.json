@@ -31,6 +31,7 @@
     "SECURITY.md",
     "CODE_OF_CONDUCT.md",
     "docs/adapters.md",
+    "docs/registry-review.md",
     "docs/security-model.md",
     "docs/profile-schema.md",
     "docs/benchmark.md"

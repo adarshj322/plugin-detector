@@ -8,3 +8,4 @@ export * from "./classify.js";
 export * from "./trust.js";
 export * from "./snapshot.js";
 export * from "./cache.js";
+export * from "./review.js";
