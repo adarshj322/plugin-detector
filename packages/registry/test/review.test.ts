@@ -55,10 +55,11 @@ function snapshot(
     trust: TrustClass;
     retrievedAt?: string;
   }>,
+  generatedAt: string = NOW,
 ): RegistrySnapshot {
   return RegistrySnapshotSchema.parse({
     schemaVersion: 1,
-    generatedAt: NOW,
+    generatedAt,
     candidates: entries.map((entry) => entry.candidate),
     provenance: entries.map((entry) => ({
       id: entry.candidate.id,
@@ -203,7 +204,7 @@ test("review report marks preserved candidates, ages, and source health", () => 
         sourceUrl: "https://skills.sh/api/search",
         trust: "verified",
       },
-    ]),
+    ], later),
     manifest({
       generatedAt: later,
       sources: {
@@ -228,6 +229,7 @@ test("review report marks preserved candidates, ages, and source health", () => 
   );
 
   assert.equal(report.manifestGeneratedAt, later);
+  assert.equal(report.snapshotManifestMismatch, false);
   assert.deepEqual(report.sourceHealth, [
     {
       id: "github",
@@ -254,6 +256,102 @@ test("review report marks preserved candidates, ages, and source health", () => 
   assert.equal(report.counts.preserved, 1);
   assert.equal(report.counts.rejectedAlsoPreserved, 1);
   assert.equal(report.counts.total, 3);
+});
+
+test("review report disables preserved inference when snapshot and manifest differ", () => {
+  const later = "2026-11-09T01:00:00.000Z";
+  const report = buildReviewReport(
+    snapshot([
+      {
+        candidate: candidate("alpha"),
+        sourceUrl: "https://skills.sh/api/search",
+        trust: "verified",
+      },
+    ]),
+    manifest({
+      generatedAt: later,
+      rejected: [
+        {
+          id: "alpha",
+          reason: "ARTIFACT_UNAVAILABLE: timeout",
+          sourceUrl: "https://skills.sh/api/search",
+          rejectedAt: later,
+        },
+      ],
+    }),
+    new Date(later),
+  );
+
+  assert.equal(report.snapshotManifestMismatch, true);
+  assert.deepEqual(
+    report.candidates.map((c) => c.preserved),
+    [false],
+    "an unrelated manifest must not make old evidence look preserved",
+  );
+  assert.equal(report.counts.preserved, 0);
+  assert.equal(
+    report.counts.rejectedAlsoPreserved,
+    0,
+    "the rejected id is not a preserved candidate in this report",
+  );
+});
+
+test("review report counts unique rejected ids that are preserved candidates", () => {
+  const later = "2026-11-09T01:00:00.000Z";
+  const preserved = candidate("alpha");
+  const fresh = candidate("beta", "skill", { lastVerified: later });
+  if (fresh.artifactEvidence !== undefined) {
+    fresh.artifactEvidence.retrievedAt = later;
+  }
+  const report = buildReviewReport(
+    snapshot(
+      [
+        {
+          candidate: preserved,
+          sourceUrl: "https://skills.sh/api/search",
+          trust: "verified",
+        },
+        {
+          candidate: fresh,
+          sourceUrl: "https://skills.sh/api/search",
+          trust: "verified",
+        },
+      ],
+      later,
+    ),
+    manifest({
+      generatedAt: later,
+      rejected: [
+        {
+          id: "alpha",
+          reason: "ARTIFACT_UNAVAILABLE: timeout",
+          sourceUrl: "https://skills.sh/api/search",
+          rejectedAt: later,
+        },
+        {
+          id: "alpha",
+          reason: "ARTIFACT_UNAVAILABLE: timeout",
+          sourceUrl: "https://skills.sh/api/search",
+          rejectedAt: later,
+        },
+        {
+          id: "beta",
+          reason: "ARTIFACT_UNAVAILABLE: timeout",
+          sourceUrl: "https://skills.sh/api/search",
+          rejectedAt: later,
+        },
+      ],
+    }),
+    new Date(later),
+  );
+
+  assert.equal(report.counts.preserved, 1);
+  assert.equal(report.counts.rejected, 3);
+  assert.equal(
+    report.counts.rejectedAlsoPreserved,
+    1,
+    "duplicate rejections for the same preserved id count once; fresh beta does not count",
+  );
 });
 
 test("review report counts records per source URL", () => {

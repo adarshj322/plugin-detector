@@ -69,12 +69,12 @@ function writeSnapshot(dir: string): void {
   writeFileSync(join(dir, SNAPSHOT_FILENAME), snapshotJson());
 }
 
-function writeManifest(dir: string): void {
+function writeManifest(dir: string, generatedAt: string = AT): void {
   writeFileSync(
     join(dir, MANIFEST_FILENAME),
     JSON.stringify({
       schemaVersion: 1,
-      generatedAt: AT,
+      generatedAt,
       sources: { "skills-sh": { ok: true, count: 1 } },
       rejected: [
         {
@@ -161,6 +161,8 @@ test("registry review --json prints a validated report and writes nothing", asyn
     rejectedAlsoPreserved: 0,
   });
   assert.equal(report.candidates[0]?.id, "alpha");
+  assert.equal(report.manifestGeneratedAt, AT);
+  assert.equal(report.snapshotManifestMismatch, false);
 });
 
 test("registry review --out writes only the report file", async () => {
@@ -218,6 +220,22 @@ test("registry review text output lists evidence and is not a certification", as
   assert.match(text, /rejected-groups:/);
   assert.match(text, /2x ARTIFACT_MISSING: 404/);
   assert.match(text, /not a certification/);
+});
+
+test("registry review warns when snapshot and manifest generations differ", async () => {
+  const dir = tmpCache();
+  writeSnapshot(dir);
+  writeManifest(dir, "2026-11-09T01:00:00.000Z");
+
+  const { logs, errors } = await capture(() =>
+    registryReview(["--cache-dir", dir]),
+  );
+
+  assert.deepEqual(errors, []);
+  const text = logs.join("\n");
+  assert.match(text, /manifest-generated-at: 2026-11-09T01:00:00\.000Z/);
+  assert.match(text, /warning: snapshot and manifest generatedAt differ/);
+  assert.match(text, /1 probed, 0 preserved, 1 unprobed, 2 rejected/);
 });
 
 test("registry review falls back to a non-empty bundled snapshot", async () => {
@@ -323,7 +341,12 @@ test("registry review --out without --json writes the report and prints text", a
 test("registry review refuses --out over the snapshot or manifest", async () => {
   const dir = tmpCache();
   writeSnapshot(dir);
-  for (const name of [SNAPSHOT_FILENAME, MANIFEST_FILENAME]) {
+  for (const name of [
+    SNAPSHOT_FILENAME,
+    MANIFEST_FILENAME,
+    SNAPSHOT_FILENAME.toUpperCase(),
+    MANIFEST_FILENAME.toUpperCase(),
+  ]) {
     const { logs, errors, result } = await capture(() =>
       registryReview(["--cache-dir", dir, "--out", join(dir, name)]),
     );

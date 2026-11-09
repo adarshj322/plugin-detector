@@ -34,6 +34,11 @@ function printReport(report: ReviewReport): void {
   console.log(
     `manifest-generated-at: ${report.manifestGeneratedAt ?? "(none)"}`,
   );
+  if (report.snapshotManifestMismatch) {
+    console.log(
+      "warning: snapshot and manifest generatedAt differ; preserved inference is disabled",
+    );
+  }
   console.log(`report-generated-at: ${report.generatedAt}`);
   console.log("sources:");
   for (const source of report.sources) {
@@ -102,7 +107,7 @@ function printReport(report: ReviewReport): void {
   }
   if (report.counts.rejectedAlsoPreserved > 0) {
     console.log(
-      `note: ${report.counts.rejectedAlsoPreserved} rejected id(s) also appear as preserved candidates; total counts records, not unique ids.`,
+      `note: ${report.counts.rejectedAlsoPreserved} unique rejected id(s) also appear as preserved candidates; total counts records, not unique ids.`,
     );
   }
   console.log(
@@ -148,7 +153,10 @@ export async function registryReview(
 
   // The report is JSON too; writing it over the cache inputs would destroy
   // the very evidence being reviewed.
-  if (out !== undefined && PROTECTED_OUT.has(basename(out))) {
+  if (
+    out !== undefined &&
+    PROTECTED_OUT.has(basename(out).toLowerCase())
+  ) {
     return usageError(
       `refusing --out ${out}: it would overwrite ${basename(out)}; pass a report path instead`,
     );

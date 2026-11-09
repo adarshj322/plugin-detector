@@ -82,6 +82,9 @@ export const ReviewReportSchema = z.object({
   generatedAt: isoDate,
   snapshotGeneratedAt: isoDate,
   manifestGeneratedAt: isoDate.nullable(),
+  // The snapshot and manifest must come from the same refresh for
+  // `preserved` age inference to be meaningful.
+  snapshotManifestMismatch: z.boolean(),
   counts: z.object({
     // total counts records, not unique ids: a rejected record whose prior
     // candidate was preserved appears in both `probed` and `rejected`.
@@ -90,6 +93,7 @@ export const ReviewReportSchema = z.object({
     preserved: z.number().int().nonnegative(),
     unprobed: z.number().int().nonnegative(),
     rejected: z.number().int().nonnegative(),
+    // Unique rejected ids that also appear as preserved candidates.
     rejectedAlsoPreserved: z.number().int().nonnegative(),
   }),
   sources: z.array(ReviewSourceCountSchema),
@@ -118,6 +122,8 @@ export function buildReviewReport(
       "registry snapshot has no candidates to review; run `plugin-detector registry refresh` first",
     );
   }
+  const snapshotManifestMismatch =
+    manifest !== null && manifest.generatedAt !== snapshot.generatedAt;
   const provenanceById = new Map(
     snapshot.provenance.map((provenance) => [provenance.id, provenance]),
   );
@@ -149,10 +155,12 @@ export function buildReviewReport(
       auditStatus: candidate.auditStatus,
       lastVerified: candidate.lastVerified,
       retrievedAt: evidence.retrievedAt,
-      // Without a manifest there is no refresh boundary to compare against;
-      // a committed/bundled snapshot is reported as not preserved.
+      // Preserved age is only inferable when one refresh produced both the
+      // snapshot and the manifest; a bundled fallback paired with an unrelated
+      // cache manifest is not evidence of preservation.
       preserved:
         manifest !== null &&
+        !snapshotManifestMismatch &&
         Date.parse(evidence.retrievedAt) < Date.parse(manifest.generatedAt),
       evidenceSource: evidence.sourceUrl,
       evidenceRef: evidence.resolvedRef,
@@ -252,22 +260,28 @@ export function buildReviewReport(
     }))
     .sort((a, b) => compare(a.id, b.id));
 
-  const candidateIds = new Set(candidates.map((candidate) => candidate.id));
+  const preservedIds = new Set(
+    candidates.filter((candidate) => candidate.preserved).map((candidate) => candidate.id),
+  );
+  const rejectedAlsoPreserved = new Set(
+    rejected
+      .filter((record) => preservedIds.has(record.id))
+      .map((record) => record.id),
+  ).size;
 
   return ReviewReportSchema.parse({
     schemaVersion: 1,
     generatedAt: now.toISOString(),
     snapshotGeneratedAt: snapshot.generatedAt,
     manifestGeneratedAt: manifest?.generatedAt ?? null,
+    snapshotManifestMismatch,
     counts: {
       total: candidates.length + unprobed.length + rejected.length,
       probed: candidates.length,
-      preserved: candidates.filter((candidate) => candidate.preserved).length,
+      preserved: preservedIds.size,
       unprobed: unprobed.length,
       rejected: rejected.length,
-      rejectedAlsoPreserved: rejected.filter((record) =>
-        candidateIds.has(record.id),
-      ).length,
+      rejectedAlsoPreserved,
     },
     sources,
     sourceHealth,

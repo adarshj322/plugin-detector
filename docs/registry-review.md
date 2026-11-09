@@ -53,6 +53,7 @@ Exit codes: `0` report produced, `1` missing/invalid input or unwritable
 | `generatedAt` | Time the report was produced. |
 | `snapshotGeneratedAt` | Time the reviewed snapshot was produced. |
 | `manifestGeneratedAt` | Time the reviewed refresh manifest was produced, or `null` when there is no manifest. |
+| `snapshotManifestMismatch` | `true` when a manifest exists but its `generatedAt` differs from the snapshot's; preserved-age inference is disabled because the two inputs came from different runs. |
 | `counts` | `total`, `probed`, `preserved`, `unprobed`, `rejected`, `rejectedAlsoPreserved`. `total` is `probed + unprobed + rejected`; it counts records, not unique IDs (see below). |
 | `sources` | Per source URL: `probed`, `unprobed`, `rejected` counts. |
 | `sourceHealth` | Per manifest source ID: `ok`, `count`, `partial`, `error`, and query `failures`. Empty when there is no manifest. |
@@ -80,11 +81,14 @@ Each accepted candidate carries:
 - `capabilities` — normalized capability IDs
 
 `preserved` is inferred by comparing `retrievedAt` with the manifest's
-`generatedAt`; a bundled/committed snapshot with no manifest reports every
-candidate as not preserved. A preserved candidate may also appear in `rejected`
-when its fresh probe failed transiently, so `total` can count that ID twice.
-`counts.rejectedAlsoPreserved` reports how many rejected IDs also appear as
-preserved candidates; `counts.preserved` counts preserved candidates.
+`generatedAt`, but only when the snapshot and manifest carry the same
+`generatedAt` (one refresh produced both). If they differ,
+`snapshotManifestMismatch` is `true` and every candidate reports
+`preserved: false`; a bundled/committed snapshot with no manifest also reports
+not preserved. A preserved candidate may also appear in `rejected` when its
+fresh probe failed transiently, so `total` can count that ID twice.
+`counts.rejectedAlsoPreserved` counts the unique rejected IDs that also appear
+as preserved candidates; `counts.preserved` counts preserved candidates.
 
 ## Workflow
 
