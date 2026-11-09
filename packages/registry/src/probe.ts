@@ -1,5 +1,13 @@
-import { ArtifactType } from "@plugin-detector/core";
-import { z } from "zod";
+import {
+  ArtifactType,
+  ArtifactEvidenceSchema,
+  type ArtifactEvidence,
+  type PackageRegistry,
+} from "@plugin-detector/core";
+
+// Evidence lives in core so CandidateSchema can carry the exact probe record;
+// re-exported here for registry callers that imported it from this module.
+export { ArtifactEvidenceSchema, type ArtifactEvidence };
 
 // Source-specific raw record as handed to the local pipeline (Task 5 owns
 // fetching; this task only normalizes records already on disk). Free-text and
@@ -12,28 +20,6 @@ export interface RawArtifactRef {
   capabilities?: string[] | undefined;
   domains?: string[] | undefined;
 }
-
-const ISO_DATE = z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
-  message: "must be an ISO date",
-});
-
-// Fetched-artifact evidence (v1.0): produced only after the listed artifact
-// itself was fetched and validated. Listing fields never populate it, and its
-// presence is what makes a raw candidate probed. `kind` uses the shared
-// ArtifactType values exactly.
-export const ArtifactEvidenceSchema = z.object({
-  kind: ArtifactType,
-  sourceUrl: z.string().url(),
-  resolvedRef: z.string().min(1),
-  contentHash: z.string().min(1),
-  license: z.string().min(1),
-  name: z.string().min(1).optional(),
-  version: z.string().min(1).optional(),
-  capabilities: z.array(z.string().min(1)).default([]),
-  evidenceSnippets: z.array(z.string().min(1)).default([]),
-  retrievedAt: ISO_DATE,
-});
-export type ArtifactEvidence = z.infer<typeof ArtifactEvidenceSchema>;
 
 // Per-source discovery terms. Query text selects listings only; it never
 // becomes evidence.
@@ -60,7 +46,10 @@ export interface RawCandidate {
   packageName?: string | undefined;
   // Registry the package came from when the listing declared it (MCP registry
   // registryType). Callers pass it to package probes instead of guessing npm.
-  packageRegistry?: "npm" | "pypi" | undefined;
+  packageRegistry?: PackageRegistry | undefined;
+  // Package-registry metadata carried through normalize for review.
+  maintainers?: string[] | undefined;
+  deprecated?: string | undefined;
   // GitHub listing provenance: the branch artifact probes start from, when
   // the repository last received a push, and a flag for the HEAD fallback
   // used when the API omitted default_branch.

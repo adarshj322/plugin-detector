@@ -7,9 +7,24 @@ import {
   type RawCandidate,
 } from "../src/index.js";
 
-function rawCandidate(overrides: Partial<RawCandidate> = {}): RawCandidate {
+function artifactProbe(id: string = "acme-thumb") {
   return {
-    id: "acme-thumb",
+    kind: "mcp-server" as const,
+    sourceUrl: `https://raw.githubusercontent.com/acme/${id}/HEAD/server.json`,
+    resolvedRef: "HEAD",
+    contentHash: "a".repeat(64),
+    license: "MIT",
+    name: id,
+    capabilities: [],
+    evidenceSnippets: [`name: ${id}`],
+    retrievedAt: "2026-11-01T00:00:00.000Z",
+  };
+}
+
+function rawCandidate(overrides: Partial<RawCandidate> = {}): RawCandidate {
+  const id = overrides.id ?? "acme-thumb";
+  return {
+    id,
     name: "Acme Thumbnails",
     artifact: {
       kind: "mcp",
@@ -17,6 +32,7 @@ function rawCandidate(overrides: Partial<RawCandidate> = {}): RawCandidate {
       capabilities: ["thumbnails"],
       domains: ["design"],
     },
+    artifactProbe: artifactProbe(id),
     sourceKind: "official-registry",
     pinnedRef: "1.4.2",
     license: "MIT",
@@ -142,4 +158,87 @@ test("duplicate ids from two sources dedupe deterministically and merge provenan
   const sources = snapshot.candidates[0]?.sources ?? [];
   assert.ok(sources.includes("https://github.com/owner/dup"));
   assert.ok(sources.includes("https://registry.example.com/dup"));
+});
+
+test("snapshot carries probed evidence into candidates and survives a round trip", () => {
+  const candidate = normalizeCandidate(rawCandidate());
+  const snapshot = buildSnapshot(
+    [{ candidate, sourceUrl: "https://x.example/s", trust: "unverified" }],
+    NOW,
+  );
+  const evidence = snapshot.candidates[0]?.artifactEvidence;
+  assert.ok(evidence, "probed candidate must keep its evidence");
+  assert.equal(evidence.contentHash, "a".repeat(64));
+  assert.equal(evidence.sourceUrl, "https://raw.githubusercontent.com/acme/acme-thumb/HEAD/server.json");
+  assert.equal(snapshot.candidates[0]?.artifactProbed, true);
+  assert.deepEqual(parseSnapshot(JSON.stringify(snapshot)), snapshot);
+});
+
+test("snapshot excludes candidates without real artifact evidence", () => {
+  const probed = normalizeCandidate(rawCandidate({ id: "probed-one" }));
+  const listing = normalizeCandidate(
+    rawCandidate({
+      id: "listing-one",
+      artifactProbe: undefined,
+      artifactProbed: true,
+    }),
+  );
+  assert.equal(listing.artifactProbed, false);
+  const snapshot = buildSnapshot(
+    [
+      { candidate: listing, sourceUrl: "https://x.example/s", trust: "unverified" },
+      { candidate: probed, sourceUrl: "https://x.example/s", trust: "unverified" },
+    ],
+    NOW,
+  );
+  assert.deepEqual(snapshot.candidates.map((c) => c.id), ["probed-one"]);
+  assert.deepEqual(snapshot.provenance.map((p) => p.id), ["probed-one"]);
+});
+
+test("duplicate id precedence is official, then publisher, then community", () => {
+  const official = normalizeCandidate(
+    rawCandidate({
+      id: "dedupe-id",
+      sourceKind: "official",
+      repositoryUrl: "https://github.com/acme/dedupe",
+    }),
+  );
+  const publisher = normalizeCandidate(
+    rawCandidate({
+      id: "dedupe-id",
+      sourceKind: "community",
+      repositoryUrl: "https://github.com/openai/dedupe",
+      packageName: "@openai/dedupe",
+    }),
+  );
+  const community = normalizeCandidate(
+    rawCandidate({
+      id: "dedupe-id",
+      sourceKind: "community",
+      repositoryUrl: "https://github.com/acme/dedupe",
+    }),
+  );
+  const snapshot = buildSnapshot(
+    [
+      {
+        candidate: community,
+        sourceUrl: "https://x.example/community",
+        trust: "verified",
+      },
+      {
+        candidate: publisher,
+        sourceUrl: "https://x.example/publisher",
+        trust: "verified",
+      },
+      {
+        candidate: official,
+        sourceUrl: "https://x.example/official",
+        trust: "unverified",
+      },
+    ],
+    NOW,
+  );
+  assert.equal(snapshot.candidates[0]?.id, "dedupe-id");
+  assert.equal(snapshot.candidates[0]?.provenance, "official");
+  assert.equal(snapshot.provenance[0]?.sourceUrl, "https://x.example/official");
 });

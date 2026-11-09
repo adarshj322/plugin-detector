@@ -41,13 +41,21 @@ const TRUST_RANK: Record<TrustClass, number> = {
   unverified: 1,
 };
 
+const PROVENANCE_RANK: Record<Candidate["provenance"], number> = {
+  official: 4,
+  publisher: 3,
+  community: 2,
+  unknown: 1,
+};
+
 function mergeSources(a: string[], b: string[]): string[] {
   return [...new Set([...a, ...b])];
 }
 
-// One entry per candidate id, deterministic: the highest-trust source wins
-// the record and its provenance, while every source URL is merged into
-// `candidate.sources`. Ties break on source URL, then id.
+// One entry per candidate id, deterministic: official beats publisher beats
+// community, then the highest-trust source wins the record and its provenance,
+// while every source URL is merged into `candidate.sources`. Ties break on
+// trust, source URL, then id.
 function dedupeEntries(entries: SnapshotEntry[], at: string): SnapshotEntry[] {
   const byId = new Map<string, SnapshotEntry>();
   for (const entry of entries) {
@@ -65,11 +73,16 @@ function dedupeEntries(entries: SnapshotEntry[], at: string): SnapshotEntry[] {
       });
       continue;
     }
+    const existingProvenance = PROVENANCE_RANK[existing.candidate.provenance];
+    const nextProvenance = PROVENANCE_RANK[entry.candidate.provenance];
     const existingRank = TRUST_RANK[existing.trust ?? "unverified"];
     const nextRank = TRUST_RANK[entry.trust ?? "unverified"];
     const preferNext =
-      nextRank > existingRank ||
-      (nextRank === existingRank && entry.sourceUrl < existing.sourceUrl);
+      nextProvenance > existingProvenance ||
+      (nextProvenance === existingProvenance && nextRank > existingRank) ||
+      (nextProvenance === existingProvenance &&
+        nextRank === existingRank &&
+        entry.sourceUrl < existing.sourceUrl);
     const winner = preferNext ? entry : existing;
     byId.set(id, {
       candidate: {
@@ -85,13 +98,18 @@ function dedupeEntries(entries: SnapshotEntry[], at: string): SnapshotEntry[] {
 }
 
 // Deterministic build: stable id sort, caller-supplied timestamp (tests pin
-// it), one deduplicated record per id with merged provenance and trust.
+// it), one deduplicated record per id with merged provenance and trust. Only
+// candidates with fetched artifact evidence enter the snapshot; listing-only
+// records stay in the refresh manifest for review.
 export function buildSnapshot(
   entries: SnapshotEntry[],
   generatedAt: Date = new Date(),
 ): RegistrySnapshot {
   const at = generatedAt.toISOString();
-  const sorted = dedupeEntries(entries, at);
+  const probed = entries.filter(
+    (entry) => entry.candidate.artifactEvidence !== undefined,
+  );
+  const sorted = dedupeEntries(probed, at);
   return RegistrySnapshotSchema.parse({
     schemaVersion: 1,
     generatedAt: at,

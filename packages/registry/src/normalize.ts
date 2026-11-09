@@ -101,6 +101,16 @@ export function normalizeCandidate(input: RawCandidate): NormalizedCandidate {
       probe.probed && provenance === "official" ? "verified" : "manual",
     lastVerified: input.lastVerified ?? new Date().toISOString(),
     artifactProbed: probe.probed,
+    ...(input.artifactProbe === undefined
+      ? {}
+      : { artifactEvidence: input.artifactProbe }),
+    ...(input.packageRegistry === undefined
+      ? {}
+      : { packageRegistry: input.packageRegistry }),
+    ...(input.maintainers === undefined || input.maintainers.length === 0
+      ? {}
+      : { maintainers: input.maintainers }),
+    ...(input.deprecated === undefined ? {} : { deprecated: input.deprecated }),
     provenance,
     risk: input.risk ?? "medium",
     // Absent maintenance/audit evidence is unknown, never "active"/"clean".

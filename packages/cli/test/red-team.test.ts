@@ -157,6 +157,17 @@ test("refresh path demotes drifted/shell-exec trust and yields recipe-only plans
     pinnedRef: "v2.1.0",
     license: "MIT",
     registryUrl: "https://example.com/rt-refresh-drift",
+    artifactProbe: {
+      kind: "skill",
+      sourceUrl: "https://example.com/rt-refresh-drift/SKILL.md",
+      resolvedRef: "v2.1.0",
+      contentHash: "a".repeat(64),
+      license: "MIT",
+      name: "Refresh Drifter",
+      capabilities: [],
+      evidenceSnippets: ["name: Refresh Drifter"],
+      retrievedAt: "2026-09-15T00:00:00.000Z",
+    },
     maintenance: "active",
     auditStatus: "clean",
   };

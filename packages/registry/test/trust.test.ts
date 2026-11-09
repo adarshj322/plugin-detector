@@ -3,17 +3,19 @@ import assert from "node:assert/strict";
 import {
   classifyTrust,
   normalizeCandidate,
+  publisherMatchesProbe,
   type RawCandidate,
   type TrustEvidence,
 } from "../src/index.js";
 
 const PROBED_AT = "2026-11-01T00:00:00.000Z";
 
-function artifactProbe() {
+function artifactProbe(sourceUrl?: string) {
   return {
     kind: "mcp-server" as const,
-    sourceUrl: "https://registry.example.com/acme-thumb/1.4.2",
-    resolvedRef: "npm:acme-thumb@1.4.2",
+    sourceUrl:
+      sourceUrl ?? "https://raw.githubusercontent.com/anthropics/acme-thumb/HEAD/server.json",
+    resolvedRef: "HEAD",
     contentHash: "a".repeat(64),
     license: "MIT",
     name: "acme-thumb",
@@ -223,4 +225,90 @@ test("drift and shell/exec copy suppress trust", () => {
     classifyTrust(candidate, evidence({ untrustedCopyRisk: true })),
     "unverified",
   );
+});
+
+test("publisher binding matches the probed GitHub raw owner/repo exactly", () => {
+  const matching = normalizeCandidate(rawCandidate());
+  assert.equal(publisherMatchesProbe(matching), true);
+  assert.equal(classifyTrust(matching, evidence()), "verified");
+
+  const mismatched = normalizeCandidate(
+    rawCandidate({
+      repositoryUrl: "https://github.com/openai/openai-node",
+      artifactProbe: artifactProbe(
+        "https://raw.githubusercontent.com/evil-mcp/plugin/HEAD/server.json",
+      ),
+    }),
+  );
+  assert.equal(mismatched.provenance, "publisher");
+  assert.equal(publisherMatchesProbe(mismatched), false);
+  assert.equal(classifyTrust(mismatched, evidence()), "unverified");
+});
+
+test("publisher binding accepts skills.sh downloads for the claimed repo", () => {
+  const candidate = normalizeCandidate(
+    rawCandidate({
+      repositoryUrl: "https://github.com/anthropics/skills",
+      artifactProbe: {
+        ...artifactProbe(),
+        kind: "skill",
+        sourceUrl:
+          "https://skills.sh/api/download/anthropics/skills/agent-creator",
+      },
+    }),
+  );
+  assert.equal(publisherMatchesProbe(candidate), true);
+  assert.equal(classifyTrust(candidate, evidence()), "verified");
+});
+
+test("publisher binding requires the package scope to match the claimed repo", () => {
+  const scoped = normalizeCandidate(
+    rawCandidate({
+      repositoryUrl: "https://github.com/openai/openai-node",
+      packageName: "@openai/sdk",
+      packageRegistry: "npm",
+      artifactProbe: artifactProbe(
+        "https://registry.npmjs.org/%40openai%2Fsdk",
+      ),
+    }),
+  );
+  assert.equal(publisherMatchesProbe(scoped), true);
+  assert.equal(classifyTrust(scoped, evidence()), "verified");
+
+  const unscoped = normalizeCandidate(
+    rawCandidate({
+      repositoryUrl: "https://github.com/openai/openai-node",
+      packageName: "evil-mcp",
+      packageRegistry: "npm",
+      artifactProbe: artifactProbe(
+        "https://registry.npmjs.org/evil-mcp",
+      ),
+    }),
+  );
+  assert.equal(unscoped.provenance, "publisher");
+  assert.equal(publisherMatchesProbe(unscoped), false);
+  assert.equal(classifyTrust(unscoped, evidence()), "unverified");
+});
+
+test("publisher binding refuses registry type or PyPI evidence without ownership", () => {
+  const wrongRegistry = normalizeCandidate(
+    rawCandidate({
+      repositoryUrl: "https://github.com/openai/openai-node",
+      packageName: "@openai/sdk",
+      packageRegistry: "npm",
+      artifactProbe: artifactProbe("https://pypi.org/pypi/openai-sdk/json"),
+    }),
+  );
+  assert.equal(publisherMatchesProbe(wrongRegistry), false);
+
+  const pypi = normalizeCandidate(
+    rawCandidate({
+      repositoryUrl: "https://github.com/openai/openai-node",
+      packageName: "openai",
+      packageRegistry: "pypi",
+      artifactProbe: artifactProbe("https://pypi.org/pypi/openai/json"),
+    }),
+  );
+  assert.equal(publisherMatchesProbe(pypi), false);
+  assert.equal(classifyTrust(pypi, evidence()), "unverified");
 });

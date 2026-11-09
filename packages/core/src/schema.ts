@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ArtifactType, HarnessId } from "./artifacts.js";
+import { ArtifactEvidenceSchema, PackageRegistrySchema } from "./evidence.js";
 
 // Closed verdict set: required / useful-optional / redundant / risky /
 // no-good-candidates (spec: Verdicts; Task 3 matches on these strings).
@@ -66,6 +67,13 @@ export const CandidateSchema = z.object({
   // manifest/package metadata was fetched. Unprobed candidates are excluded
   // from recommendations and can never produce a write plan.
   artifactProbed: z.boolean().optional(),
+  // Fetched-artifact evidence. This is the authoritative probe record; the
+  // snapshot only contains candidates that carry it.
+  artifactEvidence: ArtifactEvidenceSchema.optional(),
+  // Registry metadata for package-probed candidates (MCP registry listings).
+  packageRegistry: PackageRegistrySchema.optional(),
+  maintainers: z.array(z.string().min(1)).optional(),
+  deprecated: z.string().min(1).optional(),
   provenance: z.enum(["official", "publisher", "community", "unknown"]),
   risk: z.enum(["low", "medium", "high", "critical"]),
   maintenance: z.enum(["active", "stale", "archived", "unknown"]),

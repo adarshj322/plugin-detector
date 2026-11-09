@@ -1,4 +1,4 @@
-import type { Candidate } from "@plugin-detector/core";
+import type { Candidate, PackageRegistry } from "@plugin-detector/core";
 
 // Exact publisher identities approved for v1. Publisher trust comes from the
 // probed repository owner only: package names are self-declared listing fields
@@ -68,7 +68,12 @@ export interface PublisherCandidate {
   packageName?: string | undefined;
 }
 
-function githubOwner(repositoryUrl: string): string | undefined {
+interface RepoIdentity {
+  owner: string;
+  repo: string;
+}
+
+function githubRepo(repositoryUrl: string): RepoIdentity | undefined {
   let url: URL;
   try {
     url = new URL(repositoryUrl.trim());
@@ -77,7 +82,15 @@ function githubOwner(repositoryUrl: string): string | undefined {
   }
   const host = url.hostname.toLowerCase();
   if (host !== "github.com" && host !== "www.github.com") return undefined;
-  return url.pathname.split("/").filter(Boolean)[0]?.toLowerCase();
+  const segments = url.pathname.split("/").filter(Boolean);
+  const owner = segments[0]?.toLowerCase();
+  const repo = segments[1]?.replace(/\.git$/i, "").toLowerCase();
+  if (owner === undefined || repo === undefined) return undefined;
+  return { owner, repo };
+}
+
+function githubOwner(repositoryUrl: string): string | undefined {
+  return githubRepo(repositoryUrl)?.owner;
 }
 
 function npmScope(packageName: string): string | undefined {
@@ -99,6 +112,139 @@ export function isOfficialPublisher(candidate: PublisherCandidate): boolean {
   // evidence. A malformed scoped name is a disagreement, not a pass.
   if (scope === undefined) return !packageName.startsWith("@");
   return NPM_SCOPE_OWNERS[scope]?.includes(owner) === true;
+}
+
+function normalizePypiName(value: string): string {
+  return value.trim().toLowerCase().replace(/[-_.]+/g, "-");
+}
+
+function samePackageName(
+  registry: PackageRegistry,
+  claimed: string,
+  probed: string,
+): boolean {
+  return registry === "npm"
+    ? claimed.trim().toLowerCase() === probed.trim().toLowerCase()
+    : normalizePypiName(claimed) === normalizePypiName(probed);
+}
+
+// Evidence URL identity: raw.githubusercontent.com/{owner}/{repo}/... and
+// skills.sh/api/download/{owner}/{repo}/... name a repository directly.
+function evidenceRepo(sourceUrl: string): RepoIdentity | undefined {
+  let url: URL;
+  try {
+    url = new URL(sourceUrl);
+  } catch {
+    return undefined;
+  }
+  const host = url.hostname.toLowerCase();
+  const segments = url.pathname.split("/").filter(Boolean);
+  const owner = segments[0]?.toLowerCase();
+  const repo = segments[1]?.replace(/\.git$/i, "").toLowerCase();
+  if (
+    host === "raw.githubusercontent.com" &&
+    owner !== undefined &&
+    repo !== undefined
+  ) {
+    return { owner, repo };
+  }
+  if (
+    host === "skills.sh" &&
+    segments[0] === "api" &&
+    segments[1] === "download"
+  ) {
+    const skillOwner = segments[2]?.toLowerCase();
+    const skillRepo = segments[3]?.replace(/\.git$/i, "").toLowerCase();
+    if (skillOwner !== undefined && skillRepo !== undefined) {
+      return { owner: skillOwner, repo: skillRepo };
+    }
+  }
+  return undefined;
+}
+
+function evidencePackage(
+  sourceUrl: string,
+): { registry: PackageRegistry; name: string } | undefined {
+  let url: URL;
+  try {
+    url = new URL(sourceUrl);
+  } catch {
+    return undefined;
+  }
+  const host = url.hostname.toLowerCase();
+  if (host === "registry.npmjs.org") {
+    try {
+      const name = decodeURIComponent(
+        url.pathname.replace(/^\/+/, "").replace(/\/+$/, ""),
+      );
+      if (name !== "") return { registry: "npm", name };
+    } catch {
+      return undefined;
+    }
+    return undefined;
+  }
+  if (host === "pypi.org") {
+    const segments = url.pathname.split("/").filter(Boolean);
+    if (segments[0] === "pypi" && segments[1] !== undefined) {
+      try {
+        return { registry: "pypi", name: decodeURIComponent(segments[1]) };
+      } catch {
+        return undefined;
+      }
+    }
+  }
+  return undefined;
+}
+
+// A package registry has no repository owner field; npm scopes are the only
+// package identity that binds to an organization. PyPI names carry no
+// ownership claim, so they can never bind a publisher.
+function packageOwnedBy(
+  registry: PackageRegistry,
+  packageName: string,
+  owner: string,
+): boolean {
+  if (registry !== "npm") return false;
+  const scope = npmScope(packageName)?.toLowerCase();
+  if (scope === undefined) return false;
+  return NPM_SCOPE_OWNERS[scope]?.includes(owner) === true;
+}
+
+// Publisher identity is only as good as the artifact actually fetched: the
+// evidence URL must name the same GitHub repo (raw or skills.sh), or the same
+// registry package when the package scope maps to that repo owner. A claimed
+// official repo paired with unrelated evidence stays unbound.
+export function publisherMatchesProbe(candidate: Candidate): boolean {
+  const evidence = candidate.artifactEvidence;
+  if (evidence === undefined) return false;
+  const claimedRepo =
+    candidate.repositoryUrl === undefined
+      ? undefined
+      : githubRepo(candidate.repositoryUrl);
+  const evidenceSource = evidenceRepo(evidence.sourceUrl);
+  if (evidenceSource !== undefined) {
+    return (
+      claimedRepo !== undefined &&
+      claimedRepo.owner === evidenceSource.owner &&
+      claimedRepo.repo === evidenceSource.repo
+    );
+  }
+  const probedPackage = evidencePackage(evidence.sourceUrl);
+  if (probedPackage === undefined) return false;
+  if (
+    candidate.packageRegistry !== undefined &&
+    candidate.packageRegistry !== probedPackage.registry
+  ) {
+    return false;
+  }
+  const claimedPackage = candidate.packageName;
+  if (claimedPackage === undefined) return false;
+  if (!samePackageName(probedPackage.registry, claimedPackage, probedPackage.name))
+    return false;
+  return (
+    claimedRepo !== undefined &&
+    packageOwnedBy(probedPackage.registry, claimedPackage, claimedRepo.owner)
+  );
 }
 
 export interface TrustEvidence {
@@ -153,7 +299,8 @@ export function classifyTrust(
     candidate.provenance === "official" ||
     (candidate.provenance === "publisher" &&
       isOfficialPublisher(candidate) &&
-      evidence.maintainerVerified);
+      evidence.maintainerVerified &&
+      publisherMatchesProbe(candidate));
   // Drifted or shell/exec-tainted candidates never inherit trust: a prior
   // verified review describes a different artifact, or the copy itself asks
   // for code execution.

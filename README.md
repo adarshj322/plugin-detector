@@ -200,21 +200,22 @@ The repository currently ships a **seed snapshot** at
 schema, and offline behavior are exercised; it is not a recommendation corpus.
 
 With the seed snapshot, `recommend` honestly returns `no-good-candidates` rather
-than inventing output. Live refresh records are marked **unprobed** (the source
-listing declares an artifact, but no manifest or package metadata was fetched);
-they stay visible to `explain` and in the refresh manifest but are excluded from
-`recommend` and can never produce a write plan. v0.1 auto-install therefore
-requires a manually reviewed, probed snapshot; live-refresh output is
-research/recipe material only until live artifact probing lands (v1.0 gate).
-The local `registry-manifest.json` records rejected intake for the latest refresh
-run only.
+than inventing output. Live refresh fetches each listed artifact (SKILL.md /
+plugin.json, or npm/PyPI metadata) before accepting it: only candidates with
+real artifact evidence enter the snapshot. Listing-only records and probe
+failures stay visible in `registry-manifest.json` (`unprobed` and `rejected`)
+and can never produce a write plan. A prior probed candidate is preserved when
+its probe fails or a source query is partial, instead of being silently dropped.
+The local manifest records intake refusals for the latest refresh run only.
 
 To build a real snapshot:
 
 ```bash
 npm run registry:refresh   # live public sources; writes the snapshot + local manifest
+# Optional discovery boost: --use-case <id> appends that profile's signal terms
+# to the skills.sh and GitHub search queries (capped; never evidence).
 git diff -- packages/registry/data/registry-snapshot.json
-# Review provenance, trust flags, rejected intake entries, and the generatedAt pin.
+# Review provenance, trust flags, unprobed/rejected intake entries, and generatedAt.
 git add packages/registry/data/registry-snapshot.json
 git commit -m "data: pin reviewed registry snapshot"
 ```
@@ -225,9 +226,10 @@ The release workflow fails `v1.*` tags when the snapshot is empty, still carries
 the seed timestamp, or has provenance that does not cover every candidate.
 
 A refresh isolates per-source failures and exits 0 when at least one source
-succeeds. The local `registry-manifest.json` records which sources failed and
-which candidates were rejected at intake. Review that manifest; do not approve a
-snapshot with unexplained source failures.
+succeeds. The local `registry-manifest.json` records which sources failed,
+which candidates were rejected at intake, and which were successfully listed
+but unprobed. Review that manifest; do not approve a snapshot with unexplained
+source failures.
 
 ## Recommendation benchmark
 

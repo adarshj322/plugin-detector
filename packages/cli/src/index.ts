@@ -22,7 +22,7 @@ function usage(): number {
       "  recommend --use-case <id> [--signal S ...] [--json] [--cache-dir DIR] [--home DIR] [--root DIR] [--harness H] [--threshold N]",
       "  explain <candidate-id> [--show-untrusted] [--json] [--cache-dir DIR] [--home DIR] [--root DIR]",
       "  profiles validate <file>",
-      "  registry refresh [--cache-dir <dir>] [--limit <n>]",
+      "  registry refresh [--cache-dir <dir>] [--limit <n>] [--use-case <id>]",
       "  plan --candidate <id> --harness <name> [--json] [--out <file>] [--cache-dir DIR] [--home DIR] [--root DIR]",
       "  approve --candidate <id> --plan <sha256> [--plan-file <file>] [--ttl-minutes N] [--json]",
       "  install --plan-file <file> --candidate <id> --harness <name> [--approval-token <token>] [--json] [--home DIR] [--root DIR] [--cache-dir DIR]",

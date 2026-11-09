@@ -38,6 +38,18 @@ function candidate(id: string, overrides: Partial<Candidate> = {}): Candidate {
     repositoryUrl: `https://example.com/${id}`,
     installMode: "verified",
     lastVerified: "2026-11-01T00:00:00.000Z",
+    artifactProbed: true,
+    artifactEvidence: {
+      kind: "skill",
+      sourceUrl: `https://example.com/${id}/SKILL.md`,
+      resolvedRef: "v1.0.0",
+      contentHash: "a".repeat(64),
+      license: "MIT",
+      name: `Candidate ${id}`,
+      capabilities: [],
+      evidenceSnippets: [`name: Candidate ${id}`],
+      retrievedAt: "2026-11-01T00:00:00.000Z",
+    },
     provenance: "official",
     risk: "low",
     maintenance: "active",
@@ -228,8 +240,9 @@ test("adapter compatibility zero hard-gates and never returns required", async (
 
 test("source-declared unprobed candidates are excluded from recommendations", async () => {
   const env = setup();
+  const { artifactEvidence: _evidence, ...unprobed } = candidate("cand-1");
   writeSnapshot(env.cache, [
-    candidate("cand-1", { artifactProbed: false }),
+    { ...unprobed, artifactProbed: false },
     candidate("cand-2"),
   ]);
   const { logs } = await capture(() =>
