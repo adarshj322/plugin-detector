@@ -21,7 +21,7 @@ export class SkillsShProbeError extends Error {
   }
 }
 
-interface SkillFrontmatter {
+export interface SkillFrontmatter {
   name: string;
   description: string;
   license?: string | undefined;
@@ -114,7 +114,7 @@ function unquote(value: string): string {
 
 // Minimal top-level YAML frontmatter reader: enough for name/description/
 // license/version scalars and |/> block values. No YAML dependency.
-function parseSkillFrontmatter(text: string): SkillFrontmatter | null {
+export function parseSkillFrontmatter(text: string): SkillFrontmatter | null {
   const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
   if (match === null) return null;
   const fields = new Map<string, string>();

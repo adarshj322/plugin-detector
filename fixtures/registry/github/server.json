@@ -1,0 +1,13 @@
+{
+  "name": "io.github.acme/cool-server",
+  "version": "2.0.0",
+  "description": "BODY-MARKER-server-description",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@acme/cool-server",
+      "version": "2.0.0",
+      "transport": { "type": "stdio" }
+    }
+  ]
+}

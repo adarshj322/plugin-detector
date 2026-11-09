@@ -30,6 +30,9 @@ export function parseAwesomeList(markdown: string): RawCandidate[] {
       pinnedRef: "0.0.0",
       license: "unknown",
       repositoryUrl: `https://github.com/${slug}`,
+      // The list carries no branch metadata: probe the repository's HEAD.
+      defaultBranch: "HEAD",
+      defaultBranchFallback: true,
     });
   }
   return out;

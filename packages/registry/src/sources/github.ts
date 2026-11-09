@@ -42,6 +42,7 @@ interface GithubRepo {
   default_branch?: unknown;
   stargazers_count?: unknown;
   pushed_at?: unknown;
+  archived?: unknown;
   license?: { spdx_id?: unknown } | null;
 }
 
@@ -81,6 +82,7 @@ export function parseGithubSearch(payload: unknown): RawCandidate[] {
     const branch = str(item.default_branch);
     const stars = count(item.stargazers_count);
     const pushedAt = str(item.pushed_at);
+    const archived = item.archived === true;
     out.push({
       id,
       name: id,
@@ -97,6 +99,7 @@ export function parseGithubSearch(payload: unknown): RawCandidate[] {
       ...(branch === undefined ? { defaultBranchFallback: true } : {}),
       ...(stars === undefined ? {} : { popularity: { stars } }),
       ...(pushedAt === undefined ? {} : { pushedAt }),
+      ...(archived ? { maintenance: "archived" as const } : {}),
     });
   }
   return out;
