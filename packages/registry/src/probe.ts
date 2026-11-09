@@ -1,4 +1,5 @@
-import type { ArtifactType } from "@plugin-detector/core";
+import { ArtifactType } from "@plugin-detector/core";
+import { z } from "zod";
 
 // Source-specific raw record as handed to the local pipeline (Task 5 owns
 // fetching; this task only normalizes records already on disk). Free-text and
@@ -12,12 +13,44 @@ export interface RawArtifactRef {
   domains?: string[] | undefined;
 }
 
+const ISO_DATE = z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
+  message: "must be an ISO date",
+});
+
+// Fetched-artifact evidence (v1.0): produced only after the listed artifact
+// itself was fetched and validated. Listing fields never populate it, and its
+// presence is what makes a raw candidate probed. `kind` uses the shared
+// ArtifactType values exactly.
+export const ArtifactEvidenceSchema = z.object({
+  kind: ArtifactType,
+  sourceUrl: z.string().url(),
+  resolvedRef: z.string().min(1),
+  contentHash: z.string().min(1),
+  license: z.string().min(1),
+  name: z.string().min(1).optional(),
+  version: z.string().min(1).optional(),
+  capabilities: z.array(z.string().min(1)).default([]),
+  evidenceSnippets: z.array(z.string().min(1)).default([]),
+  retrievedAt: ISO_DATE,
+});
+export type ArtifactEvidence = z.infer<typeof ArtifactEvidenceSchema>;
+
+// Per-source discovery terms. Query text selects listings only; it never
+// becomes evidence.
+export interface SourceQueryPlan {
+  source: string;
+  queries: string[];
+}
+
 export interface RawCandidate {
   id?: string | undefined;
   name?: string | undefined;
   artifact?: RawArtifactRef | null | undefined;
-  // False when the source only declares a manifest path without fetching it.
-  // Local fixtures omit this and count as probed.
+  // Present only when the artifact itself was fetched and validated; a listing
+  // alone leaves it undefined.
+  artifactProbe?: ArtifactEvidence | undefined;
+  // Legacy listing hint (false = manifest declared but not fetched). It never
+  // produces evidence, and an artifactProbe above wins over this flag.
   artifactProbed?: boolean | undefined;
   sourceKind?: string | undefined;
   pinnedRef?: string | undefined;
@@ -239,7 +272,10 @@ export function probeArtifact(input: RawCandidate): ArtifactProbe {
     };
   }
 
-  const probed = input.artifactProbed !== false;
+  // Evidence presence is authoritative: fetched evidence wins over any legacy
+  // listing flag, which remains only for v1 fixture/listing compatibility.
+  const probed =
+    input.artifactProbe !== undefined || input.artifactProbed !== false;
   const evidence: string[] = [];
   if (file) evidence.push(`artifact file ${JSON.stringify(ref.file)}`);
   evidence.push(`artifact kind ${JSON.stringify(ref.kind)}`);
