@@ -18,8 +18,8 @@
   "scripts": {
     "build": "tsc -b",
     "test": "tsc -b && node --test \"packages/*/dist/test/*.test.js\" \"packages/adapters/*/dist/test/*.test.js\"",
-    "typecheck": "tsc -b --noEmit",
-    "lint": "tsc -b --noEmit",
+    "typecheck": "tsc -b",
+    "lint": "tsc -b",
     "benchmark": "npm run benchmark -w plugin-detector",
     "registry:refresh": "npm run build && node packages/cli/dist/src/index.js registry refresh --cache-dir packages/registry/data"
   },
