@@ -10,7 +10,52 @@ Release stages: `0.1` alpha, `0.5` beta, `1.0` stable.
 
 ### Added
 
-- Nothing yet.
+- `plugin-detector rollback --plan-file <file>`: restores the exact preimages
+  recorded by an applied plan, so rollback remains available after a successful
+  install, not only on apply failure.
+- Consent surface now prints source, canonical URL, artifact type, pinned ref,
+  license, trust evidence, permission and environment-variable names, and
+  expected side effects; unavailable metadata is printed as explicit `unknown`.
+  `plan --json` exposes the same fields.
+- Adapter compatibility is now a real factor in the score and is shared by
+  `recommend` and the benchmark through one `scoreCandidateSet` helper.
+  Compatibility `0` is a hard gate: an incompatible artifact can never be
+  `required` and is excluded from the returned top set; `explain` prints the
+  `risky` verdict.
+- Live MCP registry parsing supports the real v0 shape
+  (`servers[].server` with `repository`, `packages`, `remotes`, and `_meta`),
+  including latest-version selection. A non-empty payload that maps to zero
+  records is a source failure, and previous entries are preserved.
+- Source-declared refresh records are explicitly marked **unprobed**: they are
+  excluded from `recommend` and can never produce a write plan. Listing
+  capabilities/domains are no longer copied into scoring, and omitted
+  maintenance/audit now default to `unknown`.
+- Snapshot generation deduplicates by candidate id deterministically, prefers
+  the highest-trust source, merges source URLs, and emits one provenance record
+  per id. A duplicate-id refresh fixture covers the GitHub + awesome-list case.
+- JSONC parsing accepts trailing commas; skill frontmatter capabilities accept
+  comma-separated, flow-list, and block-list YAML forms.
+- `inventory --json` now emits the empty `estimates` and `untrustedCopy`
+  sections required by the output contract.
+- 304 refreshes carry ETag/last-modified validators forward and never re-stamp
+  candidates as freshly verified.
+
+### Changed
+
+- Claude Code plugin plans are recipe-only: writing `enabledPlugins` alone does
+  not install a plugin, so v0.1 never claims automatic Claude plugin install.
+- OpenCode plugin/MCP config writes are recipe-only when an `opencode.jsonc`
+  exists (with or without a sibling `.json`), because the merge writer cannot
+  preserve comments and a second JSON config could shadow the real one.
+- The benchmark baseline now uses twelve real, high-star repositories with
+  owner-reviewed capability labels and stars recorded 2026-11-09, replacing the
+  synthetic strawman. `gateBenchmark` now fails on missing expected `required`
+  and `redundant` labels as well as optional.
+- The approval-store lock release is owner-token checked and stale-lock breaks
+  verify inode + content before unlinking, narrowing the stale-break race.
+- Docs and quick starts now show the actual token handoff from `approve` to
+  `install` with shell-safe placeholders, and document live-refresh as
+  unprobed/recipe-only.
 
 ## [0.1.0] - 2026-11-08
 
@@ -34,10 +79,11 @@ production-verified.
   an awesome list; deterministic normalization; trust classification; drift
   detection; intake refusal recording; local cache and bundled snapshot loading.
 - Four harness adapters:
-  - OpenCode — detection, inventory, compatibility, verified-only writer,
-    recipe fallback, backups/rollback.
-  - Claude Code — detection, inventory, compatibility, verified-only writer,
-    recipe fallback, backups/rollback.
+  - OpenCode — detection, inventory, compatibility, verified-only writer
+    (recipe-only for JSONC configs), recipe fallback, backups/rollback.
+  - Claude Code — detection, inventory, compatibility, verified-only
+    skills/project-MCP writer, recipe fallback (plugins are recipe-only),
+    backups/rollback.
   - Codex — full detection/inventory; **recipe-only**, no automatic writes.
   - Cursor — full detection/inventory; **recipe-only**, no automatic writes;
     experimental MCP/skill/rule support.
@@ -99,15 +145,25 @@ These are release blockers for a stable `1.0`, not for `0.1.0`:
 - [ ] **Reviewed registry snapshot.** Run `npm run registry:refresh` against live
   public sources, review the generated snapshot (timestamps, pinned refs, trust,
   provenance, rejected intake), explicitly approve the diff, and commit/pin it
-  with its `generatedAt`. The current committed file is the seed/placeholder. The
-  release workflow rejects `v1.*` tags when the snapshot is empty, still has the
-  seed timestamp, or has incomplete provenance.
+  with its `generatedAt`. The current committed file is the seed/placeholder.
+  v0.1 refresh records are unprobed and excluded from recommendations, so the
+  reviewed snapshot must also carry probed artifact evidence. The release
+  workflow rejects `v1.*` tags when the snapshot is empty, still has the seed
+  timestamp, or has incomplete provenance.
+- [ ] **Live artifact probing and publisher/official source policy.** v0.1 marks
+  every live-refresh record unprobed: it does not fetch `SKILL.md`, plugin/MCP
+  manifests, or `package.json`, so it cannot detect package install hooks or
+  reach `verified`. Implement per-candidate manifest/package probing (including
+  `installHooks` from package metadata) and an explicit allowlisted
+  publisher/official source policy that can earn `verified`; until then
+  auto-install requires a manually reviewed, probed snapshot.
 - [ ] **Live source health and breadth.** A live refresh from this commit
   returned partial results: `skills.sh/api/skills` and the awesome-list URL
-  both returned HTTP 404, the MCP registry returned zero servers, and only the
-  GitHub search source produced candidates. Re-verify/replace the failing
-  endpoints and add the spec's npm/PyPI metadata and harness-native marketplace
-  sources. A snapshot with unexplained source failures must not be approved.
+  both returned HTTP 404, while the GitHub and MCP registry sources produced
+  candidates. The MCP parser now handles the real v0 shape; re-verify/replace the
+  two 404 endpoints and add the spec's npm/PyPI metadata and harness-native
+  marketplace sources. A snapshot with unexplained source failures must not be
+  approved.
 - [ ] **Curated auto-install policy.** The design describes automatic install for
   "verified/curated" sources; the v0.1 writers accept only `verified` and emit a
   recipe for `curated`. Align the written policy and the implementation before
@@ -125,26 +181,33 @@ These are release blockers for a stable `1.0`, not for `0.1.0`:
   live verification plus review flips `installVerified`. OpenCode and Claude Code
   writers are fixture/mutation tested; a live smoke test in a disposable home
   before v1.0 is still expected.
-- [ ] **Compatibility wired into scoring.** Adapter compatibility is displayed and
-  hard-gated only at zero; it is not yet multiplied into the recommendation score
-  in `recommend`.
 - [ ] **Interactive CLI default.** The spec describes an interactive CLI mode by
   default; 0.1.0 requires flags and delegates conversation to the harness skill.
-- [ ] **Separate `discoverConfig` adapter method.** Config discovery currently
-  happens inside `detect`/`inventory`; the spec's adapter contract lists
-  `discoverConfig` explicitly.
+- [ ] **Adapter contract alignment (`discoverConfig`, `fixtures`).** Config
+  discovery currently happens inside `detect`/`inventory`, and fixtures are
+  test-side repository data rather than an adapter method. Add the spec's
+  `discoverConfig`/`fixtures` surface or amend the design before v1.0.
+- [ ] **Claude plugin marketplace automation.** Claude Code plugin plans are
+  recipe-only because writing `enabledPlugins` does not install anything.
+  Implement the documented marketplace/plugin install flow with a fresh-plugin
+  fixture, or keep plugins recipe-only at v1.0.
 - [ ] **Claude marketplace metadata query.** Claude Code inventory reads
   marketplace references from local config but does not query marketplace
   metadata; add the query (or amend the design) before v1.0.
+- [ ] **OpenCode JSONC comment-preserving writer.** OpenCode plugin/MCP config
+  writes are recipe-only when `opencode.jsonc` exists. Add a comment-preserving
+  JSONC editor (or keep the recipe-only path at v1.0).
+- [ ] **Permission and environment-variable metadata.** Plans print explicit
+  `unknown` for permission/env-var names because registry records do not carry
+  them. Collect and surface them from probed manifests before v1.0.
 - [ ] **Coverage gates.** The spec's minimum 85% line coverage on core and 100% on
   rollback/write paths is not yet measured/enforced in CI.
 - [ ] **Local observability.** No persistent local log/retention implementation
   yet; the no-telemetry promise holds, but the target
   `~/.plugin-detector/logs` with documented retention is pending.
-- [ ] **Recommendation contract completeness.** `fit`, `credibility`,
-  `compatibility`, and `estimated_context_cost` are exposed through
-  score/explain components rather than all being first-class fields in the
-  recommendation schema.
+- [ ] **Recommendation contract completeness.** `fit`, `credibility`, and
+  `estimated_context_cost` are exposed through score/explain components rather
+  than all being first-class fields in the recommendation schema.
 - [ ] **Independent benchmark label review.** The 30 fixtures and owner-review
   protocol exist; an additional reviewer's sign-off is still pending.
 - [ ] **Release operations.** Signed `v1.0.0` tag, configured `NPM_TOKEN`/OIDC
@@ -155,8 +218,11 @@ These are release blockers for a stable `1.0`, not for `0.1.0`:
 
 - `recommend` requires `--use-case`; it does not yet run an interactive wizard.
 - Registry refresh uses public sources but their APIs/shapes can change; failures
-  are isolated per source and never silently re-stamped as fresh.
+  are isolated per source and never silently re-stamped as fresh. Live refresh
+  records are unprobed, excluded from recommendations, and recipe-only.
 - Cursor's MCP/skill/rule support is experimental.
+- Claude Code plugins and OpenCode plugin/MCP writes into JSONC configs are
+  recipe-only in v0.1.
 - The Codex TOML reader intentionally supports a subset of TOML and reports the
   file as partial rather than guessing when it sees unsupported syntax.
 - Scores are editorial estimates, not calibrated probabilities.

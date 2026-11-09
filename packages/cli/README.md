@@ -6,9 +6,12 @@ installs only with explicit consent.
 ```bash
 npx plugin-detector inventory
 npx plugin-detector recommend --use-case software-development --signal tsconfig
-npx plugin-detector plan --candidate <id> --harness opencode --out plan.json
-npx plugin-detector approve --candidate <id> --plan-file plan.json
-npx plugin-detector install --plan-file plan.json --candidate <id> --harness opencode
+npx plugin-detector plan --candidate CANDIDATE_ID --harness opencode --out plan.json
+npx plugin-detector approve --candidate CANDIDATE_ID --plan-file plan.json
+# approve prints a single-use token once; pass that token to install
+npx plugin-detector install --plan-file plan.json --candidate CANDIDATE_ID \
+  --harness opencode --approval-token TOKEN_FROM_APPROVE
+npx plugin-detector rollback --plan-file plan.json
 ```
 
 The packaged CLI is deterministic, sends no telemetry, and never installs an

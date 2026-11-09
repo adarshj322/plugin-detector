@@ -33,9 +33,14 @@ npx plugin-detector explain CANDIDATE_ID
 # Produce an install plan for a candidate you accepted (no writes)
 npx plugin-detector plan --candidate CANDIDATE_ID --harness opencode --out plan.json
 
-# Approve that exact plan (prints a single-use token once), then install it
+# Approve that exact plan. It prints a single-use token once; copy it.
 npx plugin-detector approve --candidate CANDIDATE_ID --plan-file plan.json
-npx plugin-detector install --plan-file plan.json --candidate CANDIDATE_ID --harness opencode
+# Then install with the token the approve step printed.
+npx plugin-detector install --plan-file plan.json --candidate CANDIDATE_ID \
+  --harness opencode --approval-token TOKEN_FROM_APPROVE
+
+# Undo an applied plan: restores every backed-up preimage
+npx plugin-detector rollback --plan-file plan.json
 
 # Optional: install the CLI globally
 npm install --global plugin-detector
@@ -58,8 +63,8 @@ legitimately return `no-good-candidates` until a reviewed refresh is committed
 
 | Harness | Detection & inventory | Automatic install (v0.1) | Notes |
 | --- | --- | --- | --- |
-| **OpenCode** | Yes | Verified candidates only; tested writer | Skills via the documented skills CLI; plugins/MCP through config merge. Recipe fallback otherwise. |
-| **Claude Code** | Yes | Verified candidates only; tested writer | Skills, plugins (`enabledPlugins`), and project MCP servers. Recipe fallback otherwise. |
+| **OpenCode** | Yes | Verified candidates only; tested writer | Skills via the documented skills CLI; plugins/MCP through a JSON config merge. A JSONC config is recipe-only so comments are never destroyed. |
+| **Claude Code** | Yes | Skills/project MCP only; tested writer | Skills and project MCP servers. Plugins are **recipe-only**: Claude's marketplace flow is required, and writing `enabledPlugins` alone does not install a plugin. |
 | **Codex** | Yes | **Recipe-only** — no automatic writes | Full research/inventory; `applyPlan` refuses until live verification flips `installVerified`. |
 | **Cursor** | Yes | **Recipe-only** — no automatic writes | Full research/inventory; MCP is the documented path, while skills/rules/commands are experimental; `applyPlan` refuses. |
 
@@ -83,16 +88,21 @@ npx plugin-detector recommend --use-case design-frontend --harness cursor
   **read-only** by default. They never write harness config or install anything.
   `plan --out <file>` writes only the plan file you explicitly request.
 - The commands that write are `registry refresh` (cache/snapshot update),
-  `approve` (the one-shot token store), and a consented `install`. `install`
-  refuses unless the plan re-derives exactly from the registry snapshot and a
-  valid one-shot token or interactive TTY confirmation is present.
+  `approve` (the one-shot token store), a consented `install`, and `rollback`
+  (restores the exact preimages a plan recorded). `install` refuses unless the
+  plan re-derives exactly from the registry snapshot, the candidate's artifact
+  was actually probed, and a valid one-shot token or interactive TTY
+  confirmation is present.
 - `approve` prints the token **once** so it can be handed to `install`. The token
   is candidate-scoped and bound to the `sha256` of the **complete** plan
   (candidate, harness, operations, backup refs, and rollback operations),
   single-use, and short-lived (default 10 minutes, maximum 30).
 - **Unverified candidates never auto-install.** `plan` prints a manual recipe
   with the exact commands, files, permissions, side effects, and rollback steps
-  instead of a write plan.
+  instead of a write plan. The plan/consent surface prints the source, canonical
+  URL, artifact type, pinned ref, license, trust evidence, permission and
+  environment-variable names, and expected side effects; metadata the registry
+  does not collect is printed as explicit `unknown`.
 - Secrets are represented by environment-variable **name only**. Values are never
   read, written, or logged.
 - Every managed write backs up the preimage, validates after writing, and restores
@@ -123,8 +133,9 @@ estimates:
 Scores are **editorial estimates**, not calibrated probabilities. The component
 breakdown is printed verbatim so you can disagree with it. Candidate descriptions
 are treated as untrusted data and are hidden behind `explain --show-untrusted`.
-Compatibility is displayed and hard-gated only at zero in 0.1.0; it is not yet
-multiplied into the recommendation score (a tracked v1.0 gate).
+Adapter compatibility is a real 0–1 factor in the score and zero compatibility
+is a hard gate, so an artifact the selected harness cannot install can never be
+`required`.
 
 `recommend --json`, `explain --json`, `plan --json`, `inventory --json`,
 `approve --json`, and `install --json` emit Zod-validated structures for the
@@ -189,7 +200,16 @@ The repository currently ships a **seed snapshot** at
 schema, and offline behavior are exercised; it is not a recommendation corpus.
 
 With the seed snapshot, `recommend` honestly returns `no-good-candidates` rather
-than inventing output. To build a real snapshot:
+than inventing output. Live refresh records are marked **unprobed** (the source
+listing declares an artifact, but no manifest or package metadata was fetched);
+they stay visible to `explain` and in the refresh manifest but are excluded from
+`recommend` and can never produce a write plan. v0.1 auto-install therefore
+requires a manually reviewed, probed snapshot; live-refresh output is
+research/recipe material only until live artifact probing lands (v1.0 gate).
+The local `registry-manifest.json` records rejected intake for the latest refresh
+run only.
+
+To build a real snapshot:
 
 ```bash
 npm run registry:refresh   # live public sources; writes the snapshot + local manifest
@@ -214,7 +234,9 @@ snapshot with unexplained source failures.
 The release-blocking benchmark covers **30 labeled workflows** across six domains
 (software development, video/media, research/writing, data, infrastructure, and
 design/frontend). CI scores every candidate through the production scorer and
-compares precision@5 against a frozen popularity-only baseline:
+compares precision@5 against a frozen popularity-only baseline of twelve real,
+high-star repositories (owner-reviewed capability labels, stars recorded
+2026-11-09):
 
 - mean precision@5 floor: **0.80**
 - every workflow must **strictly beat** the baseline (a tie is not a beat)

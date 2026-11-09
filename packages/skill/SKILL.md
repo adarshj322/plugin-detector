@@ -63,7 +63,11 @@ do not edit harness config files by hand when a CLI command owns that write.
    token nor a TTY, install refuses. Install requires the token or
    interactive TTY confirmation — never install unapproved or unverified
    candidates automatically, and never execute candidate code (skills,
-   plugins, hooks, install scripts) to "try it out".
+   plugins, hooks, install scripts) to "try it out". A candidate marked
+   unprobed (live-refresh records in v0.1) never produces a write plan.
+9. **Keep rollback available.** After a successful install, tell the user
+   they can restore every backed-up preimage with
+   `plugin-detector rollback --plan-file plan.json`.
 
 ## Safety rules
 

@@ -57,9 +57,13 @@ to beat the baseline makes the command exit 1, which fails CI.
   `unacceptableIds` (popular-but-irrelevant) or have no relevant capability
   (low-value). Every offender is printed in the workflow line and as a `fail:`
   line; the gate fails on any of them.
-- **Baseline**: `baselines/popular-repo.json` is a hand-frozen pool of the most
-  popular repos by raw stars, with **no fit filtering**. The benchmark ranks it
-  by stars, takes the top 5, and scores those on identical fixtures. A workflow
+- **Baseline**: `baselines/popular-repo.json` is a hand-frozen pool of twelve
+  real, genuinely popular repositories (for example Linux, React, VS Code,
+  Kubernetes, Playwright), with **no fit filtering**. IDs and names are the real
+  repositories; star counts were recorded 2026-11-09; capability labels are
+  owner-reviewed editorial labels for what each project offers, not fit labels.
+  The benchmark ranks the pool by raw stars, takes the top 5, and scores those on
+  identical fixtures. A workflow
   "beats" the baseline only when the engine's precision@5 is strictly `>` the
   baseline's (a tie is not a beat — the gate recomputes this rather than trusting
   a precomputed flag). The gate also fails when mean precision@5 drops below
@@ -114,8 +118,10 @@ review; they are never an input to scoring.
    offender must be justified, not silenced by weakening the gate.
 4. **Changing the baseline** follows the same rule: `popular-repo.json` is
    frozen. Any regeneration or edit needs a `note` update, a rationale in the
-   commit, and owner review. It must remain a pure popularity ranking with no
-   fit filtering, or the comparison becomes meaningless.
+   commit, and owner review. It must remain a pure popularity ranking of real
+   repositories with no fit filtering, or the comparison becomes meaningless.
+   Star counts are a frozen snapshot, not a live metric; refresh them only with
+   a new `frozenAt` and a review note.
 
 ## Interpreting the report
 
@@ -124,7 +130,8 @@ Each workflow line shows `precision@5`, `baseline`, `beat`/`FAIL`, and any
 mean baseline, and total offenders. A `FAIL` or any `offenders=` value means the
 engine surfaced a low-value candidate or did not strictly beat popularity-only
 ranking; CI with `--fail-on-low-value` exits 1. The gate itself enforces: zero
-offenders, every workflow strictly beating the baseline, and mean precision@5
+offenders, no missing expected `required` / `redundant` / `useful-optional`
+labels, every workflow strictly beating the baseline, and mean precision@5
 >= 0.8. `packages/cli/test/benchmark.test.ts` asserts the same bars on the
 shipped corpus, `packages/cli/test/entry.test.ts` guards CLI auto-run through
 the bin symlink, and `packages/cli/test/workspace-lock.test.ts` guards the

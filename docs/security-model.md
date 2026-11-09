@@ -56,6 +56,9 @@ that write are:
 - `plan --out <file>` — writes the plan file the user explicitly requested
 - `approve` — writes a one-shot approval token under the state directory
 - `install` — applies an approved plan, with backup and rollback
+- `rollback --plan-file <file>` — restores the exact preimages recorded by an
+  applied plan (it never installs anything and cannot touch a path the plan did
+  not back up)
 
 There is no daemon, cron job, hook on every message, background watcher, or
 scheduled polling in v1. The skill runs only when the user asks.
@@ -66,17 +69,20 @@ The CLI cannot judge natural language, so "explicit approval" is enforced by
 separation of capability:
 
 1. The skill runs `plugin-detector plan --candidate <id> --harness <name>` and
-   shows the exact plan: source, canonical URL, artifact type, destination,
-   commands/config changes, files that will change, required permissions and
-   environment-variable **names**, side effects, rollback, and why the candidate
-   is (or is not) verified.
+   shows the exact plan: source, canonical URL, artifact type, pinned ref,
+   license, trust evidence, destination, commands/config changes, files that
+   will change, required permissions and environment-variable **names**, side
+   effects, rollback, and why the candidate is (or is not) verified. Metadata
+   the registry does not collect is printed as explicit `unknown`, never
+   omitted; a source-declared artifact that was never probed is forced to a
+   manual recipe.
 2. Only after the user approves that exact plan does the skill call
    `plugin-detector approve --candidate <id> --plan <sha256>` (or
    `--plan-file plan.json`). The hash covers the **complete** plan: candidate,
    harness, operations, backup refs, and rollback operations.
 3. `install` re-derives the expected plan from the registry snapshot and the
-   adapter, requires `--candidate` and `--harness`, and rejects an unverified
-   candidate or a hash mismatch **before** consuming the token. It then requires
+   adapter, requires `--candidate` and `--harness`, and rejects an unprobed or
+   unverified candidate or a hash mismatch **before** consuming the token. It then requires
    the matching token (`--approval-token` or
    `PLUGIN_DETECTOR_APPROVAL_TOKEN`) or an interactive TTY confirmation. A
    non-TTY process without a token refuses and writes nothing.
@@ -102,7 +108,19 @@ A candidate that does not clear the verified policy is still visible, but:
 - no candidate code is executed to "try it out".
 
 Popularity alone can never promote a candidate to verified or trigger a write.
-Codex and Cursor are entirely recipe-only in v0.1 regardless of trust.
+Codex and Cursor are entirely recipe-only in v0.1 regardless of trust. Claude
+Code plugins are recipe-only because the marketplace/plugin flow, not an
+`enabledPlugins` flag, is what installs them. OpenCode plugin/MCP config writes
+are recipe-only when an `opencode.jsonc` exists, because the merge writer cannot
+preserve comments.
+
+Live refresh in v0.1 does not probe each candidate's manifest or package
+metadata. Its records are marked unprobed and source-declared: they can be
+inspected with `explain` but are excluded from `recommend` and can never produce
+a write plan. Automatic install requires a manually reviewed, probed snapshot.
+The MCP registry parser accepts the live v0 schema and maps repository, package,
+and remote metadata; a non-empty payload that maps to zero records is a source
+failure, and the previous snapshot entries are preserved.
 
 ## Secrets are environment names only
 
@@ -164,9 +182,11 @@ for scope, response targets, and safe-harbor terms.
 These are tracked as v1.0 gates in the changelog:
 
 - no persistent local log/retention implementation yet;
-- adapter compatibility is displayed and hard-gated only at zero, not multiplied
-  into the score in `recommend`;
-- Codex and Cursor mutation is recipe-only;
+- live artifact probing is not implemented; live refresh records are unprobed,
+  excluded from recommendations, and recipe-only until a reviewed snapshot is
+  curated;
+- Codex and Cursor mutation is recipe-only; Claude Code plugins and OpenCode
+  plugin/MCP writes into JSONC configs are recipe-only;
 - the bundled registry snapshot is a seed/placeholder until a reviewed live
   refresh is committed;
 - coverage thresholds (85% core / 100% rollback/write paths) are not yet enforced
