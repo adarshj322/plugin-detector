@@ -367,6 +367,35 @@ test("install rejects a legacy verified snapshot without artifact evidence", asy
   assert.ok(!existsSync(join(root, "opencode.json")));
 });
 
+test("install rejects a packageName that evidence does not own", async () => {
+  const plan = pluginPlan();
+  writePlan(plan);
+  const mismatched = CandidateSchema.parse({
+    ...candidate("c1"),
+    packageName: "evil-mcp",
+  });
+  writeSnapshot([{ candidate: mismatched, trust: "verified" }]);
+  const { errors } = await capture(() =>
+    install([
+      "--plan-file",
+      planFile,
+      "--candidate",
+      "c1",
+      "--harness",
+      "opencode",
+      "--cache-dir",
+      cacheDir,
+      "--home",
+      home,
+      "--root",
+      root,
+    ]),
+  );
+  assert.ok(errors.some((line) => line.includes("package-mismatch")));
+  assert.ok(!errors.join("\n").includes("npx evil-mcp"));
+  assert.ok(!existsSync(join(root, "opencode.json")));
+});
+
 test("install rejects a plan for a different candidate than --candidate", async () => {
   const plan = pluginPlan();
   writePlan(plan);

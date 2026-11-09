@@ -553,6 +553,9 @@ export async function refreshSnapshot(
   // Preserved prior records must never beat a fresh probe for the same id.
   const preservedEntries = new Set<SnapshotEntry>();
   const freshProbedIds = new Set<string>();
+  // Run-level hard rejections: no preservation path may resurrect these ids.
+  // A fresh probe from another source is the only way back in this run.
+  const hardRejectedIds = new Set<string>();
   const failures: Record<string, string> = {};
   const manifestSources: CacheManifest["sources"] = {};
   const rejected: NonNullable<CacheManifest["rejected"]> = [];
@@ -570,6 +573,7 @@ export async function refreshSnapshot(
           (p) => p.sourceUrl === fetcher.url,
         );
         for (const p of kept) {
+          if (hardRejectedIds.has(p.id)) continue;
           const candidate = prevById.get(p.id);
           if (candidate) {
             const entry: SnapshotEntry = {
@@ -618,7 +622,9 @@ export async function refreshSnapshot(
         probed: boolean;
       } => {
         const prior = priorEntry(id);
-        if (prior === undefined) return { probed: false };
+        if (prior === undefined || hardRejectedIds.has(id)) {
+          return { probed: false };
+        }
         preservedEntries.add(prior);
         return { entry: prior, probed: false };
       };
@@ -639,7 +645,11 @@ export async function refreshSnapshot(
             ? {}
             : { pinnedRef: stamped.pinnedRef }),
         });
-        return isTransientProbeError(err) ? keepPrior() : { probed: false };
+        if (isTransientProbeError(err)) {
+          return keepPrior();
+        }
+        hardRejectedIds.add(id);
+        return { probed: false };
       }
 
       let candidate: NormalizedCandidate;
@@ -658,12 +668,14 @@ export async function refreshSnapshot(
             ? {}
             : { pinnedRef: stamped.pinnedRef }),
         });
+        hardRejectedIds.add(id);
         return { probed: false };
       }
 
       if (candidate.artifactEvidence === undefined) {
         // Listing-only record: visible in the manifest, never in the snapshot.
-        // A fresh listing without evidence also supersedes the prior record.
+        // A fresh listing without evidence also supersedes the prior record
+        // and blocks preservation from other sources this run.
         unprobed.push({
           id: candidate.id,
           reason:
@@ -674,6 +686,7 @@ export async function refreshSnapshot(
             ? {}
             : { pinnedRef: candidate.pinnedRef }),
         });
+        hardRejectedIds.add(candidate.id);
         return { probed: false };
       }
 
@@ -728,7 +741,8 @@ export async function refreshSnapshot(
         if (
           provenance.sourceUrl !== fetcher.url ||
           handledIds.has(provenance.id) ||
-          freshIdsHere.has(provenance.id)
+          freshIdsHere.has(provenance.id) ||
+          hardRejectedIds.has(provenance.id)
         ) {
           continue;
         }
@@ -766,7 +780,13 @@ export async function refreshSnapshot(
   // Stale merge: candidates whose source did not refresh keep their stored
   // candidate (and its lastVerified age) untouched.
   for (const p of prev?.provenance ?? []) {
-    if (refreshedUrls.has(p.sourceUrl) || freshIds.has(p.id)) continue;
+    if (
+      refreshedUrls.has(p.sourceUrl) ||
+      freshIds.has(p.id) ||
+      hardRejectedIds.has(p.id)
+    ) {
+      continue;
+    }
     const candidate = prevById.get(p.id);
     if (!candidate) continue;
     const entry: SnapshotEntry = {
@@ -780,14 +800,15 @@ export async function refreshSnapshot(
   }
 
   // A fresh probe is the current truth: any older preserved record for the
-  // same id is removed before dedupe so stale trust cannot win.
-  const currentEntries = entries.filter(
-    (entry) =>
-      !(
-        preservedEntries.has(entry) &&
-        freshProbedIds.has(entry.candidate.id)
-      ),
-  );
+  // same id is removed before dedupe so stale trust cannot win. A run-level
+  // hard rejection removes every non-fresh entry for that id, regardless of
+  // which source supplied or preserved it.
+  const currentEntries = entries.filter((entry) => {
+    const id = entry.candidate.id;
+    if (preservedEntries.has(entry) && freshProbedIds.has(id)) return false;
+    if (hardRejectedIds.has(id) && !freshProbedIds.has(id)) return false;
+    return true;
+  });
 
   // Snapshot and limit apply to probed records only; unprobed candidates are
   // manifest evidence, not snapshot entries.

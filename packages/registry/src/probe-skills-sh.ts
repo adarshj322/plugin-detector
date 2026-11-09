@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { ArtifactEvidence, RawCandidate } from "./probe.js";
-import { type HttpGetter } from "./sources/http.js";
+import { type HttpGetter, SourceHttpError } from "./sources/http.js";
 import { SKILLS_SH_LIMITER, skillsShGet } from "./sources/skills-sh.js";
 
 export const SKILLS_SH_DOWNLOAD_URL = "https://skills.sh/api/download";
@@ -202,6 +202,18 @@ export async function probeSkillsSh(
     // limiter of its own. Wrap exactly once here.
     text = (await SKILLS_SH_LIMITER.run(() => get(url))).text;
   } catch (error) {
+    // A missing skill is a hard rejection; only transport/timeout/throttle/
+    // server failures are transient.
+    if (
+      error instanceof SourceHttpError &&
+      (error.status === 404 || error.status === 410)
+    ) {
+      throw new SkillsShProbeError(
+        id,
+        "ARTIFACT_MISSING",
+        `download returned HTTP ${error.status}`,
+      );
+    }
     throw new SkillsShProbeError(
       id,
       "ARTIFACT_UNAVAILABLE",

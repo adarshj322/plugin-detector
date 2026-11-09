@@ -81,8 +81,9 @@ separation of capability:
    `--plan-file plan.json`). The hash covers the **complete** plan: candidate,
    harness, operations, backup refs, and rollback operations.
 3. `install` re-derives the expected plan from the registry snapshot and the
-   adapter, requires `--candidate` and `--harness`, and rejects an unprobed or
-   unverified candidate or a hash mismatch **before** consuming the token. It then requires
+   adapter, requires `--candidate` and `--harness`, and rejects an unprobed,
+   unverified, or package-identity-mismatched candidate or a hash mismatch
+   **before** consuming the token. It then requires
    the matching token (`--approval-token` or
    `PLUGIN_DETECTOR_APPROVAL_TOKEN`) or an interactive TTY confirmation. A
    non-TTY process without a token refuses and writes nothing.
@@ -124,6 +125,9 @@ the snapshot and recorded in the manifest. A transient source failure
 `lastVerified` age instead. Listing-only records are recorded as `unprobed`
 and can never produce a write plan. Automatic install requires a manually
 reviewed, probed snapshot.
+A first refresh that yields zero candidates does not write an empty snapshot
+over the bundled fallback; the manifest still records every rejected or
+unprobed listing.
 Publisher trust is bound to the probed artifact: repository evidence must name
 the claimed GitHub owner/repo, and any package claim must match the package the
 probe itself observed. Listing-supplied package names that evidence cannot

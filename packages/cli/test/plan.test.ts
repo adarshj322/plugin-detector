@@ -146,7 +146,11 @@ beforeEach(() => {
     { candidate: candidate("k1"), trust: "curated" },
     {
       candidate: (() => {
-        const { artifactEvidence: _evidence, ...unprobed } = candidate("p1");
+        const {
+          artifactEvidence: _evidence,
+          packageName: _packageName,
+          ...unprobed
+        } = candidate("p1");
         return CandidateSchema.parse({ ...unprobed, artifactProbed: false });
       })(),
       trust: "verified",
@@ -268,13 +272,51 @@ test("plan refuses a write for an unprobed candidate even if trust says verified
 });
 
 test("plan refuses a write for a legacy verified snapshot without evidence", async () => {
-  const { artifactEvidence: _evidence, ...legacy } = candidate("l1");
+  const {
+    artifactEvidence: _evidence,
+    packageName: _packageName,
+    ...legacy
+  } = candidate("l1");
   writeSnapshot([{ candidate: legacy, trust: "verified" }]);
   const { logs } = await capture(() => plan(planArgs("l1")));
   const payload = PlanJsonSchema.parse(JSON.parse(logs.join("\n")) as unknown);
   assert.equal(payload.facts.status, "recipe");
   assert.ok(payload.facts.plan.operations.every((op) => op.kind === "recipe"));
   assert.match(payload.facts.recipe ?? "", /not verified/);
+});
+
+test("plan rejects a packageName that the probed evidence does not own", async () => {
+  const mismatched = CandidateSchema.parse({
+    ...candidate("m1"),
+    packageName: "evil-mcp",
+  });
+  writeSnapshot([{ candidate: mismatched, trust: "verified" }]);
+  let code = 0;
+  const { logs, errors } = await capture(async () => {
+    code = (await plan(planArgs("m1"))).exitCode;
+  });
+  assert.equal(code, 4);
+  assert.ok(errors.some((line) => /package/i.test(line)));
+  assert.ok(!logs.join("\n").includes("npx evil-mcp"));
+  assert.ok(!errors.join("\n").includes("npx evil-mcp"));
+});
+
+test("plan rejects a legacy verified snapshot with an unverifiable packageName", async () => {
+  const { artifactEvidence: _evidence, ...legacy } = candidate("l2");
+  const unverifiable = CandidateSchema.parse({
+    ...legacy,
+    packageName: "evil-mcp",
+    repositoryUrl: "https://github.com/openai/openai-node",
+  });
+  writeSnapshot([{ candidate: unverifiable, trust: "verified" }]);
+  let code = 0;
+  const { logs, errors } = await capture(async () => {
+    code = (await plan(planArgs("l2"))).exitCode;
+  });
+  assert.equal(code, 4);
+  assert.ok(errors.some((line) => /package/i.test(line)));
+  assert.ok(!logs.join("\n").includes("npx evil-mcp"));
+  assert.ok(!errors.join("\n").includes("npx evil-mcp"));
 });
 
 test("plan output states source, artifact, license, trust evidence, permissions, and side effects", async () => {

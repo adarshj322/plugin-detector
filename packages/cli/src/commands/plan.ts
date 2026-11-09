@@ -4,6 +4,7 @@ import {
   planHash,
   recipeText,
 } from "@plugin-detector/core";
+import { packageNameMatchesEvidence } from "@plugin-detector/registry";
 import { PlanJsonSchema, printJson, printSection } from "../output.js";
 import { consentMetadata } from "./consent-metadata.js";
 import { buildAdapters, findSnapshotCandidate } from "./inventory.js";
@@ -100,7 +101,18 @@ export async function plan(argv: string[]): Promise<PlanResult> {
 
   // A source-declared artifact that was never probed cannot produce a write
   // plan even if a snapshot wrongly labels it verified. Legacy snapshots
-  // without artifactEvidence are unprobed.
+  // without artifactEvidence are unprobed. A package claim is only usable
+  // when the probed artifact itself declared that package; otherwise refuse
+  // before the adapter can turn it into an install command.
+  if (
+    resolved.candidate.packageName !== undefined &&
+    !packageNameMatchesEvidence(resolved.candidate)
+  ) {
+    console.error(
+      `refusing candidate "${candidateId}": package name is not confirmed by probed artifact evidence`,
+    );
+    return { exitCode: 4 };
+  }
   const probed = resolved.candidate.artifactEvidence !== undefined;
   const installPlan = adapter.installPlan(
     resolved.candidate,

@@ -49,6 +49,7 @@ function candidate(): Candidate {
       contentHash: "a".repeat(64),
       license: "MIT",
       name: "Rollback One",
+      packageName: "@ex/rb1",
       capabilities: [],
       evidenceSnippets: ["name: Rollback One"],
       retrievedAt: "2026-11-08T00:00:00.000Z",

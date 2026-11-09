@@ -30,11 +30,14 @@ else, including `curated` and every source-declared unprobed refresh record,
 gets a manual recipe. Codex and Cursor never write in v0.1: their `applyPlan`
 throws until live verification plus review flips `installVerified`.
 
-v0.1 live refresh does not fetch each candidate's manifest/package metadata, so
-its records are marked unprobed: they are excluded from `recommend` and can never
-reach a write plan. Automatic install in v0.1 therefore requires a manually
-reviewed, probed snapshot. A publisher/official source policy plus live artifact
-probing is an explicit v1.0 gate.
+Live refresh now fetches each candidate's manifest or package metadata. Only
+candidates with real artifact evidence enter the snapshot; listing-only records
+are kept in the manifest as `unprobed` and can never reach a write plan. A hard
+probe/normalize rejection removes any prior record for that id, while a
+transient source failure preserves the prior evidence at its old age. Automatic
+install still requires a manually reviewed, probed snapshot. A package claim is
+also revalidated at plan/install time against the probed artifact, so a stored
+`verified` label cannot turn an unrelated `packageName` into an install source.
 
 ## OpenCode
 

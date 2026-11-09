@@ -210,6 +210,20 @@ function packageOwnedBy(
   return NPM_SCOPE_OWNERS[scope]?.includes(owner) === true;
 }
 
+// Consumption-side guard: a stored package claim may be used only when the
+// fetched artifact itself declared the same package. Missing evidence means
+// the claim is unverifiable, not trusted.
+export function packageNameMatchesEvidence(candidate: Candidate): boolean {
+  const claimed = candidate.packageName;
+  if (claimed === undefined) return true;
+  const evidence = candidate.artifactEvidence;
+  if (evidence === undefined || evidence.packageName === undefined) return false;
+  return candidate.packageRegistry === "pypi"
+    ? normalizePypiName(claimed) === normalizePypiName(evidence.packageName)
+    : claimed.trim().toLowerCase() ===
+        evidence.packageName.trim().toLowerCase();
+}
+
 // Publisher identity is only as good as the artifact actually fetched: the
 // evidence URL must name the same GitHub repo (raw or skills.sh), or the same
 // registry package when the package scope maps to that repo owner. A claimed
@@ -232,12 +246,7 @@ export function publisherMatchesProbe(candidate: Candidate): boolean {
     }
     // Repository evidence must also cover any package claim: a listing cannot
     // attach an unrelated package to an official repo and have it installed.
-    if (candidate.packageName === undefined) return true;
-    if (evidence.packageName === undefined) return false;
-    return (
-      candidate.packageName.trim().toLowerCase() ===
-      evidence.packageName.trim().toLowerCase()
-    );
+    return packageNameMatchesEvidence(candidate);
   }
   const probedPackage = evidencePackage(evidence.sourceUrl);
   if (probedPackage === undefined) return false;

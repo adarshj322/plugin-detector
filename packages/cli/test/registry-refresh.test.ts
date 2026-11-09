@@ -79,3 +79,11 @@ test("registry refresh reports the snapshot candidate count", async () => {
   });
   assert.equal(result.message, "registry refreshed 0 candidates");
 });
+
+test("registry refresh reports when an empty snapshot was not written", async () => {
+  const result = await registryRefresh([], {
+    refresh: async () => ({ ...emptyResult(), written: false }),
+  });
+  assert.match(result.message, /no snapshot written/i);
+  assert.match(result.message, /registry-manifest\.json/);
+});

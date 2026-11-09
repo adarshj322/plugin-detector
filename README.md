@@ -229,10 +229,12 @@ The release workflow fails `v1.*` tags when the snapshot is empty, still carries
 the seed timestamp, or has provenance that does not cover every candidate.
 
 A refresh isolates per-source failures and exits 0 when at least one source
-succeeds. The local `registry-manifest.json` records which sources failed,
-which candidates were rejected at intake, and which were successfully listed
-but unprobed. Review that manifest; do not approve a snapshot with unexplained
-source failures.
+succeeds. A first refresh that yields zero candidates does not write an empty
+snapshot over the bundled one; it still writes the manifest so rejected and
+unprobed listings remain reviewable. The local `registry-manifest.json` records
+which sources failed, which candidates were rejected at intake, and which were
+successfully listed but unprobed. Review that manifest; do not approve a
+snapshot with unexplained source failures.
 
 ## Recommendation benchmark
 

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
-import { NotModified } from "../src/sources/http.js";
+import { NotModified, SourceHttpError } from "../src/sources/http.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -13,9 +13,11 @@ import {
   normalizeCandidate,
   PackageProbeError,
   probeRawCandidate,
+  probeSkillsSh,
   readCacheManifest,
   refreshSnapshot,
   resolveCacheDir,
+  SkillsShProbeError,
   type RawCandidate,
 } from "../src/index.js";
 
@@ -509,6 +511,282 @@ test("a hard normalize rejection removes the previous verified candidate", async
   assert.ok(
     (manifest?.rejected ?? []).some((entry) => entry.id === "archived-prior"),
   );
+});
+
+test("skills.sh 404/410 hard rejection removes a verified prior candidate", async () => {
+  for (const status of [404, 410]) {
+    const dir = tmpCache();
+    const prior = normalizeCandidate(
+      rawCandidate({ id: "skill-gone", lastVerified: "2026-10-01T00:00:00.000Z" }),
+    );
+    writeFileSync(
+      join(dir, "registry-snapshot.json"),
+      JSON.stringify(
+        buildSnapshot(
+          [{ candidate: prior, sourceUrl: SOURCE_URL, trust: "verified" }],
+          new Date("2026-10-01T00:00:00.000Z"),
+        ),
+      ),
+    );
+    const result = await refreshSnapshot({
+      cacheDir: dir,
+      now: NOW,
+      probe: (raw, sourceId) =>
+        probeRawCandidate(raw, sourceId, {
+          probeSkillsSh: (listingRaw) =>
+            probeSkillsSh(listingRaw, async () => {
+              throw new SourceHttpError(
+                "https://skills.sh/api/download/acme/skill-gone/skill-gone",
+                status,
+                false,
+                `GET failed with status ${status}`,
+              );
+            }),
+        }),
+      fetchers: [
+        {
+          id: "skills-sh",
+          url: SOURCE_URL,
+          fetch: async () => ({
+            raws: [
+              rawCandidate({
+                id: "skill-gone",
+                artifact: {
+                  kind: "skill",
+                  file: "SKILL.md",
+                  artifactId: "skill-gone",
+                },
+                artifactProbe: undefined,
+                artifactProbed: false,
+                repositoryUrl: "https://github.com/acme/skill-gone",
+                registryUrl: undefined,
+              }),
+            ],
+          }),
+        },
+      ],
+    });
+    assert.equal(result.ok, true, String(status));
+    assert.deepEqual(result.snapshot?.candidates, [], String(status));
+  }
+});
+
+test("cross-source hard probe rejection blocks preservation from every path", async () => {
+  const scenarios: Array<{
+    name: string;
+    fetchB: () => Promise<{ raws: RawCandidate[]; partial?: boolean; failures?: Array<{ query: string; error: string }> }>;
+  }> = [
+    {
+      name: "partial",
+      fetchB: async () => ({
+        raws: [],
+        partial: true,
+        failures: [{ query: "q", error: "timeout" }],
+      }),
+    },
+    {
+      name: "304",
+      fetchB: async () => {
+        throw new NotModified("https://example.com/source-b");
+      },
+    },
+    {
+      name: "failed",
+      fetchB: async () => {
+        throw new Error("source down");
+      },
+    },
+  ];
+  for (const scenario of scenarios) {
+    for (const order of ["a-first", "b-first"] as const) {
+      const dir = tmpCache();
+      const prior = normalizeCandidate(
+        rawCandidate({ id: "cross-id", lastVerified: "2026-10-01T00:00:00.000Z" }),
+      );
+      writeFileSync(
+        join(dir, "registry-snapshot.json"),
+        JSON.stringify(
+          buildSnapshot(
+            [
+              {
+                candidate: prior,
+                sourceUrl: "https://example.com/source-b",
+                trust: "verified",
+              },
+            ],
+            new Date("2026-10-01T00:00:00.000Z"),
+          ),
+        ),
+      );
+      const fetcherA = {
+        id: "source-a",
+        url: "https://example.com/source-a",
+        fetch: async () => ({ raws: [rawCandidate({ id: "cross-id" })] }),
+      };
+      const fetcherB = {
+        id: "source-b",
+        url: "https://example.com/source-b",
+        fetch: scenario.fetchB,
+      };
+      const result = await refreshSnapshot({
+        cacheDir: dir,
+        now: NOW,
+        probe: async () => {
+          throw new GithubProbeError(
+            "cross-id",
+            "ARTIFACT_MISMATCH",
+            "artifact changed",
+          );
+        },
+        fetchers: order === "a-first" ? [fetcherA, fetcherB] : [fetcherB, fetcherA],
+      });
+      assert.equal(result.ok, true);
+      assert.deepEqual(
+        result.snapshot?.candidates,
+        [],
+        `${scenario.name}/${order}`,
+      );
+    }
+  }
+});
+
+test("cross-source normalize hard rejection also blocks preservation", async () => {
+  for (const order of ["a-first", "b-first"] as const) {
+    const dir = tmpCache();
+    const prior = normalizeCandidate(
+      rawCandidate({ id: "cross-normalize", lastVerified: "2026-10-01T00:00:00.000Z" }),
+    );
+    writeFileSync(
+      join(dir, "registry-snapshot.json"),
+      JSON.stringify(
+        buildSnapshot(
+          [
+            {
+              candidate: prior,
+              sourceUrl: "https://example.com/source-b",
+              trust: "verified",
+            },
+          ],
+          new Date("2026-10-01T00:00:00.000Z"),
+        ),
+      ),
+    );
+    const fetcherA = {
+      id: "source-a",
+      url: "https://example.com/source-a",
+      fetch: async () => ({
+        raws: [rawCandidate({ id: "cross-normalize", maintenance: "archived" })],
+      }),
+    };
+    const fetcherB = {
+      id: "source-b",
+      url: "https://example.com/source-b",
+      fetch: async () => ({
+        raws: [],
+        partial: true,
+        failures: [{ query: "q", error: "timeout" }],
+      }),
+    };
+    const result = await refreshSnapshot({
+      cacheDir: dir,
+      now: NOW,
+      probe: async (raw) => raw,
+      fetchers: order === "a-first" ? [fetcherA, fetcherB] : [fetcherB, fetcherA],
+    });
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.snapshot?.candidates, [], order);
+  }
+});
+
+test("a hard reject is only overridden by a fresh probe from another source", async () => {
+  const dir = tmpCache();
+  const prior = normalizeCandidate(
+    rawCandidate({ id: "cross-fresh", lastVerified: "2026-10-01T00:00:00.000Z" }),
+  );
+  writeFileSync(
+    join(dir, "registry-snapshot.json"),
+    JSON.stringify(
+      buildSnapshot(
+        [{ candidate: prior, sourceUrl: "https://example.com/source-a", trust: "verified" }],
+        new Date("2026-10-01T00:00:00.000Z"),
+      ),
+    ),
+  );
+  const hardSource = {
+    id: "source-a",
+    url: "https://example.com/source-a",
+    fetch: async () => ({ raws: [rawCandidate({ id: "cross-fresh" })] }),
+  };
+  const listingSource = {
+    id: "source-b",
+    url: "https://example.com/source-b",
+    fetch: async () => ({
+      raws: [
+        rawCandidate({
+          id: "cross-fresh",
+          artifactProbe: undefined,
+          artifactProbed: false,
+        }),
+      ],
+    }),
+  };
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    probe: async (raw, sourceId) => {
+      if (sourceId === "source-a") {
+        throw new GithubProbeError("cross-fresh", "ARTIFACT_MISSING", "gone");
+      }
+      return raw;
+    },
+    fetchers: [hardSource, listingSource],
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.snapshot?.candidates, []);
+
+  const freshSource = {
+    id: "source-b",
+    url: "https://example.com/source-b",
+    fetch: async () => ({ raws: [rawCandidate({ id: "cross-fresh" })] }),
+  };
+  const rerun = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    probe: async (raw, sourceId) => {
+      if (sourceId === "source-a") {
+        throw new GithubProbeError("cross-fresh", "ARTIFACT_MISSING", "gone");
+      }
+      return {
+        ...raw,
+        artifactProbe: artifactProbe("cross-fresh"),
+      };
+    },
+    fetchers: [hardSource, freshSource],
+  });
+  assert.equal(rerun.ok, true);
+  assert.equal(rerun.snapshot?.candidates[0]?.id, "cross-fresh");
+});
+
+test("probe memo avoids a duplicate fetch within the same source", async () => {
+  const dir = tmpCache();
+  let calls = 0;
+  const duplicate = rawCandidate({
+    id: "memo-id",
+    artifactProbe: undefined,
+    artifactProbed: false,
+  });
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    probe: async (raw) => {
+      calls += 1;
+      return { ...raw, artifactProbe: artifactProbe("memo-id") };
+    },
+    fetchers: [fetcherOf(SOURCE_URL, [duplicate, duplicate])],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(calls, 1);
+  assert.equal(result.snapshot?.candidates.length, 1);
 });
 
 test("a partial source keeps prior probed candidates alongside fresh ones", async () => {

@@ -11,7 +11,7 @@ import {
   type ConsentDetail,
   type InstallPlan,
 } from "@plugin-detector/core";
-import { loadSnapshot } from "@plugin-detector/registry";
+import { loadSnapshot, packageNameMatchesEvidence } from "@plugin-detector/registry";
 import { CliErrorSchema, InstallJsonSchema, printJson, printSection } from "../output.js";
 import { consentMetadata } from "./consent-metadata.js";
 import {
@@ -130,6 +130,15 @@ export async function install(argv: string[]): Promise<InstallResult> {
       "install",
       "artifact-unprobed",
       `candidate "${candidateId}" was declared by a source listing but its artifact was never probed; follow its manual recipe instead.`,
+    );
+    return { exitCode: 4 };
+  }
+  if (!packageNameMatchesEvidence(resolved.candidate)) {
+    reportBlocked(
+      json,
+      "install",
+      "package-mismatch",
+      `candidate "${candidateId}" declares a package name that its probed artifact evidence does not confirm; refusing with zero writes.`,
     );
     return { exitCode: 4 };
   }

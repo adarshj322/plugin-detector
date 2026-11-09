@@ -84,9 +84,11 @@ export async function registryRefresh(
   const count = result.snapshot?.candidates.length ?? 0;
   const failed = Object.keys(result.failures).length;
   const message =
-    failed > 0
-      ? `registry refreshed ${count} candidates with ${failed} source failure(s)`
-      : `registry refreshed ${count} candidates`;
+    count === 0 && !result.written
+      ? "registry refreshed 0 candidates; no snapshot written (see registry-manifest.json for rejected/unprobed records)"
+      : failed > 0
+        ? `registry refreshed ${count} candidates with ${failed} source failure(s)`
+        : `registry refreshed ${count} candidates`;
   console.log(message);
   return { exitCode: 0, message };
 }

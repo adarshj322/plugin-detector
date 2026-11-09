@@ -12,6 +12,7 @@ import {
   SKILLS_SH_URL,
 } from "../src/sources/skills-sh.js";
 import type { HttpGetter } from "../src/sources/http.js";
+import { SourceHttpError } from "../src/sources/http.js";
 
 const SEARCH_FIXTURE = fileURLToPath(
   new URL("../../../../fixtures/registry/skills-sh-search.json", import.meta.url),
@@ -426,6 +427,36 @@ test("download probe failures are typed and name the candidate", async () => {
     );
     assert.equal(error.candidateId, "github/awesome-copilot/mcp-cli");
     assert.ok(error.reason.length > 0);
+  }
+});
+
+test("download 404 and 410 are hard ARTIFACT_MISSING rejections", async () => {
+  for (const status of [404, 410]) {
+    const error = await probeError(
+      listing(),
+      new SourceHttpError(
+        "https://skills.sh/api/download/github/awesome-copilot/mcp-cli",
+        status,
+        false,
+        `GET failed with status ${status}`,
+      ),
+    );
+    assert.equal(error.code, "ARTIFACT_MISSING", String(status));
+  }
+});
+
+test("download throttling and server errors stay transient", async () => {
+  for (const status of [429, 500, 503]) {
+    const error = await probeError(
+      listing(),
+      new SourceHttpError(
+        "https://skills.sh/api/download/github/awesome-copilot/mcp-cli",
+        status,
+        true,
+        `GET failed with status ${status}`,
+      ),
+    );
+    assert.equal(error.code, "ARTIFACT_UNAVAILABLE", String(status));
   }
 });
 
