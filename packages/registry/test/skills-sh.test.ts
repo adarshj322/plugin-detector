@@ -8,6 +8,7 @@ import type { RawCandidate } from "../src/probe.js";
 import {
   DEFAULT_SKILL_QUERIES,
   fetchSkillsSh,
+  SKILLS_SH_LIMITER,
   SKILLS_SH_URL,
 } from "../src/sources/skills-sh.js";
 import type { HttpGetter } from "../src/sources/http.js";
@@ -178,6 +179,35 @@ test("merged query results dedupe by listing id", async () => {
   assert.equal(new Set(ids).size, ids.length);
 });
 
+test("one failed query does not discard results from the others", async () => {
+  const calls: string[] = [];
+  const fetch = await fetchSkillsSh({
+    queries: ["broken", "mcp"],
+    get: async (url) => {
+      calls.push(url);
+      if (url.includes("q=broken")) throw new Error("throttled");
+      return { text: searchText() };
+    },
+  });
+  assert.deepEqual(calls, [
+    "https://skills.sh/api/search?q=broken",
+    "https://skills.sh/api/search?q=mcp",
+  ]);
+  assert.equal(fetch.raws.length, searchPayload().skills.length);
+});
+
+test("a total query failure still surfaces the first error", async () => {
+  await assert.rejects(
+    fetchSkillsSh({
+      queries: ["agent", "mcp"],
+      get: async () => {
+        throw new Error("skills.sh unavailable");
+      },
+    }),
+    /skills\.sh unavailable/,
+  );
+});
+
 test("search caps unique candidates at 400", async () => {
   const skills = Array.from({ length: 401 }, (_, index) => ({
     id: `owner/repo/skill-${index}`,
@@ -210,6 +240,47 @@ test("search rejects malformed JSON and an unexpected payload shape", async () =
     }),
     /no skills array/,
   );
+});
+
+test("search and probe pace injected getters through the shared limiter", async () => {
+  // Hold every slot: if the injected getter bypassed the limiter, its call
+  // would run before the slots are released.
+  const held: number[] = [];
+  for (let i = 0; i < SKILLS_SH_LIMITER.concurrency; i += 1) {
+    await SKILLS_SH_LIMITER.acquire();
+    held.push(i);
+  }
+  const searchCalls: string[] = [];
+  const probeCalls: string[] = [];
+  const search = fetchSkillsSh({
+    queries: ["mcp", "agent"],
+    get: async (url) => {
+      searchCalls.push(url);
+      return { text: searchText() };
+    },
+  });
+  const probe = probeSkillsSh(listing(), async (url) => {
+    probeCalls.push(url);
+    return { text: downloadText() };
+  });
+  try {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.deepEqual(
+      searchCalls,
+      [],
+      "search getter must wait for the shared limiter",
+    );
+    assert.deepEqual(
+      probeCalls,
+      [],
+      "probe getter must wait for the shared limiter",
+    );
+  } finally {
+    for (let i = 0; i < held.length; i += 1) SKILLS_SH_LIMITER.release();
+  }
+  await Promise.all([search, probe]);
+  assert.equal(searchCalls.length, 2);
+  assert.equal(probeCalls.length, 1);
 });
 
 test("download probe records frontmatter evidence and a SHA-256 content hash", async () => {
@@ -283,6 +354,17 @@ test("missing SKILL.md throws a typed ARTIFACT_MISSING error", async () => {
   assert.equal(error.candidateId, "github/awesome-copilot/mcp-cli");
   assert.match(error.reason, /SKILL\.md/);
   assert.match(error.message, /github\/awesome-copilot\/mcp-cli/);
+});
+
+test("unsafe download path segments are refused before a request", async () => {
+  const error = await probeError(
+    listing({
+      artifact: { kind: "skill", file: "SKILL.md", artifactId: "../escape" },
+    }),
+    downloadText(),
+  );
+  assert.equal(error.code, "ARTIFACT_MISSING");
+  assert.match(error.reason, /owner\/repo and skill slug/);
 });
 
 test("invalid or missing frontmatter throws ARTIFACT_MISSING", async () => {

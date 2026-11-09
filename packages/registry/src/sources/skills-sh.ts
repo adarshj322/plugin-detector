@@ -25,13 +25,17 @@ export const DEFAULT_SKILL_QUERIES = [
   "docs",
 ] as const;
 
-// skills.sh rate limit: search and download share one 60/min budget.
-const skillsShLimiter = new RateLimiter({
+// skills.sh rate limit: search and download share one 60/min budget. Exported
+// so callers/tests can assert the production refresh path is paced.
+export const SKILLS_SH_LIMITER = new RateLimiter({
   requestsPerMinute: SKILLS_SH_REQUESTS_PER_MINUTE,
 });
 
+// Unpaced transport only: fetchSkillsSh/probeSkillsSh apply the shared limiter
+// around every request, including injected getters, so cache's timeout-bound
+// getter cannot bypass it. Do not wrap this getter again.
 export function skillsShGet(url: string): Promise<HttpResult> {
-  return httpGetText(url, { limiter: skillsShLimiter });
+  return httpGetText(url);
 }
 
 interface SkillsShItem {
@@ -120,32 +124,42 @@ export async function fetchSkillsSh(
   const get = opts.get ?? skillsShGet;
   const queries = normalizeQueries(opts.queries ?? DEFAULT_SKILL_QUERIES);
   const byId = new Map<string, RawCandidate>();
-  let reported = 0;
+  let succeeded = 0;
+  let firstError: unknown;
   for (const query of queries) {
     const url = searchUrl(query);
-    const res = await get(url);
-    const payload = parseJson(res.text, url);
-    const root = record(payload);
-    const skills = root?.["skills"];
-    if (!Array.isArray(skills)) {
-      throw new Error(
-        `skills-sh: search for "${query}" returned no skills array`,
-      );
-    }
-    reported += skills.length;
-    for (const raw of parseSkillsShSearch(payload)) {
-      if (byId.size >= SKILLS_SH_MAX_CANDIDATES) break;
-      if (raw.id !== undefined && !byId.has(raw.id)) byId.set(raw.id, raw);
+    try {
+      // Pace every request, including injected getters: cache passes a
+      // timeout-bound wrapper that does not carry a limiter itself.
+      const res = await SKILLS_SH_LIMITER.run(() => get(url));
+      const payload = parseJson(res.text, url);
+      const root = record(payload);
+      const skills = root?.["skills"];
+      if (!Array.isArray(skills)) {
+        throw new Error(
+          `skills-sh: search for "${query}" returned no skills array`,
+        );
+      }
+      const parsed = parseSkillsShSearch(payload);
+      // A non-empty per-query result set that maps to zero records is a schema
+      // failure; other queries still contribute when they succeed.
+      if (skills.length > 0 && parsed.length === 0) {
+        throw new Error(
+          `skills-sh: search for "${query}" listed ${skills.length} skills but none matched the expected schema`,
+        );
+      }
+      for (const raw of parsed) {
+        if (byId.size >= SKILLS_SH_MAX_CANDIDATES) break;
+        if (raw.id !== undefined && !byId.has(raw.id)) byId.set(raw.id, raw);
+      }
+      succeeded += 1;
+    } catch (error) {
+      // One failed query must not discard the other eight.
+      if (firstError === undefined) firstError = error;
     }
     if (byId.size >= SKILLS_SH_MAX_CANDIDATES) break;
   }
-  const raws = [...byId.values()];
-  // A non-empty result set that maps to zero records is a schema failure, not
-  // a valid empty harvest.
-  if (reported > 0 && raws.length === 0) {
-    throw new Error(
-      `skills-sh: search listed ${reported} skills but none matched the expected schema`,
-    );
-  }
-  return { raws };
+  // Nothing succeeded: surface the first failure instead of an empty harvest.
+  if (succeeded === 0 && firstError !== undefined) throw firstError;
+  return { raws: [...byId.values()] };
 }

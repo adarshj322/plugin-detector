@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { ArtifactEvidence, RawCandidate } from "./probe.js";
 import { type HttpGetter } from "./sources/http.js";
-import { skillsShGet } from "./sources/skills-sh.js";
+import { SKILLS_SH_LIMITER, skillsShGet } from "./sources/skills-sh.js";
 
 export const SKILLS_SH_DOWNLOAD_URL = "https://skills.sh/api/download";
 export const MAX_EVIDENCE_SNIPPET_LENGTH = 300;
@@ -79,6 +79,13 @@ function listingParts(raw: RawCandidate): ListingParts | null {
       ? idParts.slice(2).join("/")
       : raw.name);
   if (slug === undefined || slug === "") return null;
+  if (
+    !validPathSegment(owner) ||
+    !validPathSegment(repo) ||
+    !validPathSegment(slug)
+  ) {
+    return null;
+  }
   return { owner, repo, slug };
 }
 
@@ -88,6 +95,15 @@ function normalizeSkillName(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function validPathSegment(value: string): boolean {
+  return (
+    value !== "" &&
+    value !== "." &&
+    value !== ".." &&
+    !/[/\\]/.test(value)
+  );
 }
 
 function unquote(value: string): string {
@@ -176,10 +192,12 @@ export async function probeSkillsSh(
       "listing has no GitHub owner/repo and skill slug",
     );
   }
-  const url = `${SKILLS_SH_DOWNLOAD_URL}/${parts.owner}/${parts.repo}/${encodeURIComponent(parts.slug)}`;
+  const url = `${SKILLS_SH_DOWNLOAD_URL}/${encodeURIComponent(parts.owner)}/${encodeURIComponent(parts.repo)}/${encodeURIComponent(parts.slug)}`;
   let text: string;
   try {
-    text = (await get(url)).text;
+    // Pace injected getters too: cache's timeout-bound wrapper carries no
+    // limiter of its own. Wrap exactly once here.
+    text = (await SKILLS_SH_LIMITER.run(() => get(url))).text;
   } catch (error) {
     throw new SkillsShProbeError(
       id,
