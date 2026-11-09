@@ -102,3 +102,44 @@ test("parseSnapshot rejects wrong schema version and bad candidates", () => {
     ),
   );
 });
+
+test("duplicate ids from two sources dedupe deterministically and merge provenance", () => {
+  const community = normalizeCandidate(
+    rawCandidate({
+      id: "dup-id",
+      sourceKind: "community",
+      repositoryUrl: "https://github.com/owner/dup",
+      registryUrl: undefined,
+    }),
+  );
+  const official = normalizeCandidate(
+    rawCandidate({
+      id: "dup-id",
+      sourceKind: "official-registry",
+      registryUrl: "https://registry.example.com/dup",
+      repositoryUrl: undefined,
+    }),
+  );
+  const snapshot = buildSnapshot(
+    [
+      {
+        candidate: community,
+        sourceUrl: "https://github.com/search",
+        trust: "unverified",
+      },
+      {
+        candidate: official,
+        sourceUrl: "https://registry.example.com/list",
+        trust: "verified",
+      },
+    ],
+    NOW,
+  );
+  assert.equal(snapshot.candidates.length, 1);
+  assert.equal(snapshot.provenance.length, 1);
+  assert.equal(snapshot.provenance[0]?.trust, "verified");
+  assert.equal(snapshot.provenance[0]?.sourceUrl, "https://registry.example.com/list");
+  const sources = snapshot.candidates[0]?.sources ?? [];
+  assert.ok(sources.includes("https://github.com/owner/dup"));
+  assert.ok(sources.includes("https://registry.example.com/dup"));
+});

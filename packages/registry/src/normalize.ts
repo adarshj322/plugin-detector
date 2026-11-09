@@ -76,11 +76,15 @@ export function normalizeCandidate(input: RawCandidate): NormalizedCandidate {
     ...(input.repositoryUrl ? { repositoryUrl: input.repositoryUrl } : {}),
     ...(input.packageName ? { packageName: input.packageName } : {}),
     installMode:
-      provenanceOf(input.sourceKind) === "official" ? "verified" : "manual",
+      probe.probed && provenanceOf(input.sourceKind) === "official"
+        ? "verified"
+        : "manual",
     lastVerified: input.lastVerified ?? new Date().toISOString(),
+    artifactProbed: probe.probed,
     provenance: provenanceOf(input.sourceKind),
     risk: input.risk ?? "medium",
-    maintenance: input.maintenance ?? "active",
+    // Absent maintenance/audit evidence is unknown, never "active"/"clean".
+    maintenance: input.maintenance ?? "unknown",
     auditStatus: input.auditStatus ?? "unknown",
     popularity: input.popularity ?? {},
     ...(untrustedText

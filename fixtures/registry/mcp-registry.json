@@ -1,0 +1,85 @@
+{
+  "servers": [
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "ac.tandem/docs-mcp",
+        "description": "Remote MCP server for Tandem docs.",
+        "repository": {
+          "url": "https://github.com/frumu-ai/tandem",
+          "source": "github",
+          "subfolder": "packages/docs-mcp"
+        },
+        "version": "0.2.0",
+        "remotes": [{ "type": "streamable-http", "url": "https://tandem.ac/mcp" }]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "isLatest": false
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "ac.tandem/docs-mcp",
+        "description": "Remote MCP server for Tandem docs.",
+        "repository": {
+          "url": "https://github.com/frumu-ai/tandem",
+          "source": "github",
+          "subfolder": "packages/docs-mcp"
+        },
+        "version": "0.3.0",
+        "remotes": [{ "type": "streamable-http", "url": "https://tandem.ac/mcp" }]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "name": "ac.inference.sh/mcp",
+        "description": "Run 150+ AI apps.",
+        "version": "1.0.1",
+        "remotes": [{ "type": "streamable-http", "url": "https://api.inference.sh/mcp" }]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "name": "agency.extremely/agency",
+        "title": "EXTREMELY agency",
+        "description": "Your agency of AI agents.",
+        "repository": {
+          "url": "https://github.com/maxkxd/extremely-autonomous-agents",
+          "source": "github"
+        },
+        "version": "0.1.0",
+        "packages": [
+          {
+            "registryType": "npm",
+            "identifier": "@extremely-agency/mcp",
+            "version": "0.1.0",
+            "transport": { "type": "stdio" }
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "isLatest": true
+        }
+      }
+    }
+  ],
+  "metadata": { "nextCursor": "ac.inference.sh/mcp:1.0.1", "count": 4 }
+}

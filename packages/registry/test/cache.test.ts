@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { NotModified } from "../src/sources/http.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -259,4 +260,50 @@ test("refresh records intake refusals in the manifest instead of dropping them",
     ),
   );
   assert.ok(rejected.some((r) => r.reason.includes("confusable")));
+});
+
+test("304 refresh keeps prior candidates and carries ETag validators forward", async () => {
+  const dir = tmpCache();
+  const first = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    fetchers: [
+      {
+        id: "source-a",
+        url: SOURCE_URL,
+        fetch: async () => ({
+          raws: [rawCandidate()],
+          etag: 'W/"abc"',
+          lastModified: "Mon, 09 Nov 2026 00:00:00 GMT",
+        }),
+      },
+    ],
+  });
+  assert.equal(first.ok, true);
+  const second = await refreshSnapshot({
+    cacheDir: dir,
+    now: new Date("2026-11-09T00:00:00.000Z"),
+    fetchers: [
+      {
+        id: "source-a",
+        url: SOURCE_URL,
+        fetch: async () => {
+          throw new NotModified(SOURCE_URL);
+        },
+      },
+    ],
+  });
+  assert.equal(second.ok, true);
+  assert.equal(second.snapshot?.candidates[0]?.id, "acme-thumb");
+  assert.equal(
+    second.snapshot?.candidates[0]?.lastVerified,
+    NOW.toISOString(),
+    "304 must not re-stamp the candidate as freshly verified",
+  );
+  const manifest = readCacheManifest({ cacheDir: dir });
+  assert.equal(manifest?.sources["source-a"]?.etag, 'W/"abc"');
+  assert.equal(
+    manifest?.sources["source-a"]?.lastModified,
+    "Mon, 09 Nov 2026 00:00:00 GMT",
+  );
 });

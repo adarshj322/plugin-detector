@@ -104,3 +104,19 @@ test("probe is exposed for local artifact fixtures", () => {
   assert.equal(probeArtifact(rawCandidate()).found, true);
   assert.equal(probeArtifact(rawCandidate({ artifact: null })).found, false);
 });
+
+test("omitted maintenance and audit default to unknown, not active/clean", () => {
+  const candidate = normalizeCandidate(
+    rawCandidate({ maintenance: undefined, auditStatus: undefined }),
+  );
+  assert.equal(candidate.maintenance, "unknown");
+  assert.equal(candidate.auditStatus, "unknown");
+});
+
+test("source-declared unprobed artifacts stay unprobed and manual-install only", () => {
+  const candidate = normalizeCandidate(
+    rawCandidate({ artifactProbed: false, sourceKind: "official-registry" }),
+  );
+  assert.equal(candidate.artifactProbed, false);
+  assert.equal(candidate.installMode, "manual");
+});

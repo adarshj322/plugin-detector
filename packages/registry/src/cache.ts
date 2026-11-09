@@ -238,7 +238,17 @@ export async function refreshSnapshot(
           }
         }
         succeeded += 1;
-        manifestSources[fetcher.id] = { ok: true, count: kept.length };
+        // Carry the conditional-request validators forward, otherwise the
+        // next refresh would ask unconditionally and lose the 304 path.
+        const previous = prevManifest?.sources[fetcher.id];
+        manifestSources[fetcher.id] = {
+          ok: true,
+          count: kept.length,
+          ...(previous?.etag ? { etag: previous.etag } : {}),
+          ...(previous?.lastModified
+            ? { lastModified: previous.lastModified }
+            : {}),
+        };
         continue;
       }
       failures[fetcher.url] =

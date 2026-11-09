@@ -35,14 +35,63 @@ function compareId(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+const TRUST_RANK: Record<TrustClass, number> = {
+  verified: 3,
+  curated: 2,
+  unverified: 1,
+};
+
+function mergeSources(a: string[], b: string[]): string[] {
+  return [...new Set([...a, ...b])];
+}
+
+// One entry per candidate id, deterministic: the highest-trust source wins
+// the record and its provenance, while every source URL is merged into
+// `candidate.sources`. Ties break on source URL, then id.
+function dedupeEntries(entries: SnapshotEntry[], at: string): SnapshotEntry[] {
+  const byId = new Map<string, SnapshotEntry>();
+  for (const entry of entries) {
+    const id = entry.candidate.id;
+    const existing = byId.get(id);
+    if (existing === undefined) {
+      byId.set(id, {
+        candidate: {
+          ...entry.candidate,
+          sources: [...new Set(entry.candidate.sources)].sort(),
+        },
+        sourceUrl: entry.sourceUrl,
+        retrievedAt: entry.retrievedAt ?? at,
+        trust: entry.trust ?? "unverified",
+      });
+      continue;
+    }
+    const existingRank = TRUST_RANK[existing.trust ?? "unverified"];
+    const nextRank = TRUST_RANK[entry.trust ?? "unverified"];
+    const preferNext =
+      nextRank > existingRank ||
+      (nextRank === existingRank && entry.sourceUrl < existing.sourceUrl);
+    const winner = preferNext ? entry : existing;
+    byId.set(id, {
+      candidate: {
+        ...winner.candidate,
+        sources: mergeSources(existing.candidate.sources, entry.candidate.sources).sort(),
+      },
+      sourceUrl: winner.sourceUrl,
+      retrievedAt: winner.retrievedAt ?? at,
+      trust: winner.trust ?? "unverified",
+    });
+  }
+  return [...byId.values()].sort((x, y) => compareId(x.candidate.id, y.candidate.id));
+}
+
 // Deterministic build: stable id sort, caller-supplied timestamp (tests pin
-// it), per-candidate source URL + retrieval time + trust class.
+// it), one deduplicated record per id with merged provenance and trust.
 export function buildSnapshot(
   entries: SnapshotEntry[],
   generatedAt: Date = new Date(),
 ): RegistrySnapshot {
   const at = generatedAt.toISOString();
-  const sorted = [...entries].sort((x, y) => compareId(x.candidate.id, y.candidate.id));
+  const sorted = dedupeEntries(entries, at);
   return RegistrySnapshotSchema.parse({
     schemaVersion: 1,
     generatedAt: at,

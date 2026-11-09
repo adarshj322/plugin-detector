@@ -17,18 +17,10 @@ interface SkillsShItem {
   description?: unknown;
   license?: unknown;
   version?: unknown;
-  capabilities?: unknown;
-  domains?: unknown;
 }
 
 function str(v: unknown): string | undefined {
   return typeof v === "string" && v.length > 0 ? v : undefined;
-}
-
-function strs(v: unknown): string[] | undefined {
-  if (!Array.isArray(v)) return undefined;
-  const out = v.filter((x): x is string => typeof x === "string" && x.length > 0);
-  return out.length > 0 ? out : undefined;
 }
 
 // shortcut: listings without a version pin to 0.0.0 (unknown, never a
@@ -43,12 +35,9 @@ export function parseSkillsSh(payload: unknown): RawCandidate[] {
     const raw: RawCandidate = {
       id,
       name: str(item.name) ?? id,
-      artifact: {
-        kind: "skill",
-        file: "SKILL.md",
-        capabilities: strs(item.capabilities),
-        domains: strs(item.domains),
-      },
+      // Listing capabilities/domains are self-declared and never evidence.
+      artifact: { kind: "skill", file: "SKILL.md" },
+      artifactProbed: false,
       sourceKind: "community",
       pinnedRef: str(item.version) ?? "0.0.0",
       license: str(item.license) ?? "unknown",
@@ -64,7 +53,15 @@ export async function fetchSkillsSh(
   get: HttpGetter = (url) => httpGetText(url),
 ): Promise<SourceFetch> {
   const res = await get(SKILLS_SH_URL);
-  const fetch: SourceFetch = { raws: parseSkillsSh(JSON.parse(res.text)) };
+  const payload = JSON.parse(res.text) as unknown;
+  const raws = parseSkillsSh(payload);
+  const reported = Array.isArray(payload) ? payload.length : 0;
+  if (reported > 0 && raws.length === 0) {
+    throw new Error(
+      `skills-sh: payload listed ${reported} skills but none matched the expected schema`,
+    );
+  }
+  const fetch: SourceFetch = { raws };
   if (res.etag) fetch.etag = res.etag;
   if (res.lastModified) fetch.lastModified = res.lastModified;
   return fetch;

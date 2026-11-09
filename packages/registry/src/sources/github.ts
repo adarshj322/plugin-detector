@@ -38,6 +38,7 @@ export function parseGithubSearch(payload: unknown): RawCandidate[] {
       id,
       name: id,
       artifact: { kind: "plugin", file: "plugin.json" },
+      artifactProbed: false,
       sourceKind: "community",
       pinnedRef: "0.0.0",
       license: spdx && spdx !== "NOASSERTION" ? spdx : "unknown",
@@ -54,7 +55,16 @@ export async function fetchGithub(
   get: HttpGetter = (url) => httpGetText(url, { headers: GITHUB_HEADERS }),
 ): Promise<SourceFetch> {
   const res = await get(GITHUB_URL);
-  const fetch: SourceFetch = { raws: parseGithubSearch(JSON.parse(res.text)) };
+  const payload = JSON.parse(res.text) as unknown;
+  const raws = parseGithubSearch(payload);
+  const root = payload as { items?: unknown };
+  const reported = Array.isArray(root.items) ? root.items.length : 0;
+  if (reported > 0 && raws.length === 0) {
+    throw new Error(
+      `github: payload listed ${reported} repositories but none matched the expected schema`,
+    );
+  }
+  const fetch: SourceFetch = { raws };
   if (res.etag) fetch.etag = res.etag;
   if (res.lastModified) fetch.lastModified = res.lastModified;
   return fetch;

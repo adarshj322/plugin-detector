@@ -16,6 +16,9 @@ export interface RawCandidate {
   id?: string | undefined;
   name?: string | undefined;
   artifact?: RawArtifactRef | null | undefined;
+  // False when the source only declares a manifest path without fetching it.
+  // Local fixtures omit this and count as probed.
+  artifactProbed?: boolean | undefined;
   sourceKind?: string | undefined;
   pinnedRef?: string | undefined;
   license?: string | undefined;
@@ -45,6 +48,7 @@ export interface RawCandidate {
 
 export interface ArtifactProbe {
   found: boolean;
+  probed: boolean;
   artifactType?: ArtifactType | undefined;
   evidence: string[];
   reason?: string | undefined;
@@ -166,6 +170,7 @@ export function probeArtifact(input: RawCandidate): ArtifactProbe {
   if (hooks.length > 0) {
     return {
       found: false,
+      probed: false,
       evidence: [],
       reason: `install hooks (${hooks.join(", ")}) run publisher code at install time; automatic handling refused`,
     };
@@ -176,6 +181,7 @@ export function probeArtifact(input: RawCandidate): ArtifactProbe {
   if (PROMPT_INJECTION_PATTERN.test(untrustedText)) {
     return {
       found: false,
+      probed: false,
       evidence: [],
       reason:
         "prompt-injection language in display copy: instruction-override text is never evidence",
@@ -187,12 +193,13 @@ export function probeArtifact(input: RawCandidate): ArtifactProbe {
     blockedPackageName(input.packageName, input.sourceKind) ??
     blockedPackageName(input.id, input.sourceKind, "candidate id");
   if (blocked !== null) {
-    return { found: false, evidence: [], reason: blocked };
+    return { found: false, probed: false, evidence: [], reason: blocked };
   }
   const ref = input.artifact;
   if (!ref) {
     return {
       found: false,
+      probed: false,
       evidence: [],
       reason:
         "no artifact ref: self-declared tags/topics without a probed artifact are not evidence",
@@ -226,24 +233,29 @@ export function probeArtifact(input: RawCandidate): ArtifactProbe {
   if (!artifactType) {
     return {
       found: false,
+      probed: false,
       evidence: [],
       reason: `unrecognized artifact kind ${JSON.stringify(ref.kind)} with no known manifest file`,
     };
   }
 
+  const probed = input.artifactProbed !== false;
   const evidence: string[] = [];
   if (file) evidence.push(`artifact file ${JSON.stringify(ref.file)}`);
   evidence.push(`artifact kind ${JSON.stringify(ref.kind)}`);
   if (ref.artifactId) evidence.push(`marketplace artifact id ${ref.artifactId}`);
+  if (!probed)
+    evidence.push("source-declared artifact ref: manifest content not fetched");
   // Archive/stale hard gate at intake: unmaintained candidates never enter
   // the snapshot (scoring keeps its archived→risky gate as defense in depth
   // for directly built candidates).
   if (input.maintenance === "archived" || input.maintenance === "stale") {
     return {
       found: false,
+      probed,
       evidence,
       reason: `maintenance is "${input.maintenance}": re-verify before listing`,
     };
   }
-  return { found: true, artifactType, evidence };
+  return { found: true, probed, artifactType, evidence };
 }
