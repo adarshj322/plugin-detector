@@ -4,6 +4,7 @@ import {
 } from "@plugin-detector/core";
 import { probeArtifact, type RawCandidate } from "./probe.js";
 import { inferCapabilities } from "./classify.js";
+import { isOfficialPublisher } from "./trust.js";
 
 // Fixed label quarantining prompt-injection-prone text: raw description/README
 // is display diagnostics only and no scoring field may read it.
@@ -17,17 +18,24 @@ const INJECTION_PATTERN =
 // Candidate plus the one boolean signal scoring may read about untrusted copy.
 export type NormalizedCandidate = Candidate & { untrustedCopyRisk: boolean };
 
-function provenanceOf(sourceKind: string | undefined): Candidate["provenance"] {
-  const kind = (sourceKind ?? "").trim().toLowerCase();
-  if (kind === "official" || kind === "official-registry" || kind === "standards-body")
-    return "official";
+// Provenance is evidence about the publisher, not about the listing. An
+// official registry listing is community provenance unless the exact
+// publisher policy matches; sourceKind "official"/"standards-body" is the
+// only self-declared official channel. A "publisher" claim without an
+// allowlisted owner/namespace is likewise not evidence.
+function provenanceOf(input: RawCandidate): Candidate["provenance"] {
+  const kind = (input.sourceKind ?? "").trim().toLowerCase();
+  if (kind === "official" || kind === "standards-body") return "official";
+  if (isOfficialPublisher(input)) return "publisher";
   if (
     kind === "publisher" ||
     kind === "verified-marketplace" ||
-    kind === "verified-publisher"
+    kind === "verified-publisher" ||
+    kind === "community" ||
+    kind === "marketplace" ||
+    kind === "official-registry"
   )
-    return "publisher";
-  if (kind === "community" || kind === "marketplace") return "community";
+    return "community";
   return "unknown";
 }
 
@@ -76,6 +84,7 @@ export function normalizeCandidate(input: RawCandidate): NormalizedCandidate {
     .filter((t): t is string => t !== undefined && t.length > 0)
     .join("\n\n");
   const untrustedCopyRisk = INJECTION_PATTERN.test(untrustedText);
+  const provenance = provenanceOf(input);
 
   const candidate = CandidateSchema.parse({
     id,
@@ -89,12 +98,10 @@ export function normalizeCandidate(input: RawCandidate): NormalizedCandidate {
     ...(input.repositoryUrl ? { repositoryUrl: input.repositoryUrl } : {}),
     ...(input.packageName ? { packageName: input.packageName } : {}),
     installMode:
-      probe.probed && provenanceOf(input.sourceKind) === "official"
-        ? "verified"
-        : "manual",
+      probe.probed && provenance === "official" ? "verified" : "manual",
     lastVerified: input.lastVerified ?? new Date().toISOString(),
     artifactProbed: probe.probed,
-    provenance: provenanceOf(input.sourceKind),
+    provenance,
     risk: input.risk ?? "medium",
     // Absent maintenance/audit evidence is unknown, never "active"/"clean".
     maintenance: input.maintenance ?? "unknown",

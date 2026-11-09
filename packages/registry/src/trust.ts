@@ -1,5 +1,116 @@
 import type { Candidate } from "@plugin-detector/core";
 
+// Exact publisher identities approved for v1. GitHub owners are compared
+// case-insensitively; npm scopes are byte-exact; PyPI names match a namespace
+// only at a PEP 503 separator boundary, so lookalikes never pass. Adding a
+// name here promotes every package it publishes: keep it explicit.
+export const OFFICIAL_PUBLISHERS = {
+  githubOrgs: new Set([
+    "anthropics",
+    "modelcontextprotocol",
+    "microsoft",
+    "github",
+    "vercel-labs",
+    "supabase",
+    "playwright",
+    "openai",
+    "google",
+    "google-labs-code",
+    "aws",
+    "cloudflare",
+    "stripe",
+    "figma",
+    "linear",
+    "sentry",
+  ]),
+  npmScopes: new Set([
+    "@anthropic-ai",
+    "@modelcontextprotocol",
+    "@microsoft",
+    "@github",
+    "@vercel",
+    "@supabase",
+    "@playwright",
+    "@openai",
+    "@google",
+    "@aws",
+    "@cloudflare",
+    "@stripe",
+    "@figma",
+    "@linear",
+    "@sentry",
+  ]),
+  // PyPI has no enforced scopes: v1 treats an exact project name or a
+  // dash-separated prefix as the namespace claim.
+  pypiNamespaces: new Set([
+    "anthropic",
+    "anthropics",
+    "modelcontextprotocol",
+    "microsoft",
+    "github",
+    "vercel",
+    "vercel-labs",
+    "supabase",
+    "playwright",
+    "openai",
+    "google",
+    "google-labs-code",
+    "aws",
+    "cloudflare",
+    "stripe",
+    "figma",
+    "linear",
+    "sentry",
+  ]),
+};
+
+export interface PublisherCandidate {
+  repositoryUrl?: string | undefined;
+  packageName?: string | undefined;
+}
+
+function githubOwner(repositoryUrl: string): string | undefined {
+  let url: URL;
+  try {
+    url = new URL(repositoryUrl.trim());
+  } catch {
+    return undefined;
+  }
+  const host = url.hostname.toLowerCase();
+  if (host !== "github.com" && host !== "www.github.com") return undefined;
+  return url.pathname.split("/").filter(Boolean)[0]?.toLowerCase();
+}
+
+function npmScope(packageName: string): string | undefined {
+  return /^(@[^/]+)\//.exec(packageName.trim())?.[1];
+}
+
+function pypiProjectName(packageName: string): string | undefined {
+  const name = packageName.trim();
+  // Scoped npm names never fall through to the PyPI namespace check.
+  if (name.startsWith("@")) return undefined;
+  return name.toLowerCase().replace(/[._-]+/g, "-");
+}
+
+export function isOfficialPublisher(candidate: PublisherCandidate): boolean {
+  if (candidate.repositoryUrl !== undefined) {
+    const owner = githubOwner(candidate.repositoryUrl);
+    if (owner !== undefined && OFFICIAL_PUBLISHERS.githubOrgs.has(owner)) {
+      return true;
+    }
+  }
+  const packageName = candidate.packageName?.trim();
+  if (packageName === undefined || packageName === "") return false;
+  const scope = npmScope(packageName);
+  if (scope !== undefined) return OFFICIAL_PUBLISHERS.npmScopes.has(scope);
+  const name = pypiProjectName(packageName);
+  if (name === undefined) return false;
+  for (const namespace of OFFICIAL_PUBLISHERS.pypiNamespaces) {
+    if (name === namespace || name.startsWith(`${namespace}-`)) return true;
+  }
+  return false;
+}
+
 export interface TrustEvidence {
   maintainerVerified: boolean;
   activity: "active" | "stale" | "archived" | "unknown";
@@ -35,26 +146,31 @@ function isOpenLicense(license: string): boolean {
 }
 
 // v1 trust policy (spec §Verified/curated policy): verified needs an
-// official/standards-backed source or verified publisher, an immutable pinned
-// ref (enforced at normalize time by CandidateSchema), active maintenance,
-// an open license, checksum/attestation where supported, and no critical
-// audit finding. Curated adds in-repo review evidence. Popularity is never
-// consulted and cannot promote trust. An omitted checksumPresent means the
-// artifact class carries no checksum signal (shortcut: no per-artifact
-// support matrix yet; explicit false always blocks verified).
+// official/standards-backed source or an allowlisted publisher with
+// maintainer evidence, an artifact that was actually probed (listing-only
+// records never verify), an immutable pinned ref (enforced at normalize time
+// by CandidateSchema), active maintenance, an open license,
+// checksum/attestation where supported, and no critical audit finding.
+// Curated adds in-repo review evidence. Popularity is never consulted and
+// cannot promote trust. An omitted checksumPresent means the artifact class
+// carries no checksum signal (shortcut: no per-artifact support matrix yet;
+// explicit false always blocks verified).
 export function classifyTrust(
   candidate: Candidate,
   evidence: TrustEvidence,
 ): TrustClass {
   const sourceOk =
     candidate.provenance === "official" ||
-    (candidate.provenance === "publisher" && evidence.maintainerVerified);
+    (candidate.provenance === "publisher" &&
+      isOfficialPublisher(candidate) &&
+      evidence.maintainerVerified);
   // Drifted or shell/exec-tainted candidates never inherit trust: a prior
   // verified review describes a different artifact, or the copy itself asks
   // for code execution.
   if (evidence.drifted === true || evidence.untrustedCopyRisk === true)
     return "unverified";
   const verified =
+    candidate.artifactProbed === true &&
     sourceOk &&
     evidence.activity === "active" &&
     candidate.maintenance === "active" &&

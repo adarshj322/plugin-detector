@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { Candidate } from "@plugin-detector/core";
 import { normalizeCandidate, type NormalizedCandidate } from "./normalize.js";
 import type { RawCandidate } from "./probe.js";
-import { classifyTrust, detectDrift } from "./trust.js";
+import { classifyTrust, detectDrift, isOfficialPublisher } from "./trust.js";
 import {
   buildSnapshot,
   parseSnapshot,
@@ -305,7 +305,11 @@ export async function refreshSnapshot(
         sourceUrl: fetcher.url,
         retrievedAt: nowIso,
         trust: classifyTrust(candidate, {
-          maintainerVerified: candidate.provenance === "official",
+          // Publisher identity is policy evidence; actual trust still
+          // requires classifyTrust's independent artifactProbed check.
+          maintainerVerified:
+            candidate.provenance === "official" ||
+            isOfficialPublisher(candidate),
           activity: candidate.maintenance,
           reviewEvidence: false,
           ...(drift !== null && drift.drifted ? { drifted: true as const } : {}),
