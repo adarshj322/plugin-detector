@@ -5,6 +5,7 @@ import {
   recipeText,
 } from "@plugin-detector/core";
 import { PlanJsonSchema, printJson, printSection } from "../output.js";
+import { consentMetadata } from "./consent-metadata.js";
 import { buildAdapters, findSnapshotCandidate } from "./inventory.js";
 
 export interface PlanResult {
@@ -97,11 +98,22 @@ export async function plan(argv: string[]): Promise<PlanResult> {
     return { exitCode: 2 };
   }
 
-  const installPlan = adapter.installPlan(resolved.candidate, resolved.trust);
+  // A source-declared artifact that was never probed cannot produce a write
+  // plan even if a snapshot wrongly labels it verified.
+  const probed = resolved.candidate.artifactProbed !== false;
+  const installPlan = adapter.installPlan(
+    resolved.candidate,
+    probed ? resolved.trust : "unverified",
+  );
   const hash = planHash(installPlan);
   const recipeOnly = isRecipeOnly(installPlan);
   const status: "write" | "recipe" =
-    resolved.trust === "verified" && !recipeOnly ? "write" : "recipe";
+    probed && resolved.trust === "verified" && !recipeOnly ? "write" : "recipe";
+  const metadata = consentMetadata(
+    resolved.candidate,
+    resolved.provenance,
+    resolved.trust,
+  );
   if (status === "recipe" && !recipeOnly) {
     // Defense in depth: a snapshot-untrusted candidate must never surface a
     // write plan even if an adapter regresses.
@@ -145,6 +157,15 @@ export async function plan(argv: string[]): Promise<PlanResult> {
           harness,
           trust: resolved.trust,
           status,
+          source: metadata.source ?? "unknown",
+          canonicalUrl: metadata.canonicalUrl ?? "unknown",
+          artifactType: metadata.artifactType ?? "unknown",
+          pinnedRef: metadata.pinnedRef ?? "unknown",
+          license: metadata.license ?? "unknown",
+          trustEvidence: metadata.trustEvidence ?? "unknown",
+          permissions: metadata.permissions ?? "unknown",
+          envVars: metadata.envVars ?? "unknown",
+          sideEffects: metadata.sideEffects ?? "unknown",
           plan: installPlan,
           planHash: hash,
           ...(recipe !== undefined ? { recipe } : {}),
@@ -159,7 +180,16 @@ export async function plan(argv: string[]): Promise<PlanResult> {
   printSection("facts", [
     `candidate: ${candidateId} (${resolved.candidate.name})`,
     `harness: ${harness}`,
+    `source: ${metadata.source ?? "unknown"}`,
+    `canonical-url: ${metadata.canonicalUrl ?? "unknown"}`,
+    `artifact-type: ${metadata.artifactType ?? "unknown"}`,
+    `pinned-ref: ${metadata.pinnedRef ?? "unknown"}`,
+    `license: ${metadata.license ?? "unknown"}`,
     `trust: ${resolved.trust}`,
+    `trust-evidence: ${metadata.trustEvidence ?? "unknown"}`,
+    `permissions: ${metadata.permissions ?? "unknown"}`,
+    `env-vars: ${metadata.envVars ?? "unknown"}`,
+    `side-effects: ${metadata.sideEffects ?? "unknown"}`,
     `status: ${status}`,
     `plan-hash: ${hash}`,
     ...installPlan.operations.map(

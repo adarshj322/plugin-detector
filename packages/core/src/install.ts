@@ -59,7 +59,15 @@ export interface ConsentDetail {
   harness: string;
   candidateName?: string;
   source?: string;
+  canonicalUrl?: string;
+  artifactType?: string;
+  pinnedRef?: string;
+  license?: string;
   trust?: string;
+  trustEvidence?: string;
+  permissions?: string;
+  envVars?: string;
+  sideEffects?: string;
   operations: InstallPlan["operations"];
   backupRefs: string[];
   rollback: string[];
@@ -86,7 +94,7 @@ export function recipeText(plan: InstallPlan): string {
 
 export function consentDetail(
   plan: InstallPlan,
-  extra?: Pick<ConsentDetail, "candidateName" | "source" | "trust">,
+  extra?: Omit<ConsentDetail, "candidateId" | "harness" | "operations" | "backupRefs" | "rollback">,
 ): ConsentDetail {
   return {
     candidateId: plan.candidateId,

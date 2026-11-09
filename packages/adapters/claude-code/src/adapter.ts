@@ -13,7 +13,6 @@ import {
   defaultRunCommand,
   InstallError,
   isRunnableSource,
-  parseAppendOp,
   parseMcpOp,
   parseRunSource,
   restoreBackups,
@@ -218,8 +217,11 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
     const backupRefs: string[] = [];
     let operations: InstallPlan["operations"];
     let rollbackOperations: InstallPlan["rollbackOperations"];
-    if (trust === "verified" && supported) {
-      const claudeJson = path.join(this.home, ".claude.json");
+    // Claude plugins require the documented marketplace/plugin flow
+    // (plugin@marketplace plus installedPlugins metadata). Writing only an
+    // enabledPlugins key does not install anything, so plugins stay a recipe.
+    const pluginRecipeOnly = candidate.artifactType === "plugin";
+    if (trust === "verified" && supported && !pluginRecipeOnly) {
       if (candidate.artifactType === "skill") {
         const dest = path.join(this.home, ".claude", "skills");
         backupRefs.push(dest);
@@ -233,21 +235,6 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
           {
             kind: "recipe",
             summary: `Remove the installed skill directory for "${candidate.id}" under ${dest}.`,
-          },
-        ];
-      } else if (candidate.artifactType === "plugin") {
-        backupRefs.push(claudeJson);
-        operations = [
-          {
-            kind: "append",
-            target: claudeJson,
-            summary: `Append "${source}" to the "enabledPlugins" map in ${claudeJson}.`,
-          },
-        ];
-        rollbackOperations = [
-          {
-            kind: "recipe",
-            summary: `Remove "${source}" from the "enabledPlugins" map in ${claudeJson} to restore the backed-up preimage.`,
           },
         ];
       } else {
@@ -270,9 +257,11 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
         ];
       }
     } else {
-      const reason = supported
-        ? `trust is "${trust}", not verified`
-        : `artifact type "${candidate.artifactType}" has no harness-native installer`;
+      const reason = pluginRecipeOnly
+        ? `Claude Code plugins require its documented marketplace/plugin install flow; writing enabledPlugins alone does not install the plugin`
+        : supported
+          ? `trust is "${trust}", not verified`
+          : `artifact type "${candidate.artifactType}" has no harness-native installer`;
       operations = [
         {
           kind: "recipe",
@@ -306,8 +295,12 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
     const applied: string[] = [];
     try {
       for (const op of plan.operations) {
-        if (op.kind === "append") applied.push(this.applyPluginAppend(op));
-        else if (op.kind === "write") applied.push(this.applyMcpWrite(op));
+        if (op.kind === "append") {
+          throw new InstallError(
+            "apply-failed",
+            `Claude Code has no automatic plugin install path: ${op.summary}`,
+          );
+        } else if (op.kind === "write") applied.push(this.applyMcpWrite(op));
         else applied.push(this.applySkillRun(op));
       }
     } catch (error) {
@@ -327,30 +320,6 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
   // covers their manual removal.
   async rollback(plan: InstallPlan): Promise<RollbackResult> {
     return { restored: restoreBackups(plan.backupRefs) };
-  }
-
-  private applyPluginAppend(op: InstallPlan["operations"][number]): string {
-    const edit = parseAppendOp(op);
-    if (edit.mode !== "map" || edit.key !== "enabledPlugins") {
-      throw new InstallError(
-        "apply-failed",
-        `Unsupported append target for Claude Code: ${op.summary}`,
-      );
-    }
-    backupFile(edit.file);
-    const current = readExistingObject(edit.file);
-    const map = current["enabledPlugins"] ?? {};
-    if (!isRecord(map)) {
-      throw new InstallError(
-        "apply-failed",
-        `Cannot append in ${edit.file}: "enabledPlugins" is not an object.`,
-      );
-    }
-    if (!(edit.source in map)) map[edit.source] = true;
-    current["enabledPlugins"] = map;
-    atomicWriteFile(edit.file, `${JSON.stringify(current, null, 2)}\n`);
-    verifyParseableJson(edit.file);
-    return edit.file;
   }
 
   private applyMcpWrite(op: InstallPlan["operations"][number]): string {

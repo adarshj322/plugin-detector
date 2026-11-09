@@ -72,22 +72,16 @@ function adapter(
   });
 }
 
-test("verified plugin plan sets enabledPlugins and rolls back", async () => {
-  const configPath = join(home, ".claude.json");
-  const preimage = '{"enabledPlugins":{}}\n';
-  writeFileSync(configPath, preimage);
+test("verified plugin plan is recipe-only: enabledPlugins does not install a plugin", async () => {
   const plan = adapter().installPlan(candidate(), "verified");
-  assert.equal(plan.approvalTokenRequired, true);
-  assert.ok(plan.operations.every((op) => op.kind !== "recipe"));
-  const receipt = await adapter().applyPlan(plan);
-  assert.deepEqual(receipt.applied, [configPath]);
-  const merged = JSON.parse(readFileSync(configPath, "utf8")) as {
-    enabledPlugins: Record<string, boolean>;
-  };
-  assert.equal(merged.enabledPlugins["@ex/c1"], true);
-  const rolled = await adapter().rollback(plan);
-  assert.deepEqual(rolled.restored, [configPath]);
-  assert.equal(readFileSync(configPath, "utf8"), preimage);
+  assert.ok(plan.operations.every((op) => op.kind === "recipe"));
+  assert.match(plan.operations[0]?.summary ?? "", /marketplace\/plugin/);
+  await assert.rejects(adapter().applyPlan(plan), (error: unknown) => {
+    assert.ok(error instanceof InstallError);
+    assert.equal((error as { code: unknown }).code, "recipe-only");
+    return true;
+  });
+  assert.ok(!existsSync(join(home, ".claude.json")));
 });
 
 test("verified mcp plan merges into .mcp.json and rolls back", async () => {
@@ -121,18 +115,21 @@ test("unverified candidate yields a recipe-only plan that apply refuses", async 
 });
 
 test("failed skill run rolls back earlier file writes", async () => {
-  const configPath = join(home, ".claude.json");
-  const preimage = '{"enabledPlugins":{}}\n';
+  const configPath = join(root, ".mcp.json");
+  const preimage = '{"mcpServers":{}}\n';
   writeFileSync(configPath, preimage);
-  const pluginPlan = adapter().installPlan(candidate(), "verified");
+  const mcpPlan = adapter().installPlan(
+    candidate({ id: "m1", artifactType: "mcp-server" }),
+    "verified",
+  );
   const skillPlan = adapter().installPlan(
     candidate({ id: "s1", artifactType: "skill" }),
     "verified",
   );
   const plan: InstallPlan = InstallPlanSchema.parse({
-    ...pluginPlan,
-    operations: [...pluginPlan.operations, ...skillPlan.operations],
-    backupRefs: [...pluginPlan.backupRefs, ...skillPlan.backupRefs],
+    ...mcpPlan,
+    operations: [...mcpPlan.operations, ...skillPlan.operations],
+    backupRefs: [...mcpPlan.backupRefs, ...skillPlan.backupRefs],
   });
   await assert.rejects(
     adapter(() => ({ status: 1 })).applyPlan(plan),
@@ -142,15 +139,18 @@ test("failed skill run rolls back earlier file writes", async () => {
 });
 
 test("write failure restores the first operation byte-for-byte", async () => {
-  const configPath = join(home, ".claude.json");
-  const preimage = '{"enabledPlugins":{}}\n';
+  const configPath = join(root, ".mcp.json");
+  const preimage = '{"mcpServers":{}}\n';
   writeFileSync(configPath, preimage);
+  const firstPlan = adapter().installPlan(
+    candidate({ id: "m1", artifactType: "mcp-server" }),
+    "verified",
+  );
   const blocker = join(root, "blocker");
   writeFileSync(blocker, "not a dir");
   const badTarget = join(blocker, ".mcp.json");
-  const pluginPlan = adapter().installPlan(candidate(), "verified");
   const mcpPlan = adapter().installPlan(
-    candidate({ id: "m1", artifactType: "mcp-server" }),
+    candidate({ id: "m2", artifactType: "mcp-server" }),
     "verified",
   );
   const badOp = InstallPlanSchema.parse({
@@ -162,9 +162,9 @@ test("write failure restores the first operation byte-for-byte", async () => {
     })),
   });
   const plan: InstallPlan = InstallPlanSchema.parse({
-    ...pluginPlan,
-    operations: [...pluginPlan.operations, ...badOp.operations],
-    backupRefs: [...pluginPlan.backupRefs, badTarget],
+    ...firstPlan,
+    operations: [...firstPlan.operations, ...badOp.operations],
+    backupRefs: [...firstPlan.backupRefs, badTarget],
   });
   await assert.rejects(adapter().applyPlan(plan), /ENOTDIR|failed/i);
   assert.equal(readFileSync(configPath, "utf8"), preimage);
@@ -172,8 +172,11 @@ test("write failure restores the first operation byte-for-byte", async () => {
 });
 
 test("created config files are removed on rollback", async () => {
-  const configPath = join(home, ".claude.json");
-  const plan = adapter().installPlan(candidate(), "verified");
+  const configPath = join(root, ".mcp.json");
+  const plan = adapter().installPlan(
+    candidate({ id: "m1", artifactType: "mcp-server" }),
+    "verified",
+  );
   await adapter().applyPlan(plan);
   assert.ok(existsSync(configPath));
   const rolled = await adapter().rollback(plan);

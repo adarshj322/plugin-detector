@@ -132,6 +132,13 @@ beforeEach(() => {
     { candidate: candidate("u1", "command"), trust: "verified" },
     { candidate: candidate("x1"), trust: "unverified" },
     { candidate: candidate("k1"), trust: "curated" },
+    {
+      candidate: CandidateSchema.parse({
+        ...candidate("p1"),
+        artifactProbed: false,
+      }),
+      trust: "verified",
+    },
   ]);
 });
 
@@ -238,4 +245,25 @@ test("plan re-derives identical hashes across invocations", async () => {
   const hashOf = (logs: string[]): string =>
     PlanJsonSchema.parse(JSON.parse(logs.join("\n")) as unknown).facts.planHash;
   assert.equal(hashOf(first.logs), hashOf(second.logs));
+});
+
+test("plan refuses a write for an unprobed candidate even if trust says verified", async () => {
+  const { logs } = await capture(() => plan(planArgs("p1")));
+  const payload = PlanJsonSchema.parse(JSON.parse(logs.join("\n")) as unknown);
+  assert.equal(payload.facts.status, "recipe");
+  assert.ok(payload.facts.plan.operations.every((op) => op.kind === "recipe"));
+  assert.match(payload.facts.recipe ?? "", /not verified/);
+});
+
+test("plan output states source, artifact, license, trust evidence, permissions, and side effects", async () => {
+  const { logs } = await capture(() => plan(planArgs("c1")));
+  const payload = PlanJsonSchema.parse(JSON.parse(logs.join("\n")) as unknown);
+  assert.equal(payload.facts.artifactType, "plugin");
+  assert.equal(payload.facts.pinnedRef, "v1.0.0");
+  assert.equal(payload.facts.license, "MIT");
+  assert.ok(payload.facts.canonicalUrl.startsWith("https://github.com/"));
+  assert.match(payload.facts.trustEvidence, /retrieved .*trust verified/);
+  assert.match(payload.facts.permissions, /^unknown/);
+  assert.match(payload.facts.envVars, /^unknown/);
+  assert.ok(payload.facts.sideEffects.length > 0);
 });

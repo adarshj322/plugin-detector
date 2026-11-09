@@ -1,9 +1,5 @@
 import { createInterface } from "node:readline";
 import { readFileSync } from "node:fs";
-import { OpenCodeAdapter } from "@plugin-detector/opencode";
-import { ClaudeCodeAdapter } from "@plugin-detector/claude-code";
-import { CodexAdapter } from "@plugin-detector/codex";
-import { CursorAdapter } from "@plugin-detector/cursor";
 import {
   ApprovalError,
   InstallError,
@@ -17,38 +13,22 @@ import {
 } from "@plugin-detector/core";
 import { loadSnapshot } from "@plugin-detector/registry";
 import { CliErrorSchema, InstallJsonSchema, printJson, printSection } from "../output.js";
-import { findSnapshotCandidate } from "./inventory.js";
+import { consentMetadata } from "./consent-metadata.js";
+import {
+  createInstallAdapter,
+  findSnapshotCandidate,
+  type InstallHarness,
+} from "./inventory.js";
 
-const INSTALL_HARNESSES = [
+const INSTALL_HARNESSES: InstallHarness[] = [
   "opencode",
   "claude-code",
   "codex",
   "cursor",
-] as const;
-type InstallHarness = (typeof INSTALL_HARNESSES)[number];
+];
 
 function isInstallHarness(value: string): value is InstallHarness {
-  return (INSTALL_HARNESSES as readonly string[]).includes(value);
-}
-
-function createAdapter(
-  harness: InstallHarness,
-  opts: { home?: string; root?: string },
-):
-  | OpenCodeAdapter
-  | ClaudeCodeAdapter
-  | CodexAdapter
-  | CursorAdapter {
-  switch (harness) {
-    case "opencode":
-      return new OpenCodeAdapter(opts);
-    case "claude-code":
-      return new ClaudeCodeAdapter(opts);
-    case "codex":
-      return new CodexAdapter(opts);
-    case "cursor":
-      return new CursorAdapter(opts);
-  }
+  return (INSTALL_HARNESSES as string[]).includes(value);
 }
 
 export interface InstallResult {
@@ -144,6 +124,15 @@ export async function install(argv: string[]): Promise<InstallResult> {
   // Trust and the expected plan come from the snapshot + adapter, never from
   // the supplied file. This runs before any token is consumed, so a tampered
   // or unverified plan cannot burn an approval.
+  if (resolved.candidate.artifactProbed === false) {
+    reportBlocked(
+      json,
+      "install",
+      "artifact-unprobed",
+      `candidate "${candidateId}" was declared by a source listing but its artifact was never probed; follow its manual recipe instead.`,
+    );
+    return { exitCode: 4 };
+  }
   if (resolved.trust !== "verified") {
     reportBlocked(
       json,
@@ -154,7 +143,7 @@ export async function install(argv: string[]): Promise<InstallResult> {
     return { exitCode: 4 };
   }
   const opts = { ...(home ? { home } : {}), ...(root ? { root } : {}) };
-  const adapter = createAdapter(harness, opts);
+  const adapter = createInstallAdapter(harness, opts);
   const expected = adapter.installPlan(resolved.candidate, resolved.trust);
   if (planHash(plan) !== planHash(expected)) {
     reportBlocked(
@@ -255,12 +244,12 @@ function reportBlocked(
   }
 }
 
-// Best-effort enrichment for the TTY prompt: name, source, and trust from
-// the cached snapshot. Falls back to plan ids when no snapshot is cached.
+// Best-effort enrichment for the TTY prompt: every safety-relevant field the
+// snapshot carries. Missing fields fall back to explicit "unknown".
 export function describeCandidate(
   candidateId: string,
   cacheDir?: string,
-): Pick<ConsentDetail, "candidateName" | "source" | "trust"> {
+): ReturnType<typeof consentMetadata> {
   try {
     const snapshot = loadSnapshot({ ...(cacheDir ? { cacheDir } : {}) });
     const found = snapshot.candidates.find((entry) => entry.id === candidateId);
@@ -268,17 +257,14 @@ export function describeCandidate(
     const provenance = snapshot.provenance.find(
       (entry) => entry.id === candidateId,
     );
-    return {
-      candidateName: found.name,
-      source: found.packageName ?? found.repositoryUrl ?? found.id,
-      trust: provenance?.trust ?? "unverified",
-    };
+    return consentMetadata(found, provenance, provenance?.trust ?? "unverified");
   } catch {
     return {};
   }
 }
 
-// Pure TTY prompt body: candidate, source, trust, operations, and rollback.
+// Pure TTY prompt body: candidate, source, trust evidence, artifact metadata,
+// permissions, operations, and rollback.
 export function buildConsentLines(detail: ConsentDetail): string[] {
   return [
     `candidate: ${detail.candidateId}`,
@@ -286,7 +272,27 @@ export function buildConsentLines(detail: ConsentDetail): string[] {
       ? [`name: ${detail.candidateName}`]
       : []),
     ...(detail.source !== undefined ? [`source: ${detail.source}`] : []),
+    ...(detail.canonicalUrl !== undefined
+      ? [`canonical-url: ${detail.canonicalUrl}`]
+      : []),
+    ...(detail.artifactType !== undefined
+      ? [`artifact-type: ${detail.artifactType}`]
+      : []),
+    ...(detail.pinnedRef !== undefined
+      ? [`pinned-ref: ${detail.pinnedRef}`]
+      : []),
+    ...(detail.license !== undefined ? [`license: ${detail.license}`] : []),
     ...(detail.trust !== undefined ? [`trust: ${detail.trust}`] : []),
+    ...(detail.trustEvidence !== undefined
+      ? [`trust-evidence: ${detail.trustEvidence}`]
+      : []),
+    ...(detail.permissions !== undefined
+      ? [`permissions: ${detail.permissions}`]
+      : []),
+    ...(detail.envVars !== undefined ? [`env-vars: ${detail.envVars}`] : []),
+    ...(detail.sideEffects !== undefined
+      ? [`side-effects: ${detail.sideEffects}`]
+      : []),
     `harness: ${detail.harness}`,
     `operations:`,
     ...detail.operations.map(

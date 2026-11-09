@@ -240,3 +240,26 @@ test("empty operations fall through to the recipe-only throw", async () => {
     return true;
   });
 });
+
+test("jsonc-only config makes plugin/MCP config writes recipe-only", async () => {
+  const jsonc = join(root, "opencode.jsonc");
+  writeFileSync(jsonc, '{\n  // keep this comment\n  "mcp": {}\n}\n');
+  const pluginPlan = adapter().installPlan(candidate(), "verified");
+  assert.ok(pluginPlan.operations.every((op) => op.kind === "recipe"));
+  assert.match(pluginPlan.operations[0]?.summary ?? "", /opencode\.jsonc/);
+  const mcpPlan = adapter().installPlan(
+    candidate({ id: "m1", artifactType: "mcp-server" }),
+    "verified",
+  );
+  assert.ok(mcpPlan.operations.every((op) => op.kind === "recipe"));
+});
+
+test("jsonc alongside json is preferred and blocks a shadow config write", async () => {
+  const json = join(root, "opencode.json");
+  const jsonc = join(root, "opencode.jsonc");
+  writeFileSync(json, '{"plugin":[]}\n');
+  writeFileSync(jsonc, '{/* real config */ "plugin": []}\n');
+  const plan = adapter().installPlan(candidate(), "verified");
+  assert.equal(plan.operations[0]?.kind, "recipe");
+  assert.match(plan.operations[0]?.summary ?? "", /opencode\.jsonc/);
+});

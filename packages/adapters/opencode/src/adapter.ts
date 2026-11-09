@@ -193,7 +193,13 @@ export class OpenCodeAdapter implements HarnessAdapter {
     const backupRefs: string[] = [];
     let operations: InstallPlan["operations"];
     let rollbackOperations: InstallPlan["rollbackOperations"];
-    if (trust === "verified" && supported) {
+    const jsoncPath = path.join(this.root, "opencode.jsonc");
+    // JSONC comments cannot be preserved by the JSON merge writer. When a
+    // JSONC config exists (with or without a sibling .json), the config write
+    // is recipe-only rather than silently replacing the file OpenCode reads.
+    const configWriteBlocked =
+      candidate.artifactType !== "skill" && existsSync(jsoncPath);
+    if (trust === "verified" && supported && !configWriteBlocked) {
       const configPath = path.join(this.root, "opencode.json");
       if (candidate.artifactType === "skill") {
         const dest = path.join(this.home, ".config", "opencode", "skills");
@@ -244,9 +250,11 @@ export class OpenCodeAdapter implements HarnessAdapter {
         ];
       }
     } else {
-      const reason = supported
-        ? `trust is "${trust}", not verified`
-        : `artifact type "${candidate.artifactType}" has no harness-native installer`;
+      const reason = configWriteBlocked
+        ? `an existing opencode.jsonc cannot be rewritten without losing comments; edit it manually`
+        : supported
+          ? `trust is "${trust}", not verified`
+          : `artifact type "${candidate.artifactType}" has no harness-native installer`;
       operations = [
         {
           kind: "recipe",

@@ -8,6 +8,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
   writeSync,
 } from "node:fs";
@@ -130,8 +131,10 @@ const STORE_LOCK_TIMEOUT_MS = 2000;
 const STALE_LOCK_MS = 10_000;
 
 function breakStaleLock(lockPath: string): boolean {
+  let before;
   let content: string;
   try {
+    before = statSync(lockPath);
     content = readFileSync(lockPath, "utf8");
   } catch {
     return false;
@@ -140,7 +143,12 @@ function breakStaleLock(lockPath: string): boolean {
   if (!Number.isFinite(takenAt) || Date.now() - takenAt <= STALE_LOCK_MS) {
     return false;
   }
+  // Same inode and same content as the stale snapshot we just read: a new
+  // owner did not replace the lock between the read and the unlink.
   try {
+    const after = statSync(lockPath);
+    if (after.ino !== before.ino || after.dev !== before.dev) return false;
+    if (readFileSync(lockPath, "utf8") !== content) return false;
     rmSync(lockPath);
   } catch {
     return false;
@@ -156,6 +164,8 @@ function withStoreLock<T>(dir: string, fn: () => T): T {
   const lockPath = path.join(dir, "approvals.lock");
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const deadline = Date.now() + STORE_LOCK_TIMEOUT_MS;
+  const owner = randomBytes(16).toString("hex");
+  const content = `${process.pid}\n${Date.now()}\n${owner}\n`;
   for (;;) {
     let fd: number | null = null;
     try {
@@ -175,7 +185,7 @@ function withStoreLock<T>(dir: string, fn: () => T): T {
       } catch {
         // Best effort: the wx mode already requests owner-only access.
       }
-      writeSync(fd, `${process.pid}\n${Date.now()}\n`);
+      writeSync(fd, content);
       return fn();
     } finally {
       try {
@@ -183,8 +193,10 @@ function withStoreLock<T>(dir: string, fn: () => T): T {
       } catch {
         // Best effort: a broken close must not orphan the lock file.
       }
+      // Only the owner may unlink: a lock broken as stale and re-acquired by
+      // another process must not be removed out from under it.
       try {
-        rmSync(lockPath);
+        if (readFileSync(lockPath, "utf8") === content) rmSync(lockPath);
       } catch {
         // Best effort: a stale lock is broken by the next holder.
       }

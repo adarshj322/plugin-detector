@@ -15,22 +15,44 @@ export function skillNameFromFrontmatter(text: string): string | null {
   return null;
 }
 
-// `capabilities:` (comma-separated local names mapped through the core
-// taxonomy) from a SKILL.md frontmatter block. Null means malformed;
+// `capabilities:` from a SKILL.md frontmatter block, in any of the three
+// shapes authors actually use: comma-separated, flow list `[a, b]`, or a
+// block list (`- a` on following indented lines). Null means malformed;
 // absent key means no declared capabilities ([]).
 export function skillCapabilitiesFromFrontmatter(text: string): string[] | null {
   const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
   if (!match?.[1]) return null;
-  for (const line of match[1].split("\n")) {
-    const raw = /^\s*capabilities\s*:\s*(.+?)\s*$/.exec(line)?.[1];
-    if (raw === undefined) continue;
-    if (/[[{\]]/.test(raw)) return null;
-    const out: string[] = [];
-    for (const part of raw.split(",")) {
-      const mapped = capabilityId(part.trim());
-      if (mapped) out.push(mapped);
+  const lines = match[1].split("\n");
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] as string;
+    const inline = /^\s*capabilities\s*:\s*(.*?)\s*$/.exec(line);
+    if (inline === null) continue;
+    let raw = inline[1] ?? "";
+    if (raw.startsWith("[")) {
+      if (!raw.endsWith("]")) return null;
+      raw = raw.slice(1, -1);
+    } else if (raw.length === 0) {
+      const items: string[] = [];
+      for (let j = i + 1; j < lines.length; j += 1) {
+        const next = lines[j] as string;
+        if (next.trim().length === 0 || /^\s*#/.test(next)) continue;
+        const item = /^\s*-\s*(.+?)\s*$/.exec(next);
+        if (item === null) break;
+        items.push(item[1] as string);
+      }
+      return mapCapabilities(items);
     }
-    return out;
+    if (/[[{\]]/.test(raw)) return null;
+    return mapCapabilities(raw.split(","));
   }
   return [];
+}
+
+function mapCapabilities(parts: string[]): string[] {
+  const out: string[] = [];
+  for (const part of parts) {
+    const mapped = capabilityId(part.trim());
+    if (mapped) out.push(mapped);
+  }
+  return out;
 }

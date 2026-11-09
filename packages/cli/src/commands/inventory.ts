@@ -7,7 +7,10 @@ import type {
   CapabilityRecord,
   InstallPlan,
 } from "@plugin-detector/core";
-import { loadSnapshot } from "@plugin-detector/registry";
+import {
+  loadSnapshot,
+  type SnapshotProvenance,
+} from "@plugin-detector/registry";
 import {
   InventoryJsonSchema,
   printJson,
@@ -56,9 +59,41 @@ export function buildAdapters(home?: string, root?: string): AdapterLike[] {
   }));
 }
 
+export type InstallHarness = "opencode" | "claude-code" | "codex" | "cursor";
+
+export interface InstallAdapter {
+  harness: InstallHarness;
+  installPlan(candidate: Candidate, trust?: TrustLabel): InstallPlan;
+  applyPlan(plan: InstallPlan): Promise<unknown>;
+  rollback(plan: InstallPlan): Promise<{ restored: string[] }>;
+}
+
+// Single factory for the two mutation commands (install and rollback), so the
+// harness set cannot drift between them.
+export function createInstallAdapter(
+  harness: InstallHarness,
+  opts: { home?: string; root?: string },
+): InstallAdapter {
+  const adapter =
+    harness === "opencode"
+      ? new OpenCodeAdapter(opts)
+      : harness === "claude-code"
+        ? new ClaudeCodeAdapter(opts)
+        : harness === "codex"
+          ? new CodexAdapter(opts)
+          : new CursorAdapter(opts);
+  return {
+    harness,
+    installPlan: (candidate, trust) => adapter.installPlan(candidate, trust),
+    applyPlan: (plan) => adapter.applyPlan(plan),
+    rollback: (plan) => adapter.rollback(plan),
+  };
+}
+
 export interface SnapshotCandidate {
   candidate: Candidate;
   trust: TrustLabel;
+  provenance?: SnapshotProvenance;
 }
 
 // Shared resolution for `plan` and `install`: the candidate and its trust
@@ -71,7 +106,11 @@ export function findSnapshotCandidate(
   const candidate = snapshot.candidates.find((c) => c.id === candidateId);
   if (!candidate) return null;
   const provenance = snapshot.provenance.find((p) => p.id === candidateId);
-  return { candidate, trust: provenance?.trust ?? "unverified" };
+  return {
+    candidate,
+    trust: provenance?.trust ?? "unverified",
+    ...(provenance ? { provenance } : {}),
+  };
 }
 
 function adaptersFor(home?: string, root?: string): AdapterLike[] {
@@ -148,7 +187,15 @@ export async function inventory(argv: string[]): Promise<InventoryResult> {
   }
   const harnesses = await collectInventories(home, root);
   if (json) {
-    printJson({ command: "inventory", facts: { harnesses } }, InventoryJsonSchema);
+    printJson(
+      {
+        command: "inventory",
+        facts: { harnesses },
+        estimates: {},
+        untrustedCopy: { withheld: [] },
+      },
+      InventoryJsonSchema,
+    );
     return { exitCode: 0 };
   }
   const lines = harnesses.map(

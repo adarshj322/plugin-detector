@@ -9,6 +9,7 @@ import { registryRefresh } from "./commands/registry-refresh.js";
 import { plan } from "./commands/plan.js";
 import { approve } from "./commands/approve.js";
 import { install } from "./commands/install.js";
+import { rollback } from "./commands/rollback.js";
 import { benchmark } from "./commands/benchmark.js";
 
 export const PACKAGE_NAME = "plugin-detector";
@@ -25,6 +26,7 @@ function usage(): number {
       "  plan --candidate <id> --harness <name> [--json] [--out <file>] [--cache-dir DIR] [--home DIR] [--root DIR]",
       "  approve --candidate <id> --plan <sha256> [--plan-file <file>] [--ttl-minutes N] [--json]",
       "  install --plan-file <file> --candidate <id> --harness <name> [--approval-token <token>] [--json] [--home DIR] [--root DIR] [--cache-dir DIR]",
+      "  rollback --plan-file <file> [--json] [--home DIR] [--root DIR]",
       "  benchmark [--fixtures DIR] [--fail-on-low-value]",
       "install takes the token from --approval-token or PLUGIN_DETECTOR_APPROVAL_TOKEN,",
       "else prompts on a TTY; non-TTY without a token refuses.",
@@ -35,8 +37,8 @@ function usage(): number {
 
 // Exit codes: 0 ok, 1 error, 2 usage, 3 needs-clarification, 4 blocked.
 // Only `registry refresh` (explicit cache refresh), `plan --out` (explicit
-// plan file), `approve` (token store), and consented `install` (verified
-// writers) touch the filesystem.
+// plan file), `approve` (token store), consented `install` (verified writers),
+// and `rollback` (restores recorded preimages) touch the filesystem.
 export async function main(argv: string[] = process.argv.slice(2)): Promise<number> {
   const [command, sub, ...rest] = argv;
   if (command === "inventory") return (await inventory(sub ? [sub, ...rest] : [])).exitCode;
@@ -45,6 +47,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<numb
   if (command === "plan") return (await plan(sub ? [sub, ...rest] : [])).exitCode;
   if (command === "approve") return (await approve(sub ? [sub, ...rest] : [])).exitCode;
   if (command === "install") return (await install(sub ? [sub, ...rest] : [])).exitCode;
+  if (command === "rollback") return (await rollback(sub ? [sub, ...rest] : [])).exitCode;
   if (command === "benchmark") return (await benchmark(sub ? [sub, ...rest] : [])).exitCode;
   if (command === "profiles" && sub === "validate") return (await validateProfile(rest)).exitCode;
   if (command === "registry" && sub === "refresh") {

@@ -48,3 +48,29 @@ test("frontmatter capabilities map through taxonomy, absent is empty", () => {
     null,
   );
 });
+
+test("stripJsonc accepts trailing commas outside strings", () => {
+  const parsed = JSON.parse(
+    stripJsonc('{\n  "a": [1, 2,],\n  "b": {"c": 3,},\n}\n'),
+  ) as Record<string, unknown>;
+  assert.deepEqual(parsed, { a: [1, 2], b: { c: 3 } });
+  const kept = JSON.parse(
+    stripJsonc('{"a": "trailing, } inside a string"}'),
+  ) as Record<string, unknown>;
+  assert.equal(kept["a"], "trailing, } inside a string");
+});
+
+test("frontmatter capabilities support flow and block YAML lists", () => {
+  assert.deepEqual(
+    skillCapabilitiesFromFrontmatter(
+      "---\nname: x\ncapabilities: [code-review.quality, e2e]\n---\n",
+    ),
+    ["code-review.quality", "testing.e2e"],
+  );
+  assert.deepEqual(
+    skillCapabilitiesFromFrontmatter(
+      "---\nname: x\ncapabilities:\n  - code-review.quality\n  - e2e\n---\n",
+    ),
+    ["code-review.quality", "testing.e2e"],
+  );
+});
