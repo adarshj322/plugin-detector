@@ -33,6 +33,33 @@ test("taxonomy contains all v1 stable ids", () => {
   }
 });
 
+// v1.0 evidence pipeline additions; every canonical ID stays stable.
+const EVIDENCE_IDS = [
+  "data.database",
+  "browser.automation",
+  "search.web",
+  "cloud.infra",
+  "media.video",
+  "media.image",
+  "collaboration.chat",
+];
+
+test("taxonomy includes the v1.0 evidence capability ids", () => {
+  const ids = CANONICAL_CAPABILITY_IDS as readonly string[];
+  for (const id of EVIDENCE_IDS) {
+    assert.ok(ids.includes(id), `missing ${id}`);
+  }
+  assert.equal(new Set(ids).size, ids.length, "canonical ids must be unique");
+});
+
+test("expanded ids resolve to themselves through capabilityId", () => {
+  for (const id of EVIDENCE_IDS) {
+    assert.equal(capabilityId(id), id);
+    // Separator-blind spelling also resolves to the canonical ID.
+    assert.equal(capabilityId(id.replace(/\./g, " ")), id);
+  }
+});
+
 test("capabilityId matches exact ids case-insensitively", () => {
   assert.equal(capabilityId("testing.runner"), "testing.runner");
   assert.equal(capabilityId("Testing.Runner"), "testing.runner");

@@ -100,6 +100,61 @@ test("curl-pipe description sets untrustedCopyRisk", () => {
   assert.equal(benign.untrustedCopyRisk, false);
 });
 
+function probedCandidate(overrides: Partial<RawCandidate> = {}): RawCandidate {
+  return rawCandidate({
+    artifact: { kind: "mcp", file: "server.json" },
+    artifactProbe: {
+      kind: "mcp-server",
+      sourceUrl: "https://registry.example.com/acme-pg/1.0.0",
+      resolvedRef: "npm:acme-pg-mcp@1.0.0",
+      contentHash: "a".repeat(64),
+      license: "MIT",
+      name: "acme-pg-mcp",
+      capabilities: [],
+      evidenceSnippets: [
+        "name: acme-pg-mcp",
+        "description: Query PostgreSQL databases",
+      ],
+      retrievedAt: "2026-11-09T00:00:00.000Z",
+    },
+    ...overrides,
+  });
+}
+
+test("normalize infers capabilities from probed evidence when ref is empty", () => {
+  const candidate = normalizeCandidate(probedCandidate());
+  assert.deepEqual(candidate.capabilities, ["data.database"]);
+});
+
+test("normalize infers from the probe artifact name too", () => {
+  const candidate = normalizeCandidate(
+    probedCandidate({
+      artifactProbe: {
+        ...probedCandidate().artifactProbe!,
+        name: "playwright-mcp",
+        evidenceSnippets: ["name: playwright-mcp"],
+      },
+    }),
+  );
+  assert.deepEqual(candidate.capabilities, ["browser.automation"]);
+});
+
+test("raw description and readme never influence capabilities", () => {
+  const candidate = normalizeCandidate(
+    probedCandidate({
+      artifactProbe: {
+        ...probedCandidate().artifactProbe!,
+        name: "acme-pg-mcp",
+        evidenceSnippets: ["name: acme-pg-mcp"],
+      },
+      description: "Playwright browser automation and video editing",
+      readme: "Content publishing pipeline with Slack integration",
+    }),
+  );
+  assert.deepEqual(candidate.capabilities, []);
+  assert.ok(candidate.rawUntrustedCopy?.includes("Playwright"));
+});
+
 test("probe is exposed for local artifact fixtures", () => {
   assert.equal(probeArtifact(rawCandidate()).found, true);
   assert.equal(probeArtifact(rawCandidate({ artifact: null })).found, false);

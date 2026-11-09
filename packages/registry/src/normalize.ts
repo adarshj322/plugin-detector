@@ -3,6 +3,7 @@ import {
   type Candidate,
 } from "@plugin-detector/core";
 import { probeArtifact, type RawCandidate } from "./probe.js";
+import { inferCapabilities } from "./classify.js";
 
 // Fixed label quarantining prompt-injection-prone text: raw description/README
 // is display diagnostics only and no scoring field may read it.
@@ -40,7 +41,19 @@ export function normalizeCandidate(input: RawCandidate): NormalizedCandidate {
   }
 
   const ref = input.artifact;
-  const capabilities = (ref?.capabilities ?? []).filter((c) => c.trim());
+  const declaredCapabilities = (ref?.capabilities ?? []).filter((c) =>
+    c.trim(),
+  );
+  // Capabilities come from fetched artifact evidence only when the legacy ref
+  // declared none. Evidence snippets and the probed name are the sole input;
+  // listing descriptions/readmes are never inspected.
+  const capabilities =
+    declaredCapabilities.length > 0
+      ? declaredCapabilities
+      : inferCapabilities(
+          (input.artifactProbe?.evidenceSnippets ?? []).join("\n"),
+          input.artifactProbe?.name ?? "",
+        ).capabilities;
   const domains = (ref?.domains ?? []).filter((d) => d.trim());
 
   const id = input.id ?? input.packageName ?? ref?.artifactId;

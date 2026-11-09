@@ -4,6 +4,7 @@ export * from "./probe-skills-sh.js";
 export * from "./probe-github.js";
 export * from "./probe-package.js";
 export * from "./normalize.js";
+export * from "./classify.js";
 export * from "./trust.js";
 export * from "./snapshot.js";
 export * from "./cache.js";
