@@ -98,7 +98,7 @@ jobs:
           done
 
       - name: Smoke-test the built CLI
-        run: npx plugin-detector inventory --json >/dev/null
+        run: node packages/cli/dist/src/index.js inventory --json >/dev/null
 
   publish:
     name: Publish npm and GitHub release
