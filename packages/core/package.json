@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
+  "description": "Core schemas, taxonomy, scoring, verdicts, and install safety primitives for plugin-detector.",
   "engines": {
     "node": ">=22"
   },

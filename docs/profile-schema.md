@@ -48,12 +48,20 @@ dependency:
 
 - top-level `key: scalar` pairs;
 - top-level `key:` followed by `- item` list entries;
-- `#` comments and blank lines;
+- **full-line** `#` comments and blank lines (an inline `# ...` is scalar text,
+  not a comment);
 - quoted or unquoted scalars; integer scalars become numbers.
 
-Not supported (the file is rejected, never guessed): nested maps, inline
-collections (`[]`, `{}`), tabs, block scalars, anchors, aliases, multiline
-strings, and duplicate keys. Keep profiles flat.
+The loader does not interpret YAML beyond that subset:
+
+- anchors (`&name`), aliases (`*name`), and block scalar indicators (`|`, `>`)
+  are kept as literal scalar text; there is no anchor/alias resolution and no
+  multiline string support. A block scalar body is indented, so it is rejected
+  as a nested map rather than guessed.
+- nested maps, inline collections (`[]`, `{}` at the start of a value), tabs,
+  and duplicate keys are rejected with the file and line number.
+
+Keep profiles flat.
 
 ## Example
 

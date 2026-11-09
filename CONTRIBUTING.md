@@ -139,11 +139,14 @@ See [docs/benchmark.md](docs/benchmark.md).
 
 4. Inspect the packed file lists: no `node_modules`, tests, caches, `.env`,
    fixtures, coverage, or personal paths.
-5. Create a **signed** tag: `git tag -s vX.Y.Z -m "plugin-detector vX.Y.Z"`,
-   then push it. Tags are `v0.1.*` alpha, `v0.5.*` beta, `v1.*` stable.
+5. Create a **signed** tag (expected maintainer policy):
+   `git tag -s vX.Y.Z -m "plugin-detector vX.Y.Z"`, then push it. Tags are
+   `v0.1.*` alpha, `v0.5.*` beta, `v1.*` stable.
 6. The tag triggers `.github/workflows/release.yml`: clean checkout, Node 22,
    `npm ci`, typecheck, full tests, benchmark, build, pack, npm publish with
-   provenance, SHA-256 checksums, and a GitHub Release.
+   provenance, SHA-256 checksums, and a GitHub Release. CI verifies that the tag
+   exists (`gh release create --verify-tag`), not its signature; reviewers must
+   verify signatures locally with `git tag -v <tag>` before trusting a release.
 7. Never publish from a dirty worktree or a pull request. Never reuse a version.
 8. For `v0.x`, npm dist-tag `next`; `v1.*` publishes to `latest`.
 

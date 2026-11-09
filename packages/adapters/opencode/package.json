@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
+  "description": "OpenCode detection, inventory, compatibility, and verified-only install adapter for plugin-detector.",
   "engines": {
     "node": ">=22"
   },

@@ -90,14 +90,42 @@ test("approval store file is mode 0600", () => {
 });
 
 test("canonical plan hash is stable under key order variance", () => {
-  const a: InstallPlan["operations"] = [
-    { kind: "write", target: "/x", summary: "s" },
-  ];
-  const b: InstallPlan["operations"] = [
-    { summary: "s", target: "/x", kind: "write" },
-  ];
+  const a: InstallPlan = {
+    candidateId: "c1",
+    harness: "opencode",
+    operations: [{ kind: "write", target: "/x", summary: "s" }],
+    backupRefs: ["/x"],
+    rollbackOperations: [{ kind: "recipe", summary: "restore" }],
+    approvalTokenRequired: true,
+  };
+  const b: InstallPlan = {
+    approvalTokenRequired: true,
+    rollbackOperations: [{ summary: "restore", kind: "recipe" }],
+    backupRefs: ["/x"],
+    operations: [{ summary: "s", target: "/x", kind: "write" }],
+    harness: "opencode",
+    candidateId: "c1",
+  };
   assert.equal(canonicalPlanHash(a), canonicalPlanHash(b));
   assert.match(canonicalPlanHash(a), /^[0-9a-f]{64}$/);
+});
+
+test("canonical plan hash binds backup, rollback, harness, and candidate", () => {
+  const base = makePlan();
+  const variants: InstallPlan[] = [
+    { ...base, backupRefs: [...base.backupRefs, "/tmp/evil"] },
+    { ...base, backupRefs: [] },
+    { ...base, rollbackOperations: [] },
+    { ...base, harness: "claude-code" },
+    { ...base, candidateId: "cand-2" },
+  ];
+  for (const variant of variants) {
+    assert.notEqual(
+      planHash(base),
+      planHash(variant),
+      "every write-affecting plan field must change the hash",
+    );
+  }
 });
 
 test("verifyApprovalToken accepts a fresh token for the same plan", () => {

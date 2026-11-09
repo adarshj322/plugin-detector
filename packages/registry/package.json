@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
+  "description": "Registry snapshot loader, source refresh, normalization, and trust classification for plugin-detector.",
   "engines": {
     "node": ">=22"
   },

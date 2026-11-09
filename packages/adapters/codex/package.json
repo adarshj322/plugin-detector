@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
+  "description": "Codex detection and inventory adapter with recipe-only installs for plugin-detector.",
   "engines": {
     "node": ">=22"
   },

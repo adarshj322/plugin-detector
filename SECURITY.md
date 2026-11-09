@@ -76,7 +76,9 @@ We will not pursue legal action for good-faith security research that:
 
 - Published npm packages use npm provenance and `publishConfig.provenance`.
 - GitHub Releases include SHA-256 checksums of the packed tarballs.
-- Release tags must be signed by a maintainer.
+- Signed release tags are expected policy for maintainers. The release workflow
+  verifies that the tag exists, not its cryptographic signature; verify locally
+  with `git tag -v <tag>` before trusting a release.
 - The bundled registry snapshot is reviewed before a v1.0 release; until then it
   is a clearly labeled seed/placeholder.
 - `npm audit --omit=dev` runs in CI, but it only reports known advisories. It is

@@ -28,17 +28,31 @@ npx plugin-detector inventory
 npx plugin-detector recommend --use-case software-development --signal tsconfig
 
 # Why did a candidate receive that verdict?
-npx plugin-detector explain <candidate-id>
+npx plugin-detector explain CANDIDATE_ID
+
+# Produce an install plan for a candidate you accepted (no writes)
+npx plugin-detector plan --candidate CANDIDATE_ID --harness opencode --out plan.json
+
+# Approve that exact plan (prints a single-use token once), then install it
+npx plugin-detector approve --candidate CANDIDATE_ID --plan-file plan.json
+npx plugin-detector install --plan-file plan.json --candidate CANDIDATE_ID --harness opencode
 
 # Optional: install the CLI globally
 npm install --global plugin-detector
 ```
 
 `recommend` emits at most five non-risky candidates and a set-level verdict:
-`required`, `useful-optional`, `redundant`, `risky`, or
-`no-good-candidates`. Every recommendation carries its evidence pointers,
-confidence, risk, compatibility, overlap, and reasoning. A
+`required`, `useful-optional`, `redundant`, or `no-good-candidates`. `risky`
+is a per-candidate verdict; risky candidates are shown as such by `explain` and
+are excluded from the returned top set. Every recommendation carries its
+evidence pointers, confidence, score, overlap, compatibility, pinned ref,
+license, and reasoning. Risk, audit status, and maintenance are candidate
+fields (shown by `explain`), not top-level recommendation fields. A
 `no-good-candidates` answer is a valid, expected result.
+
+The bundled snapshot is still a seed/placeholder, so a fresh install can
+legitimately return `no-good-candidates` until a reviewed refresh is committed
+(see [Registry snapshot status](#registry-snapshot-status)).
 
 ### Four-harness support
 
@@ -47,7 +61,7 @@ confidence, risk, compatibility, overlap, and reasoning. A
 | **OpenCode** | Yes | Verified candidates only; tested writer | Skills via the documented skills CLI; plugins/MCP through config merge. Recipe fallback otherwise. |
 | **Claude Code** | Yes | Verified candidates only; tested writer | Skills, plugins (`enabledPlugins`), and project MCP servers. Recipe fallback otherwise. |
 | **Codex** | Yes | **Recipe-only** — no automatic writes | Full research/inventory; `applyPlan` refuses until live verification flips `installVerified`. |
-| **Cursor** | Yes | **Recipe-only** — no automatic writes | Full research/inventory; Cursor MCP/rules support is experimental; `applyPlan` refuses. |
+| **Cursor** | Yes | **Recipe-only** — no automatic writes | Full research/inventory; MCP is the documented path, while skills/rules/commands are experimental; `applyPlan` refuses. |
 
 "Tested writer" means the mutation path is covered by fixture and rollback tests,
 not that every upstream harness release is permanently verified. Upstream formats
@@ -65,15 +79,20 @@ npx plugin-detector recommend --use-case design-frontend --harness cursor
 
 ## Safety model: read first, install only on explicit consent
 
-- `inventory`, `recommend`, `explain`, and `profiles validate` are **read-only**.
-  They never write harness config or install anything.
-- The only writes are an explicit `registry refresh` cache update and a consented
-  `install`. `install` refuses without a one-shot approval token or an interactive
-  TTY confirmation.
-- The token is candidate-scoped and plan-scoped (`sha256` of the exact plan), is
-  single-use, and expires (default 10 minutes, maximum 30).
-- **Unverified candidates never auto-install.** They receive a manual recipe with
-  the exact commands, files, permissions, side effects, and rollback steps.
+- `inventory`, `recommend`, `explain`, `plan`, and `profiles validate` are
+  **read-only** by default. They never write harness config or install anything.
+  `plan --out <file>` writes only the plan file you explicitly request.
+- The commands that write are `registry refresh` (cache/snapshot update),
+  `approve` (the one-shot token store), and a consented `install`. `install`
+  refuses unless the plan re-derives exactly from the registry snapshot and a
+  valid one-shot token or interactive TTY confirmation is present.
+- `approve` prints the token **once** so it can be handed to `install`. The token
+  is candidate-scoped and bound to the `sha256` of the **complete** plan
+  (candidate, harness, operations, backup refs, and rollback operations),
+  single-use, and short-lived (default 10 minutes, maximum 30).
+- **Unverified candidates never auto-install.** `plan` prints a manual recipe
+  with the exact commands, files, permissions, side effects, and rollback steps
+  instead of a write plan.
 - Secrets are represented by environment-variable **name only**. Values are never
   read, written, or logged.
 - Every managed write backs up the preimage, validates after writing, and restores
@@ -89,22 +108,16 @@ Read the full [security model](docs/security-model.md) and the
 ## What a recommendation looks like
 
 The CLI separates deterministic `facts`, editorial `estimates`, and untrusted
-candidate copy:
+candidate copy. This is an illustrative shape, not captured output from a real
+snapshot:
 
 ```text
 facts:
-use-case: video-editing
-profile-status: match
-verdict: required
-recommendations:
-- <candidate-id> [skill] verdict=required confidence=high score=78.4
-  compatibility=1 overlap=1
-  evidence:
-  - https://example.com/source-with-a-pinned-version
+  use-case: video-editing (profile-status: match)
+  verdict: required
+  demo-candidate [required] score=78.4 overlap=1 confidence=high license=MIT pinned=v1.2.3 evidence=https://example.com/source-with-a-pinned-version
 estimates:
-- <candidate-id>: relevance 0.9 · value 0.8 · immediacy 1 · compatibility 1 ·
-  overlap 1 · setupCost 0.2 · risk 0.05 → score 78.4;
-  verdict required: fills a profile-domain gap with acceptable risk
+  demo-candidate: relevance 0.9 · value 0.8 · immediacy 1 · compatibility 1 · overlap 1 · setupCost 0.2 · risk 0.05 → score 78.4; verdict required: fills a profile-domain gap with acceptable risk
 ```
 
 Scores are **editorial estimates**, not calibrated probabilities. The component
@@ -113,29 +126,32 @@ are treated as untrusted data and are hidden behind `explain --show-untrusted`.
 Compatibility is displayed and hard-gated only at zero in 0.1.0; it is not yet
 multiplied into the recommendation score (a tracked v1.0 gate).
 
-`recommend --json`, `explain --json`, and `inventory --json` emit versioned,
-Zod-validated structures for the invoking agent.
+`recommend --json`, `explain --json`, `plan --json`, `inventory --json`,
+`approve --json`, and `install --json` emit Zod-validated structures for the
+invoking agent. The JSON shape is not yet versioned, so treat it as an unstable
+0.x contract.
 
 ## Manual install recipes
 
-When automatic install is not safe or not supported, the plan contains a recipe.
-These are illustrative shapes, not a substitute for the plan's exact output:
+When automatic install is not safe or not supported, `plan` prints a recipe
+instead of a write plan. These are illustrative shapes, not a substitute for
+the plan's exact output:
 
 ```bash
 # Codex (recipe-only in v0.1): a skill copied into the user skill root
-cp -r <skill-dir> ~/.agents/skills/<candidate-id>
+cp -r SKILL_DIR ~/.agents/skills/CANDIDATE_ID
 # rollback
-rm -rf ~/.agents/skills/<candidate-id>
+rm -rf ~/.agents/skills/CANDIDATE_ID
 ```
 
 ```jsonc
 // Cursor (recipe-only in v0.1): add one server to .cursor/mcp.json
 {
   "mcpServers": {
-    "<candidate-id>": { "command": "<server-command>", "env": { "TOKEN_ENV_NAME": "${TOKEN_ENV_NAME}" } }
+    "CANDIDATE_ID": { "command": "SERVER_COMMAND", "env": { "TOKEN_ENV_NAME": "${TOKEN_ENV_NAME}" } }
   }
 }
-// rollback: remove the "<candidate-id>" entry
+// rollback: remove the "CANDIDATE_ID" entry
 ```
 
 Recipes name required environment variables but never embed their values. Check

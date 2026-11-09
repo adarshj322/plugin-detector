@@ -40,7 +40,7 @@ to beat the baseline makes the command exit 1, which fails CI.
   (`expectedRequiredIds`, `expectedRedundantIds`, `expectedOptionalIds`),
   `unacceptableIds`, and a written `rationale`. The runner reports expected
   `useful-optional` candidates that do not receive that verdict as
-  `missingOptional` misses (asserted empty across the corpus in CI).
+  `missingOptional` misses; the gate fails on any miss.
 - The runner resolves the profile and scores **every** candidate through the
   production `scoreCandidate` — the same function `recommend` uses. Scoring uses
   capabilities, installed inventory, and signal match; it never reads the label
@@ -49,7 +49,10 @@ to beat the baseline makes the command exit 1, which fails CI.
   memorizing fixture ids.
 - **precision@5** = (top-5 non-risky candidates whose verdict is `required`
   *and* whose capabilities overlap the workflow's `requiredCapabilities`) / 5.
-  `truePositive` is capability-overlap based, never id equality.
+  `truePositive` is capability-overlap based, never id equality. A workflow
+  that cannot fill five non-risky candidates (or a baseline pool with fewer than
+  five) is rejected as a corpus error instead of silently changing the
+  denominator.
 - **Offenders** are `required` recommendations that are either in
   `unacceptableIds` (popular-but-irrelevant) or have no relevant capability
   (low-value). Every offender is printed in the workflow line and as a `fail:`

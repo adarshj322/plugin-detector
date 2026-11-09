@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,6 +26,7 @@ const PUBLISHED_PACKAGES = [
 interface PackageJson {
   name: string;
   version: string;
+  description?: string;
   private?: boolean;
   license?: string;
   files?: string[];
@@ -98,6 +100,10 @@ test("publishable packages share public, MIT, Node 22 release metadata", () => {
     const pkg = readJson<PackageJson>(`${dir}/package.json`);
     assert.equal(pkg.version, root.version, `${dir}: lockstep version`);
     assert.equal(pkg.license, "MIT", `${dir}: license`);
+    assert.ok(
+      typeof pkg.description === "string" && pkg.description.length > 0,
+      `${dir}: description is required on the published manifest`,
+    );
     assert.notEqual(pkg.private, true, `${dir}: publishable package cannot be private`);
     assert.ok(nodeFloor(pkg.engines?.node) >= 22, `${dir}: Node >= 22`);
     assert.equal(pkg.publishConfig?.access, "public", `${dir}: public access`);
@@ -188,6 +194,8 @@ test("skill, registry data, and release docs are present in the repo", () => {
     "no-good-candidates",
     "seed/placeholder",
     "registry:refresh",
+    "plan --candidate",
+    "approve --candidate",
     "SECURITY.md",
     "CONTRIBUTING.md",
     "docs/benchmark.md",
@@ -227,6 +235,8 @@ test("npm pack ships only runtime files for every published package", () => {
     const files = packedFiles(dir);
     assertNoDevOrSecretFiles(dir, files);
     assert.ok(files.includes("package.json"), `${dir}: package.json is always packed`);
+    assert.ok(files.includes("LICENSE"), `${dir}: LICENSE must ship in the tarball`);
+    assert.ok(files.includes("README.md"), `${dir}: README.md must ship in the tarball`);
     assert.ok(
       files.every((file) => file === "package.json" || !file.startsWith("dist/test")),
       `${dir}: compiled tests must not ship`,
@@ -235,6 +245,32 @@ test("npm pack ships only runtime files for every published package", () => {
       assert.ok(files.includes(file), `${dir}: expected packed file ${file}`);
     }
   }
+});
+
+test("built CLI exposes plan and the hardened install usage", () => {
+  const entry = join(ROOT, "packages/cli/dist/src/index.js");
+  const env = {
+    ...process.env,
+    PLUGIN_DETECTOR_CACHE_DIR: join(tmpdir(), "pd-release-plan-no-cache"),
+  };
+  const help = spawnSync(process.execPath, [entry, "--help"], {
+    cwd: ROOT,
+    encoding: "utf8",
+    env,
+  });
+  assert.match(help.stderr, /plan --candidate <id> --harness <name>/);
+  assert.match(
+    help.stderr,
+    /install --plan-file <file> --candidate <id> --harness <name>/,
+  );
+
+  const plan = spawnSync(
+    process.execPath,
+    [entry, "plan", "--candidate", "missing", "--harness", "opencode", "--json"],
+    { cwd: ROOT, encoding: "utf8", env },
+  );
+  assert.equal(plan.status, 1, `stderr: ${plan.stderr}`);
+  assert.match(plan.stderr, /unknown candidate: missing/);
 });
 
 test("root pack dry-run excludes workspaces, fixtures, and agent docs", () => {

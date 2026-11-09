@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
+  "description": "Bundled use-case profiles and resolver for plugin-detector.",
   "engines": {
     "node": ">=22"
   },

@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   CapabilityRecordSchema,
   Confidence,
+  InstallPlanSchema,
   Verdict,
 } from "@plugin-detector/core";
 
@@ -113,6 +114,21 @@ export const CliErrorSchema = z.object({
   }),
 });
 export type CliError = z.infer<typeof CliErrorSchema>;
+
+export const PlanJsonSchema = z.object({
+  command: z.literal("plan"),
+  facts: z.object({
+    candidateId: z.string().min(1),
+    harness: z.string().min(1),
+    trust: z.enum(["verified", "curated", "unverified"]),
+    status: z.enum(["write", "recipe"]),
+    plan: InstallPlanSchema,
+    planHash: z.string().regex(/^[0-9a-f]{64}$/),
+    recipe: z.string().optional(),
+    nextSteps: z.array(z.string().min(1)),
+  }),
+});
+export type PlanJson = z.infer<typeof PlanJsonSchema>;
 
 export const ApproveJsonSchema = z.object({
   command: z.literal("approve"),

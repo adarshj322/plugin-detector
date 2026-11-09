@@ -27,7 +27,8 @@ release; see the README).
   `npm publish --provenance`).
 - SHA-256 checksums for every packed tarball are attached to this release and
   listed in the release notes.
-- The tag is signed by a maintainer. Verify locally with:
+- Signed tags are expected maintainer policy. CI verifies that the tag exists,
+  not its cryptographic signature. Verify locally before trusting a release:
 
   ```bash
   git tag -v {{TAG}}
@@ -45,7 +46,7 @@ before installing anything.
 ## Known limitations
 
 - Codex and Cursor installation is recipe-only.
-- The bundled registry snapshot is a reviewed release input; if this release
-  notes a seed/placeholder, `recommend` returns `no-good-candidates` until a
-  refresh is reviewed.
+- **v0.x status:** the bundled registry snapshot is a seed/placeholder, so
+  `recommend` returns `no-good-candidates` until a reviewed `registry refresh`
+  is committed. A v1.0 release requires that reviewed snapshot.
 - Scores are editorial estimates, not calibrated probabilities.

@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import {
   APPROVAL_TOKEN_MAX_TTL_MS,
   InstallPlanSchema,
-  canonicalPlanHash,
   createApprovalToken,
+  planHash,
   type InstallPlan,
 } from "@plugin-detector/core";
 import { ApproveJsonSchema, printJson, printSection } from "../output.js";
@@ -16,7 +16,7 @@ export interface ApproveResult {
 // the token; install consumes it. TTL is capped at 30 minutes.
 export async function approve(argv: string[]): Promise<ApproveResult> {
   let candidateId: string | undefined;
-  let planHash: string | undefined;
+  let planHashArg: string | undefined;
   let planFile: string | undefined;
   let ttlMinutes = 10;
   let json = false;
@@ -27,7 +27,7 @@ export async function approve(argv: string[]): Promise<ApproveResult> {
       candidateId = argv[i + 1];
       i += 1;
     } else if (arg === "--plan" && i + 1 < argv.length) {
-      planHash = argv[i + 1];
+      planHashArg = argv[i + 1];
       i += 1;
     } else if (arg === "--plan-file" && i + 1 < argv.length) {
       planFile = argv[i + 1];
@@ -59,7 +59,7 @@ export async function approve(argv: string[]): Promise<ApproveResult> {
       );
       return { exitCode: 2 };
     }
-    let parsed: { operations: InstallPlan["operations"] };
+    let parsed: InstallPlan;
     try {
       parsed = InstallPlanSchema.parse(JSON.parse(raw) as unknown);
     } catch (error) {
@@ -68,14 +68,14 @@ export async function approve(argv: string[]): Promise<ApproveResult> {
       );
       return { exitCode: 2 };
     }
-    const computed = canonicalPlanHash(parsed.operations);
-    if (planHash !== undefined && planHash.toLowerCase() !== computed) {
+    const computed = planHash(parsed);
+    if (planHashArg !== undefined && planHashArg.toLowerCase() !== computed) {
       console.error("--plan does not match the hash of --plan-file");
       return { exitCode: 2 };
     }
-    planHash = computed;
+    planHashArg = computed;
   }
-  if (planHash === undefined || !/^[0-9a-f]{64}$/i.test(planHash)) {
+  if (planHashArg === undefined || !/^[0-9a-f]{64}$/i.test(planHashArg)) {
     console.error("missing or invalid --plan <sha256>");
     return { exitCode: 2 };
   }
@@ -83,7 +83,7 @@ export async function approve(argv: string[]): Promise<ApproveResult> {
   try {
     record = createApprovalToken({
       candidateId,
-      planHash,
+      planHash: planHashArg,
       ttlMs: ttlMinutes * 60 * 1000,
     });
   } catch (error) {

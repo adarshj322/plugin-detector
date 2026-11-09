@@ -399,6 +399,45 @@ test("report and gate print every offending recommendation", () => {
   assert.ok(failures.every((f) => /pop-render-farm|pop-caption-pro/.test(f)));
 });
 
+test("scoreWorkflow rejects a corpus that cannot fill precision@5", () => {
+  const { workflows, baseline } = loadBenchmarkFixtures(FIXTURE_ROOT);
+  const sample = workflows[0] as (typeof workflows)[number];
+  assert.throws(
+    () =>
+      scoreWorkflow(
+        { ...sample, candidates: sample.candidates.slice(0, 4) },
+        baseline.candidates,
+      ),
+    /at least 5 non-risky candidates/,
+  );
+});
+
+test("gate fails when an expected useful-optional verdict is missing", () => {
+  const summary: BenchmarkSummary = {
+    workflows: [
+      {
+        id: "sw-optional",
+        domain: "software-development",
+        precisionAt5: 1,
+        baselinePrecisionAt5: 0,
+        beatBaseline: true,
+        offenders: [],
+        top: [],
+        missingRequired: [],
+        missingRedundant: [],
+        missingOptional: ["opt-1"],
+      },
+    ],
+    meanPrecisionAt5: 1,
+    meanBaselinePrecisionAt5: 0,
+    offenderCount: 0,
+  };
+  const gated = gateBenchmark(summary, { failOnLowValue: true });
+  assert.equal(gated.exitCode, 1);
+  assert.ok(gated.failures.some((failure) => failure.includes("opt-1")));
+  assert.equal(gateBenchmark(summary, { failOnLowValue: false }).exitCode, 0);
+});
+
 test("expected useful-optional labels are validated by the runner", () => {
   const { workflows, baseline } = loadBenchmarkFixtures(FIXTURE_ROOT);
   const withOptional = workflows.filter((w) => w.expectedOptionalIds.length > 0);

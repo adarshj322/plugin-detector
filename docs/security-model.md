@@ -14,9 +14,9 @@ risk sits.
 | Prompt injection in a candidate description/README | No install action or scoring decision is derived from free text; the skill never executes candidate content. |
 | Compromised upstream artifact | Trust classification, provenance/checksum where available, pinned version, manual recipe for unverified candidates, rollback. |
 | Stale or silently renamed repository | Per-refresh drift detection; drifted candidates are re-flagged; stale entries keep their original verification age. |
-| Secret leakage through inventory | Config values are never read; only names, paths, and flags are recorded; inventory output redacts secret-shaped values. |
-| Ambient or accidental mutation | Read-only defaults, one-shot consent tokens, TTY confirmation, non-TTY refusal, backups, rollback. |
-| Supply-chain compromise of this project | npm provenance for published packages, SHA-256 release checksums, signed release tags, CI gates. |
+| Secret leakage through inventory | Config values are never recorded or emitted; only names, paths, and flags are recorded; inventory output redacts secret-shaped values. |
+| Ambient or accidental mutation | Read-only defaults, plan re-derivation before install, one-shot consent tokens, TTY confirmation, non-TTY refusal, backups, rollback. |
+| Supply-chain compromise of this project | npm provenance for published packages, SHA-256 release checksums, release-tag policy, CI gates. |
 
 ## Local-first and telemetry
 
@@ -26,8 +26,8 @@ risk sits.
   crash reporter, account, or hosted dependency. The CLI does not require an
   account and has no "phone home" behavior.
 - Network access happens only on explicit `registry refresh` (or when the user
-  installs a candidate that fetches from its own source). Read-only commands use
-  the local bundled snapshot or local cache.
+  installs a candidate that fetches from its own source). Read-only commands and
+  `plan` use the local bundled snapshot or local cache.
 - Logging is local-only. v0.1 does not create a persistent log file; the spec's
   target is `~/.plugin-detector/logs` with documented retention (a v1.0 gate).
   Never enable a log that records prompts, project file contents, keys, or config
@@ -47,11 +47,13 @@ model APIs, and lets the tool work offline.
 
 ## Read-only defaults
 
-`inventory`, `recommend`, `explain`, `profiles validate`, and `benchmark` are
-read-only. They do not create, modify, or delete harness configuration. The only
-commands that write are:
+`inventory`, `recommend`, `explain`, `plan`, `profiles validate`, and `benchmark`
+are read-only. They do not create, modify, or delete harness configuration.
+`plan` writes a file only when the user passes `--out <file>`. The only commands
+that write are:
 
 - `registry refresh` — an explicit, user-invoked local cache/snapshot update
+- `plan --out <file>` — writes the plan file the user explicitly requested
 - `approve` — writes a one-shot approval token under the state directory
 - `install` — applies an approved plan, with backup and rollback
 
@@ -63,20 +65,28 @@ scheduled polling in v1. The skill runs only when the user asks.
 The CLI cannot judge natural language, so "explicit approval" is enforced by
 separation of capability:
 
-1. The skill shows the exact plan: source, canonical URL, artifact type,
-   destination, commands/config changes, files that will change, required
-   permissions and environment-variable **names**, side effects, rollback, and
-   why the candidate is (or is not) verified.
+1. The skill runs `plugin-detector plan --candidate <id> --harness <name>` and
+   shows the exact plan: source, canonical URL, artifact type, destination,
+   commands/config changes, files that will change, required permissions and
+   environment-variable **names**, side effects, rollback, and why the candidate
+   is (or is not) verified.
 2. Only after the user approves that exact plan does the skill call
-   `plugin-detector approve --candidate <id> --plan <sha256>`.
-3. `install` requires the matching token (`--approval-token` or
+   `plugin-detector approve --candidate <id> --plan <sha256>` (or
+   `--plan-file plan.json`). The hash covers the **complete** plan: candidate,
+   harness, operations, backup refs, and rollback operations.
+3. `install` re-derives the expected plan from the registry snapshot and the
+   adapter, requires `--candidate` and `--harness`, and rejects an unverified
+   candidate or a hash mismatch **before** consuming the token. It then requires
+   the matching token (`--approval-token` or
    `PLUGIN_DETECTOR_APPROVAL_TOKEN`) or an interactive TTY confirmation. A
    non-TTY process without a token refuses and writes nothing.
-4. The token is scoped to one candidate **and** the plan hash, is consumed
-   single-use, and expires (default 10 minutes, maximum 30).
-5. A token is never printed or committed. Token files are created with `0600`
-   permissions in the state directory (`~/.plugin-detector/approvals` by
-   default, overridable with `PLUGIN_DETECTOR_STATE_DIR`).
+4. The token is scoped to one candidate **and** the complete-plan hash, is
+   consumed single-use, and expires (default 10 minutes, maximum 30).
+5. `approve` prints the token once so it can be handed to `install`; treat it as
+   a short-lived secret, do not commit it, and do not paste it into logs. Token
+   files are created with `0600` permissions in the state directory
+   (`~/.plugin-detector/approvals` by default, overridable with
+   `PLUGIN_DETECTOR_STATE_DIR`).
 
 This cannot cryptographically prove that the human meant the approval. It does
 make ambient, accidental, or unapproved mutation impossible through the CLI.
@@ -130,6 +140,9 @@ or trust authority. Specifically:
   It cannot detect unknown vulnerabilities or malicious packages.
 - npm provenance proves which repository/workflow built a package; it does not
   prove the source is benign.
+- Release tags are expected to be signed by a maintainer, but CI verifies only
+  that the tag exists, not its signature. Verify locally with
+  `git tag -v <tag>` before trusting a release.
 - Release checksums protect the integrity of the files this project publishes;
   they do not protect upstream candidate artifacts.
 - Trust and risk metadata can be incomplete, stale, or wrong. Snapshot age and

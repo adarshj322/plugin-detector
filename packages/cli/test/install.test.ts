@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { OpenCodeAdapter } from "@plugin-detector/opencode";
 import { approve } from "../src/commands/approve.js";
 import {
   buildConsentLines,
@@ -20,42 +21,107 @@ import {
   InstallJsonSchema,
 } from "../src/output.js";
 import {
+  CandidateSchema,
   InstallPlanSchema,
   canonicalPlanHash,
   createApprovalToken,
   planHash,
+  type Candidate,
   type InstallPlan,
 } from "@plugin-detector/core";
 
 const STATE_ENV = "PLUGIN_DETECTOR_STATE_DIR";
 const TOKEN_ENV = "PLUGIN_DETECTOR_APPROVAL_TOKEN";
 
+interface SnapshotInput {
+  candidate: Candidate;
+  trust: "verified" | "curated" | "unverified";
+}
+
 let savedState: string | undefined;
 let savedToken: string | undefined;
 let base: string;
 let home: string;
 let root: string;
+let cacheDir: string;
 let planFile: string;
 
-beforeEach(() => {
-  savedState = process.env[STATE_ENV];
-  savedToken = process.env[TOKEN_ENV];
-  delete process.env[TOKEN_ENV];
-  base = mkdtempSync(join(tmpdir(), "pd-cli-install-"));
-  process.env[STATE_ENV] = join(base, "state");
-  home = join(base, "home");
-  root = join(base, "root");
-  mkdirSync(home, { recursive: true });
-  mkdirSync(root, { recursive: true });
-  planFile = join(base, "plan.json");
-});
+function candidate(
+  id: string,
+  artifactType: "plugin" | "command" = "plugin",
+): Candidate {
+  return CandidateSchema.parse({
+    id,
+    name: id.toUpperCase(),
+    artifactType,
+    sources: [`https://example.com/${id}`],
+    useCaseDomains: ["software-development"],
+    capabilities: ["vcs.workflow"],
+    license: "MIT",
+    pinnedRef: "v1.0.0",
+    repositoryUrl: `https://github.com/example/${id}`,
+    packageName: `@ex/${id}`,
+    installMode: "verified",
+    lastVerified: "2026-11-08T00:00:00.000Z",
+    provenance: "official",
+    risk: "low",
+    maintenance: "active",
+    auditStatus: "clean",
+    popularity: { stars: 100 },
+  });
+}
 
-afterEach(() => {
-  if (savedState === undefined) delete process.env[STATE_ENV];
-  else process.env[STATE_ENV] = savedState;
-  if (savedToken === undefined) delete process.env[TOKEN_ENV];
-  else process.env[TOKEN_ENV] = savedToken;
-});
+function writeSnapshot(entries: SnapshotInput[]): void {
+  mkdirSync(cacheDir, { recursive: true });
+  const at = "2026-11-08T00:00:00.000Z";
+  writeFileSync(
+    join(cacheDir, "registry-snapshot.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      generatedAt: at,
+      candidates: entries.map((entry) => entry.candidate),
+      provenance: entries.map((entry) => ({
+        id: entry.candidate.id,
+        sourceUrl: entry.candidate.sources[0],
+        retrievedAt: at,
+        trust: entry.trust,
+      })),
+    }),
+  );
+}
+
+function writePlan(plan: InstallPlan): string {
+  writeFileSync(planFile, JSON.stringify(plan, null, 2));
+  return planFile;
+}
+
+function pluginPlan(): InstallPlan {
+  return new OpenCodeAdapter({ home, root }).installPlan(candidate("c1"), "verified");
+}
+
+function baseArgs(): string[] {
+  return [
+    "--plan-file",
+    planFile,
+    "--candidate",
+    "c1",
+    "--harness",
+    "opencode",
+    "--cache-dir",
+    cacheDir,
+    "--home",
+    home,
+    "--root",
+    root,
+  ];
+}
+
+function mint(plan: InstallPlan): string {
+  return createApprovalToken({
+    candidateId: plan.candidateId,
+    planHash: planHash(plan),
+  }).token;
+}
 
 async function capture(run: () => Promise<unknown>): Promise<{
   logs: string[];
@@ -80,36 +146,31 @@ async function capture(run: () => Promise<unknown>): Promise<{
   return { logs, errors };
 }
 
-function writePlan(plan: InstallPlan): string {
-  writeFileSync(planFile, JSON.stringify(plan, null, 2));
-  return planFile;
-}
+beforeEach(() => {
+  savedState = process.env[STATE_ENV];
+  savedToken = process.env[TOKEN_ENV];
+  delete process.env[TOKEN_ENV];
+  base = mkdtempSync(join(tmpdir(), "pd-cli-install-"));
+  process.env[STATE_ENV] = join(base, "state");
+  home = join(base, "home");
+  root = join(base, "root");
+  cacheDir = join(base, "cache");
+  mkdirSync(home, { recursive: true });
+  mkdirSync(root, { recursive: true });
+  planFile = join(base, "plan.json");
+  writeSnapshot([
+    { candidate: candidate("c1"), trust: "verified" },
+    { candidate: candidate("u1", "command"), trust: "verified" },
+    { candidate: candidate("x1"), trust: "unverified" },
+  ]);
+});
 
-function pluginPlan(): InstallPlan {
-  return InstallPlanSchema.parse({
-    candidateId: "c1",
-    harness: "opencode",
-    operations: [
-      {
-        kind: "append",
-        target: join(root, "opencode.json"),
-        summary: `Append "@ex/c1" to the "plugin" array in ${join(root, "opencode.json")}.`,
-      },
-    ],
-    backupRefs: [join(root, "opencode.json")],
-    rollbackOperations: [
-      { kind: "recipe", summary: 'Remove "@ex/c1" to restore.' },
-    ],
-    approvalTokenRequired: true,
-  });
-}
-
-function mint(plan: InstallPlan): string {
-  return createApprovalToken({
-    candidateId: plan.candidateId,
-    planHash: planHash(plan),
-  }).token;
-}
+afterEach(() => {
+  if (savedState === undefined) delete process.env[STATE_ENV];
+  else process.env[STATE_ENV] = savedState;
+  if (savedToken === undefined) delete process.env[TOKEN_ENV];
+  else process.env[TOKEN_ENV] = savedToken;
+});
 
 test("approve mints a token for a plan hash", async () => {
   const plan = pluginPlan();
@@ -121,14 +182,15 @@ test("approve mints a token for a plan hash", async () => {
   assert.ok(logs.some((line) => line.includes(hash)));
 });
 
-test("approve --plan-file computes the canonical hash", async () => {
+test("approve --plan-file computes the full-plan canonical hash", async () => {
   const plan = pluginPlan();
   writePlan(plan);
   const { logs } = await capture(() =>
     approve(["--candidate", "c1", "--plan-file", planFile, "--json"]),
   );
   const payload = ApproveJsonSchema.parse(JSON.parse(logs.join("\n")) as unknown);
-  assert.equal(payload.facts.planHash, canonicalPlanHash(plan.operations));
+  assert.equal(payload.facts.planHash, planHash(plan));
+  assert.equal(payload.facts.planHash, canonicalPlanHash(plan));
 });
 
 test("approve caps ttl at 30 minutes", async () => {
@@ -159,21 +221,12 @@ test("approve rejects missing args and bad hashes", async () => {
   );
 });
 
-test("install applies a verified plan with a flag token", async () => {
+test("install applies a verified re-derived plan with a flag token", async () => {
   const plan = pluginPlan();
   writePlan(plan);
   const token = mint(plan);
   const { logs } = await capture(() =>
-    install([
-      "--plan-file",
-      planFile,
-      "--approval-token",
-      token,
-      "--home",
-      home,
-      "--root",
-      root,
-    ]),
+    install([...baseArgs(), "--approval-token", token]),
   );
   assert.ok(logs.some((line) => line.includes("status: applied")));
   const merged = JSON.parse(
@@ -187,7 +240,7 @@ test("install accepts the env token and reports json", async () => {
   writePlan(plan);
   process.env[TOKEN_ENV] = mint(plan);
   const { logs } = await capture(() =>
-    install(["--plan-file", planFile, "--home", home, "--root", root, "--json"]),
+    install([...baseArgs(), "--json"]),
   );
   const payload = InstallJsonSchema.parse(
     JSON.parse(logs.join("\n")) as unknown,
@@ -198,9 +251,7 @@ test("install accepts the env token and reports json", async () => {
 
 test("install refuses without a token on non-TTY", async () => {
   writePlan(pluginPlan());
-  const { errors } = await capture(() =>
-    install(["--plan-file", planFile, "--home", home, "--root", root]),
-  );
+  const { errors } = await capture(() => install(baseArgs()));
   assert.ok(errors.some((line) => line.includes("approval-required")));
   assert.ok(!existsSync(join(root, "opencode.json")));
 });
@@ -208,115 +259,149 @@ test("install refuses without a token on non-TTY", async () => {
 test("install exit codes: missing token 4, bogus token 4, reuse 4", async () => {
   const plan = pluginPlan();
   writePlan(plan);
+  assert.equal((await install(baseArgs())).exitCode, 4);
   assert.equal(
-    (
-      await install([
-        "--plan-file",
-        planFile,
-        "--home",
-        home,
-        "--root",
-        root,
-      ])
-    ).exitCode,
-    4,
-  );
-  assert.equal(
-    (
-      await install([
-        "--plan-file",
-        planFile,
-        "--approval-token",
-        "bogus",
-        "--home",
-        home,
-        "--root",
-        root,
-      ])
-    ).exitCode,
+    (await install([...baseArgs(), "--approval-token", "bogus"])).exitCode,
     4,
   );
   const token = mint(plan);
   assert.equal(
-    (
-      await install([
-        "--plan-file",
-        planFile,
-        "--approval-token",
-        token,
-        "--home",
-        home,
-        "--root",
-        root,
-      ])
-    ).exitCode,
+    (await install([...baseArgs(), "--approval-token", token])).exitCode,
     0,
+  );
+  assert.equal(
+    (await install([...baseArgs(), "--approval-token", token])).exitCode,
+    4,
+  );
+});
+
+test("install rejects a tampered plan without consuming the token", async () => {
+  const expected = pluginPlan();
+  const token = mint(expected);
+  const tampered = InstallPlanSchema.parse({
+    ...expected,
+    backupRefs: [...expected.backupRefs, join(root, "evil.json")],
+  });
+  writePlan(tampered);
+  const { errors } = await capture(() =>
+    install([...baseArgs(), "--approval-token", token]),
+  );
+  assert.ok(errors.some((line) => line.includes("plan-mismatch")));
+  assert.ok(!existsSync(join(root, "opencode.json")));
+
+  // The same token still works for the real plan: rejection happened before
+  // consumption.
+  writePlan(expected);
+  assert.equal(
+    (await install([...baseArgs(), "--approval-token", token])).exitCode,
+    0,
+  );
+});
+
+test("install rejects an unverified candidate before consuming the token", async () => {
+  const unverifiedPlan = new OpenCodeAdapter({ home, root }).installPlan(
+    candidate("x1"),
+    "unverified",
+  );
+  writePlan(unverifiedPlan);
+  const token = mint(unverifiedPlan);
+  const args = [
+    "--plan-file",
+    planFile,
+    "--candidate",
+    "x1",
+    "--harness",
+    "opencode",
+    "--cache-dir",
+    cacheDir,
+    "--home",
+    home,
+    "--root",
+    root,
+    "--approval-token",
+    token,
+  ];
+  const { errors } = await capture(() => install(args));
+  assert.ok(errors.some((line) => line.includes("candidate-unverified")));
+  assert.ok(!existsSync(join(root, "opencode.json")));
+  const store = JSON.parse(
+    readFileSync(join(base, "state", "approvals"), "utf8"),
+  ) as { tokens: Record<string, { usedAt: string | null }> };
+  assert.equal(store.tokens[token]?.usedAt, null, "token must not be consumed");
+});
+
+test("install rejects a plan for a different candidate than --candidate", async () => {
+  const plan = pluginPlan();
+  writePlan(plan);
+  const token = mint(plan);
+  const args = [
+    "--plan-file",
+    planFile,
+    "--candidate",
+    "u1",
+    "--harness",
+    "opencode",
+    "--cache-dir",
+    cacheDir,
+    "--home",
+    home,
+    "--root",
+    root,
+    "--approval-token",
+    token,
+  ];
+  const { errors } = await capture(() => install(args));
+  assert.ok(errors.some((line) => line.includes("plan-mismatch")));
+  assert.ok(!existsSync(join(root, "opencode.json")));
+});
+
+test("install requires --candidate and --harness", async () => {
+  writePlan(pluginPlan());
+  assert.equal(
+    (await install(["--plan-file", planFile, "--cache-dir", cacheDir])).exitCode,
+    2,
   );
   assert.equal(
     (
       await install([
         "--plan-file",
         planFile,
-        "--approval-token",
-        token,
-        "--home",
-        home,
-        "--root",
-        root,
+        "--candidate",
+        "c1",
+        "--harness",
+        "nope",
+        "--cache-dir",
+        cacheDir,
       ])
     ).exitCode,
-    4,
+    2,
   );
 });
 
-test("install refuses a mismatched plan hash", async () => {
-  const plan = pluginPlan();
+test("install prints a manual recipe with zero writes", async () => {
+  const plan = new OpenCodeAdapter({ home, root }).installPlan(
+    candidate("u1", "command"),
+    "verified",
+  );
   writePlan(plan);
-  const other = InstallPlanSchema.parse({
-    ...JSON.parse(JSON.stringify(plan)) as InstallPlan,
-    operations: [
-      {
-        kind: "append",
-        target: join(root, "opencode.json"),
-        summary: `Append "@ex/evil" to the "plugin" array in ${join(root, "opencode.json")}.`,
-      },
-    ],
-  });
-  const token = createApprovalToken({
-    candidateId: other.candidateId,
-    planHash: planHash(other),
-  }).token;
-  const code = (
-    await install([
+  const before = existsSync(join(root, "opencode.json"));
+  const { logs } = await capture(() =>
+    install([
       "--plan-file",
       planFile,
-      "--approval-token",
-      token,
+      "--candidate",
+      "u1",
+      "--harness",
+      "opencode",
+      "--cache-dir",
+      cacheDir,
       "--home",
       home,
       "--root",
       root,
-    ])
-  ).exitCode;
-  assert.equal(code, 4);
-  assert.ok(!existsSync(join(root, "opencode.json")));
-});
-
-test("install prints a manual recipe with zero writes", async () => {
-  const plan = InstallPlanSchema.parse({
-    candidateId: "u1",
-    harness: "opencode",
-    operations: [{ kind: "recipe", summary: "Do it by hand." }],
-    backupRefs: [],
-    rollbackOperations: [],
-    approvalTokenRequired: true,
-  });
-  writePlan(plan);
-  const before = existsSync(join(root, "opencode.json"));
-  const { logs } = await capture(() =>
-    install(["--plan-file", planFile, "--home", home, "--root", root]),
+    ]),
   );
-  assert.ok(logs.some((line) => line.includes("Do it by hand.")));
+  assert.ok(logs.some((line) => line.includes("Manual install")));
   assert.equal(existsSync(join(root, "opencode.json")), before);
 });
 
@@ -358,8 +443,7 @@ test("describeCandidate falls back without a snapshot", () => {
 
 test("TTY yes reaches the writer without a token", async () => {
   const { ttyHooks } = await import("../src/commands/install.js");
-  const plan = pluginPlan();
-  writePlan(plan);
+  writePlan(pluginPlan());
   const origTTY = ttyHooks.isTTY;
   const origConfirm = ttyHooks.confirm;
   let prompted: string[] = [];
@@ -371,7 +455,7 @@ test("TTY yes reaches the writer without a token", async () => {
   try {
     let code = -1;
     const { logs } = await capture(async () => {
-      code = (await install(["--plan-file", planFile, "--home", home, "--root", root])).exitCode;
+      code = (await install(baseArgs())).exitCode;
     });
     assert.equal(code, 0);
     assert.ok(logs.some((line) => line.includes("status: applied")));
@@ -398,7 +482,7 @@ test("TTY decline refuses with zero writes", async () => {
   try {
     let code = -1;
     const { errors } = await capture(async () => {
-      code = (await install(["--plan-file", planFile, "--home", home, "--root", root])).exitCode;
+      code = (await install(baseArgs())).exitCode;
     });
     assert.equal(code, 4);
     assert.ok(errors.some((line) => line.includes("declined")));

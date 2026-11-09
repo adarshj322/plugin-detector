@@ -10,12 +10,46 @@ import {
   InstallPlanSchema,
   applyInstallPlan,
   isRecipeOnly,
+  planHash,
   recipeText,
   type ConsentDetail,
   type InstallPlan,
 } from "@plugin-detector/core";
 import { loadSnapshot } from "@plugin-detector/registry";
 import { CliErrorSchema, InstallJsonSchema, printJson, printSection } from "../output.js";
+import { findSnapshotCandidate } from "./inventory.js";
+
+const INSTALL_HARNESSES = [
+  "opencode",
+  "claude-code",
+  "codex",
+  "cursor",
+] as const;
+type InstallHarness = (typeof INSTALL_HARNESSES)[number];
+
+function isInstallHarness(value: string): value is InstallHarness {
+  return (INSTALL_HARNESSES as readonly string[]).includes(value);
+}
+
+function createAdapter(
+  harness: InstallHarness,
+  opts: { home?: string; root?: string },
+):
+  | OpenCodeAdapter
+  | ClaudeCodeAdapter
+  | CodexAdapter
+  | CursorAdapter {
+  switch (harness) {
+    case "opencode":
+      return new OpenCodeAdapter(opts);
+    case "claude-code":
+      return new ClaudeCodeAdapter(opts);
+    case "codex":
+      return new CodexAdapter(opts);
+    case "cursor":
+      return new CursorAdapter(opts);
+  }
+}
 
 export interface InstallResult {
   exitCode: number;
@@ -33,6 +67,8 @@ export const ttyHooks = {
 // without a token). The token itself is never printed here.
 export async function install(argv: string[]): Promise<InstallResult> {
   let planFile: string | undefined;
+  let candidateId: string | undefined;
+  let harness: string | undefined;
   let approvalToken: string | undefined;
   let json = false;
   let home: string | undefined;
@@ -43,6 +79,12 @@ export async function install(argv: string[]): Promise<InstallResult> {
     if (arg === "--json") json = true;
     else if (arg === "--plan-file" && i + 1 < argv.length) {
       planFile = argv[i + 1];
+      i += 1;
+    } else if (arg === "--candidate" && i + 1 < argv.length) {
+      candidateId = argv[i + 1];
+      i += 1;
+    } else if (arg === "--harness" && i + 1 < argv.length) {
+      harness = argv[i + 1];
       i += 1;
     } else if (arg === "--approval-token" && i + 1 < argv.length) {
       approvalToken = argv[i + 1];
@@ -65,6 +107,16 @@ export async function install(argv: string[]): Promise<InstallResult> {
     console.error("missing required --plan-file <path>");
     return { exitCode: 2 };
   }
+  if (candidateId === undefined) {
+    console.error("missing required --candidate <id>");
+    return { exitCode: 2 };
+  }
+  if (harness === undefined || !isInstallHarness(harness)) {
+    console.error(
+      `missing or invalid --harness <name>. Valid: ${INSTALL_HARNESSES.join(", ")}`,
+    );
+    return { exitCode: 2 };
+  }
   let plan: InstallPlan;
   try {
     plan = InstallPlanSchema.parse(
@@ -76,15 +128,52 @@ export async function install(argv: string[]): Promise<InstallResult> {
     );
     return { exitCode: 2 };
   }
-  if (isRecipeOnly(plan)) {
-    const recipe = recipeText(plan);
+  let resolved;
+  try {
+    resolved = findSnapshotCandidate(candidateId, cacheDir);
+  } catch (error) {
+    console.error(
+      `no registry snapshot: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return { exitCode: 1 };
+  }
+  if (resolved === null) {
+    console.error(`unknown candidate: ${candidateId}`);
+    return { exitCode: 1 };
+  }
+  // Trust and the expected plan come from the snapshot + adapter, never from
+  // the supplied file. This runs before any token is consumed, so a tampered
+  // or unverified plan cannot burn an approval.
+  if (resolved.trust !== "verified") {
+    reportBlocked(
+      json,
+      "install",
+      "candidate-unverified",
+      `candidate "${candidateId}" has trust "${resolved.trust}"; only verified candidates can install. Follow its manual recipe instead.`,
+    );
+    return { exitCode: 4 };
+  }
+  const opts = { ...(home ? { home } : {}), ...(root ? { root } : {}) };
+  const adapter = createAdapter(harness, opts);
+  const expected = adapter.installPlan(resolved.candidate, resolved.trust);
+  if (planHash(plan) !== planHash(expected)) {
+    reportBlocked(
+      json,
+      "install",
+      "plan-mismatch",
+      "Install plan does not match the plan re-derived from the registry snapshot for this candidate and harness.",
+    );
+    return { exitCode: 4 };
+  }
+  if (isRecipeOnly(expected)) {
+    const recipe = recipeText(expected);
     if (json) {
       printJson(
         {
           command: "install",
           facts: {
             status: "recipe",
-            candidateId: plan.candidateId,
+            candidateId: expected.candidateId,
             writes: [],
             restored: [],
             recipe,
@@ -94,7 +183,7 @@ export async function install(argv: string[]): Promise<InstallResult> {
       );
     } else {
       printSection("facts", [
-        `candidate: ${plan.candidateId}`,
+        `candidate: ${expected.candidateId}`,
         `status: recipe (manual install, zero writes)`,
         ...recipe.split("\n").map((line) => `recipe: ${line}`),
       ]);
@@ -103,25 +192,10 @@ export async function install(argv: string[]): Promise<InstallResult> {
     }
     return { exitCode: 0 };
   }
-  const opts = { ...(home ? { home } : {}), ...(root ? { root } : {}) };
-  const adapter =
-    plan.harness === "opencode"
-      ? new OpenCodeAdapter(opts)
-      : plan.harness === "claude-code"
-        ? new ClaudeCodeAdapter(opts)
-        : plan.harness === "codex"
-          ? new CodexAdapter(opts)
-          : plan.harness === "cursor"
-            ? new CursorAdapter(opts)
-            : null;
-  if (adapter === null) {
-    console.error(`unsupported harness "${plan.harness}"`);
-    return { exitCode: 2 };
-  }
-  const enriched = describeCandidate(plan.candidateId, cacheDir);
+  const enriched = describeCandidate(expected.candidateId, cacheDir);
   const isTTY = ttyHooks.isTTY();
   try {
-    const receipt = await applyInstallPlan(plan, approvalToken ?? null, adapter, {
+    const receipt = await applyInstallPlan(expected, approvalToken ?? null, adapter, {
       isTTY,
       confirm: async (shown) =>
         ttyHooks.confirm(buildConsentLines({ ...shown, ...enriched })),
@@ -132,7 +206,7 @@ export async function install(argv: string[]): Promise<InstallResult> {
           command: "install",
           facts: {
             status: "applied",
-            candidateId: plan.candidateId,
+            candidateId: expected.candidateId,
             writes: receipt.writes,
             restored: receipt.restored,
           },
@@ -141,7 +215,7 @@ export async function install(argv: string[]): Promise<InstallResult> {
       );
     } else {
       printSection("facts", [
-        `candidate: ${plan.candidateId}`,
+        `candidate: ${expected.candidateId}`,
         `status: applied`,
         ...receipt.writes.map((entry) => `write: ${entry}`),
       ]);

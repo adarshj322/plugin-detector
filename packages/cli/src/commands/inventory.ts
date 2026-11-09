@@ -2,7 +2,12 @@ import { OpenCodeAdapter } from "@plugin-detector/opencode";
 import { ClaudeCodeAdapter } from "@plugin-detector/claude-code";
 import { CodexAdapter } from "@plugin-detector/codex";
 import { CursorAdapter } from "@plugin-detector/cursor";
-import type { Candidate, CapabilityRecord } from "@plugin-detector/core";
+import type {
+  Candidate,
+  CapabilityRecord,
+  InstallPlan,
+} from "@plugin-detector/core";
+import { loadSnapshot } from "@plugin-detector/registry";
 import {
   InventoryJsonSchema,
   printJson,
@@ -14,6 +19,8 @@ export interface InventoryResult {
   exitCode: number;
 }
 
+export type TrustLabel = "verified" | "curated" | "unverified";
+
 interface RawAdapter {
   detect(): Promise<{ detected: boolean }>;
   inventory(): Promise<{
@@ -22,6 +29,7 @@ interface RawAdapter {
     warnings: string[];
   }>;
   compatibility(candidate: Candidate): number;
+  installPlan(candidate: Candidate, trust?: TrustLabel): InstallPlan;
 }
 
 interface AdapterLike extends RawAdapter {
@@ -43,7 +51,27 @@ export function buildAdapters(home?: string, root?: string): AdapterLike[] {
     inventory: () => d.adapter.inventory(),
     compatibility: (candidate: Candidate) =>
       d.adapter.compatibility(candidate),
+    installPlan: (candidate: Candidate, trust?: TrustLabel) =>
+      d.adapter.installPlan(candidate, trust),
   }));
+}
+
+export interface SnapshotCandidate {
+  candidate: Candidate;
+  trust: TrustLabel;
+}
+
+// Shared resolution for `plan` and `install`: the candidate and its trust
+// always come from the registry snapshot, never from the plan file.
+export function findSnapshotCandidate(
+  candidateId: string,
+  cacheDir?: string,
+): SnapshotCandidate | null {
+  const snapshot = loadSnapshot({ ...(cacheDir ? { cacheDir } : {}) });
+  const candidate = snapshot.candidates.find((c) => c.id === candidateId);
+  if (!candidate) return null;
+  const provenance = snapshot.provenance.find((p) => p.id === candidateId);
+  return { candidate, trust: provenance?.trust ?? "unverified" };
 }
 
 function adaptersFor(home?: string, root?: string): AdapterLike[] {

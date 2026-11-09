@@ -41,12 +41,22 @@ production-verified.
   - Codex — full detection/inventory; **recipe-only**, no automatic writes.
   - Cursor — full detection/inventory; **recipe-only**, no automatic writes;
     experimental MCP/skill/rule support.
-- CLI `plugin-detector` with `inventory`, `recommend`, `explain`,
+- CLI `plugin-detector` with `inventory`, `recommend`, `explain`, `plan`,
   `profiles validate`, `registry refresh`, `approve`, `install`, and `benchmark`.
   Read-only commands are asserted not to write; JSON outputs are Zod-validated.
-- One-shot, candidate-scoped and plan-hash-scoped approval tokens with a default
-  10-minute / maximum 30-minute TTL, non-TTY refusal, single-use consumption, and
-  `0600` token files.
+- `plan` turns a snapshot candidate plus harness into the full install plan
+  (operations, backup refs, rollback, trust, canonical hash) and prints the
+  exact `approve`/`install` handoff. Unverified and curated candidates get a
+  manual recipe instead of a write plan.
+- `install` now requires `--candidate` and `--harness`, re-derives the expected
+  plan from the registry snapshot and adapter, and rejects an unverified
+  candidate or any hash mismatch before consuming the approval token.
+- One-shot, candidate-scoped and complete-plan-hash-scoped approval tokens with a
+  default 10-minute / maximum 30-minute TTL, non-TTY refusal, single-use
+  consumption, and `0600` token files. `approve` prints the token once for
+  handoff; the hash binds candidate, harness, operations, backups, and rollback.
+- Every published package ships its own `LICENSE` and `README.md`, and every
+  published manifest carries a description.
 - Portable skill (`@plugin-detector/skill`) with SKILL.md, verdict template,
   agent metadata, and a POSIX shim. Manual installation only in 0.1.0.
 - Red-team fixtures and tests for typo-squats, prompt injection, malicious
@@ -123,6 +133,9 @@ These are release blockers for a stable `1.0`, not for `0.1.0`:
 - [ ] **Separate `discoverConfig` adapter method.** Config discovery currently
   happens inside `detect`/`inventory`; the spec's adapter contract lists
   `discoverConfig` explicitly.
+- [ ] **Claude marketplace metadata query.** Claude Code inventory reads
+  marketplace references from local config but does not query marketplace
+  metadata; add the query (or amend the design) before v1.0.
 - [ ] **Coverage gates.** The spec's minimum 85% line coverage on core and 100% on
   rollback/write paths is not yet measured/enforced in CI.
 - [ ] **Local observability.** No persistent local log/retention implementation

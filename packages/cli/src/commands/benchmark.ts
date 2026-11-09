@@ -339,6 +339,14 @@ export function scoreWorkflow(
       : b.rec.score - a.rec.score,
   );
   const top = scored.filter((s) => s.rec.verdict !== "risky").slice(0, 5);
+  // precision@5 has a fixed denominator. Treat a corpus that cannot fill the
+  // top five as a fixture error instead of silently scoring against a
+  // different denominator.
+  if (top.length < 5) {
+    throw new Error(
+      `${workflow.id}: precision@5 requires at least 5 non-risky candidates (found ${top.length})`,
+    );
+  }
   const offenders: WorkflowOffender[] = [];
   let hits = 0;
   for (const entry of top) {
@@ -361,6 +369,11 @@ export function scoreWorkflow(
   const rankedBaseline = [...baseline].sort(
     (a, b) => (b.stars ?? 100) - (a.stars ?? 100),
   );
+  if (rankedBaseline.length < 5) {
+    throw new Error(
+      `${workflow.id}: baseline pool needs at least 5 candidates (found ${rankedBaseline.length})`,
+    );
+  }
   const baselineTop = scoreAll(rankedBaseline.slice(0, 5), workflow.domain);
   let baselineHits = 0;
   for (const entry of baselineTop) {
@@ -458,6 +471,11 @@ export function gateBenchmark(
   for (const result of summary.workflows) {
     for (const offender of result.offenders) {
       failures.push(`${result.id}: low-value ${offender.candidateId} (${offender.reason})`);
+    }
+    for (const id of result.missingOptional) {
+      failures.push(
+        `${result.id}: expected useful-optional candidate ${id} did not receive that verdict`,
+      );
     }
     // Recompute strict > here rather than trusting a possibly-stale
     // beatBaseline flag: a tie must never count as a beat.

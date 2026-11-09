@@ -65,9 +65,10 @@ export function approvalsPath(dir?: string): string {
   return path.join(dir ?? stateDir(), "approvals");
 }
 
-// Canonical plan serialization: stable JSON of the operations array (sorted
-// keys, no whitespace variance), sha256 hex. Approve stores it, install
-// recomputes and compares.
+// Canonical plan serialization: stable JSON of the complete InstallPlan
+// (candidate, harness, operations, backups, rollback, approval requirement),
+// sha256 hex. Hashing the full plan binds the token to every field that can
+// affect a write, not just the operation summaries.
 export function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
@@ -83,14 +84,12 @@ export function stableStringify(value: unknown): string {
   return JSON.stringify(value) ?? "null";
 }
 
-export function canonicalPlanHash(
-  operations: InstallPlan["operations"],
-): string {
-  return createHash("sha256").update(stableStringify(operations)).digest("hex");
+export function canonicalPlanHash(plan: InstallPlan): string {
+  return createHash("sha256").update(stableStringify(plan)).digest("hex");
 }
 
 export function planHash(plan: InstallPlan): string {
-  return canonicalPlanHash(plan.operations);
+  return canonicalPlanHash(plan);
 }
 
 function loadStore(file: string): TokenStore {

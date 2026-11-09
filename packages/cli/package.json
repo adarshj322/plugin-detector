@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
+  "description": "Local-first CLI that inventories harness plugins, recommends candidates, and installs only with explicit consent.",
   "engines": {
     "node": ">=22"
   },

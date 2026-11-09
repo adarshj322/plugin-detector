@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
+  "description": "Shared parsing and file-safety helpers for plugin-detector harness adapters.",
   "engines": {
     "node": ">=22"
   },

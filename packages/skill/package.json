@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
+  "description": "Agent skill for plugin-detector: on-demand recommendation and consent workflow.",
   "engines": {
     "node": ">=22"
   },

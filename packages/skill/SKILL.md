@@ -13,11 +13,12 @@ background work the user did not ask for.
 
 ## No-write gate
 
-`inventory`, `recommend`, and `explain` are read-only and never write.
-The only commands that touch the filesystem are `registry refresh`
-(explicit cache refresh) and `install`, and `install` runs only after the
-approval-token flow below completes. Never bypass the CLI: do not edit
-harness config files by hand when a CLI command owns that write.
+`inventory`, `recommend`, `explain`, and `plan` are read-only unless you
+pass `plan --out <file>`. The commands that write are `registry refresh`
+(explicit cache refresh), `plan --out` (the plan file you asked for),
+`approve` (the one-shot token store), and `install`, and `install` runs
+only after the approval-token flow below completes. Never bypass the CLI:
+do not edit harness config files by hand when a CLI command owns that write.
 
 ## Procedure
 
@@ -44,17 +45,22 @@ harness config files by hand when a CLI command owns that write.
    instead of an install command.
 6. **Offer accept / adopt-scoped / reject.** For each candidate let the user
    accept, adopt with a narrower scope, or reject. Never auto-install.
-7. **Approval token, then install.** On approval, request a one-shot token:
-   `plugin-detector approve --candidate <id> --plan <sha256>`, where `<plan>`
-   is the sha256 of the exact install plan shown to the user (commands,
-   config changes, files, rollback). The token is one-shot and scoped to
-   that candidate plus that plan hash; TTL is at most 30 minutes (default
-   10). Then run the install with the token: pass it as
-   `plugin-detector install --plan-file <plan.json> --approval-token <token>`
-   or export `PLUGIN_DETECTOR_APPROVAL_TOKEN` and omit the flag. With
-   neither, install prompts for interactive TTY confirmation showing
-   candidate, source, trust, operations, and rollback — non-TTY without a
-   token refuses. Install requires the token or
+7. **Produce the plan.** Run
+   `plugin-detector plan --candidate <id> --harness <name> --out plan.json`
+   and show the exact plan: operations, files, backup refs, rollback, trust,
+   and canonical hash. Unverified or curated candidates return a manual
+   recipe instead of a write plan; show the recipe and stop there.
+8. **Approval token, then install.** On approval, request a one-shot token:
+   `plugin-detector approve --candidate <id> --plan-file plan.json` (or
+   `--plan <sha256>` of the exact plan shown). `approve` prints the token
+   once; hand it to `install`. The token is one-shot and scoped to that
+   candidate plus the **complete** plan hash (operations, backup refs, and
+   rollback); TTL is at most 30 minutes (default 10). Then run
+   `plugin-detector install --plan-file plan.json --candidate <id> --harness <name> --approval-token <token>`
+   or export `PLUGIN_DETECTOR_APPROVAL_TOKEN` and omit the flag. `install`
+   re-derives the plan from the registry snapshot and refuses an unverified
+   candidate or a hash mismatch before consuming the token. With neither a
+   token nor a TTY, install refuses. Install requires the token or
    interactive TTY confirmation — never install unapproved or unverified
    candidates automatically, and never execute candidate code (skills,
    plugins, hooks, install scripts) to "try it out".

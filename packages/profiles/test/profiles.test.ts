@@ -103,6 +103,57 @@ test("yaml subset parser accepts the documented shape", () => {
   assert.deepEqual(profile.capabilities, ["docs.writing"]);
 });
 
+test("yaml subset treats comments, anchors, aliases, and block indicators literally", () => {
+  const fields = (description: string): string[] => [
+    "id: demo",
+    "version: 1",
+    "displayName: Demo",
+    `description: ${description}`,
+    "capabilities:",
+    "  - docs.writing",
+    "signalQueries:",
+    "  - q1",
+    "  - q2",
+    "  - q3",
+    "  - q4",
+    "  - q5",
+    "negativeSignals:",
+    "  - n1",
+    "defaultDomains:",
+    "  - writing",
+    "expectedValueTiers:",
+    "  - time-saved",
+  ];
+
+  // Only full-line comments are comments; an inline "# ..." is scalar text.
+  assert.equal(
+    parseProfileText(
+      [...fields("demo # inline is literal"), "# full-line comment"].join("\n"),
+      "demo.yaml",
+    ).description,
+    "demo # inline is literal",
+  );
+
+  // Anchors and aliases have no YAML meaning here: they stay literal strings.
+  const anchored = parseProfileText(
+    [
+      ...fields("&anchor"),
+      "negativeSignals:",
+      "  - *alias",
+    ].join("\n").replace("negativeSignals:\n  - n1\n", ""),
+    "demo.yaml",
+  );
+  assert.equal(anchored.description, "&anchor");
+  assert.deepEqual(anchored.negativeSignals, ["*alias"]);
+
+  // A block scalar indicator is a literal "|"; its indented body is still
+  // rejected as a nested map rather than guessed.
+  assert.throws(
+    () => parseProfileText([...fields("|"), "  body line"].join("\n"), "demo.yaml"),
+    /nested maps are not supported/,
+  );
+});
+
 test("yaml subset parser rejects nested maps and non-canonical capabilities", () => {
   assert.throws(() =>
     parseProfileText("id: demo\nnested:\n  key: value\n  deeper:\n    x: 1\n", "bad.yaml"),
