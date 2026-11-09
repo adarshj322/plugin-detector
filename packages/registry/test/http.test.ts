@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  DEFAULT_MAX_RETRY_AFTER_MS,
+  GITHUB_SEARCH_REQUESTS_PER_MINUTE,
   httpGetJson,
   httpGetText,
   NotModified,
+  RAW_REQUESTS_PER_MINUTE,
   RateLimiter,
   SourceHttpError,
 } from "../src/sources/http.js";
@@ -124,6 +127,41 @@ test("429 waits for a numeric Retry-After before retrying", async () => {
   );
 });
 
+test("Retry-After falls back to backoff when invalid or over the cap", async () => {
+  assert.equal(DEFAULT_MAX_RETRY_AFTER_MS, 60_000);
+  const cases = [
+    { header: "0", maxRetryAfterMs: undefined, maxElapsed: 250 },
+    { header: "-5", maxRetryAfterMs: undefined, maxElapsed: 250 },
+    { header: "later", maxRetryAfterMs: undefined, maxElapsed: 250 },
+    // 500ms is larger than the 100ms cap, so the 1ms backoff must win.
+    { header: "0.5", maxRetryAfterMs: 100, maxElapsed: 400 },
+  ];
+  for (const item of cases) {
+    let calls = 0;
+    const fetchImpl: typeof fetch = async () => {
+      calls += 1;
+      return calls === 1
+        ? new Response("throttled", {
+            status: 429,
+            headers: { "retry-after": item.header },
+          })
+        : new Response("ok", { status: 200 });
+    };
+    const started = Date.now();
+    const result = await httpGetText(URL, {
+      fetchImpl,
+      retryDelayMs: 1,
+      maxRetryAfterMs: item.maxRetryAfterMs,
+    });
+    assert.equal(result.text, "ok", `header ${item.header}`);
+    assert.equal(calls, 2, `header ${item.header}`);
+    assert.ok(
+      Date.now() - started < item.maxElapsed,
+      `header ${item.header} must not stall the retry`,
+    );
+  }
+});
+
 test("timeouts become retryable SourceHttpErrors naming the timeout", async () => {
   const fetchImpl: typeof fetch = (_input, init) =>
     new Promise<Response>((_resolve, reject) => {
@@ -144,12 +182,75 @@ test("timeouts become retryable SourceHttpErrors naming the timeout", async () =
   );
 });
 
-test("rejects a body larger than maxBytes", async () => {
-  const fetchImpl = fetchReturning(new Response("x".repeat(100)));
+test("a stalled response body times out as a SourceHttpError", async () => {
+  const fetchImpl: typeof fetch = async (_input, init) => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        init?.signal?.addEventListener("abort", () => {
+          controller.error(init.signal?.reason);
+        });
+      },
+    });
+    return new Response(stream, { status: 200 });
+  };
+  await assert.rejects(
+    httpGetText(URL, { fetchImpl, timeoutMs: 10 }),
+    (error: unknown) => {
+      assert.ok(error instanceof SourceHttpError);
+      assert.equal(error.status, 0);
+      assert.equal(error.url, URL);
+      assert.equal(error.retryable, true);
+      assert.match(error.message, /timed out after 10ms/);
+      return true;
+    },
+  );
+});
+
+test("a body stream error is a SourceHttpError without echoing body data", async () => {
+  const token = "sekret-body-value";
+  const fetchImpl: typeof fetch = async () =>
+    new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.error(new Error(`payload ${token}`));
+        },
+      }),
+      { status: 200 },
+    );
+  await assert.rejects(
+    httpGetText(URL, { fetchImpl }),
+    (error: unknown) => {
+      assert.ok(error instanceof SourceHttpError);
+      assert.equal(error.status, 0);
+      assert.equal(error.retryable, true);
+      assert.ok(!error.message.includes(token));
+      return true;
+    },
+  );
+});
+
+test("rejects and cancels a body larger than maxBytes", async () => {
+  let cancelled = false;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode("x".repeat(64)));
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+  const fetchImpl = fetchReturning(new Response(stream, { status: 200 }));
   await assert.rejects(
     httpGetText(URL, { fetchImpl, maxBytes: 10 }),
-    /exceeded 10 bytes/,
+    (error: unknown) => {
+      assert.ok(error instanceof SourceHttpError);
+      assert.equal(error.status, 0);
+      assert.equal(error.retryable, false);
+      assert.match(error.message, /exceeded 10 bytes/);
+      return true;
+    },
   );
+  assert.equal(cancelled, true, "the over-limit stream must be cancelled");
 });
 
 test("rejects an unexpected content-type when the caller pins one", async () => {
@@ -161,7 +262,41 @@ test("rejects an unexpected content-type when the caller pins one", async () => 
   );
   await assert.rejects(
     httpGetText(URL, { fetchImpl, contentType: "application/json" }),
-    /content-type text\/html/,
+    (error: unknown) => {
+      assert.ok(error instanceof SourceHttpError);
+      assert.equal(error.status, 0);
+      assert.equal(error.retryable, false);
+      assert.match(error.message, /content-type text\/html/);
+      return true;
+    },
+  );
+});
+
+test("content-type matching ignores parameters but not lookalikes", async () => {
+  const result = await httpGetText(URL, {
+    fetchImpl: async () =>
+      new Response("{}", {
+        status: 200,
+        headers: { "content-type": "application/json; charset=utf-8" },
+      }),
+    contentType: "application/json",
+  });
+  assert.equal(result.text, "{}");
+
+  await assert.rejects(
+    httpGetText(URL, {
+      fetchImpl: async () =>
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/jsonp" },
+        }),
+      contentType: "application/json",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof SourceHttpError);
+      assert.equal(error.retryable, false);
+      return true;
+    },
   );
 });
 
@@ -195,6 +330,65 @@ test("httpGetJson parses the payload and carries validators", async () => {
   const result = await httpGetJson<{ items: number[] }>(URL, { fetchImpl });
   assert.deepEqual(result.data, { items: [1, 2] });
   assert.equal(result.etag, 'W/"json"');
+});
+
+test("invalid JSON is a SourceHttpError without echoing body data", async () => {
+  const fetchImpl = fetchReturning(
+    new Response('{"secret":"sekret-body-value",}', { status: 200 }),
+  );
+  await assert.rejects(
+    httpGetJson(URL, { fetchImpl }),
+    (error: unknown) => {
+      assert.ok(error instanceof SourceHttpError);
+      assert.equal(error.status, 0);
+      assert.equal(error.retryable, false);
+      assert.ok(!error.message.includes("sekret-body-value"));
+      return true;
+    },
+  );
+});
+
+test("strips a leading UTF-8 BOM from text and JSON", async () => {
+  const text = await httpGetText(URL, {
+    fetchImpl: fetchReturning(new Response("\uFEFFhello")),
+  });
+  assert.equal(text.text, "hello");
+
+  const json = await httpGetJson<{ ok: boolean }>(URL, {
+    fetchImpl: fetchReturning(
+      new Response('\uFEFF{"ok":true}', {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    ),
+  });
+  assert.deepEqual(json.data, { ok: true });
+});
+
+test("source rate constants are published and usable", async () => {
+  assert.equal(GITHUB_SEARCH_REQUESTS_PER_MINUTE, 10);
+  assert.equal(RAW_REQUESTS_PER_MINUTE, 60);
+  const limiter = new RateLimiter({
+    requestsPerMinute: GITHUB_SEARCH_REQUESTS_PER_MINUTE,
+  });
+  assert.equal(limiter.concurrency, 5);
+  await limiter.acquire();
+  limiter.release();
+});
+
+test("RateLimiter defaults to five concurrent slots", async () => {
+  const limiter = new RateLimiter();
+  for (let index = 0; index < 5; index += 1) await limiter.acquire();
+  let sixthAcquired = false;
+  const pending = limiter.acquire().then(() => {
+    sixthAcquired = true;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(sixthAcquired, false);
+  limiter.release();
+  await pending;
+  assert.equal(sixthAcquired, true);
+  for (let index = 0; index < 5; index += 1) limiter.release();
 });
 
 test("RateLimiter caps concurrent acquisitions", async () => {
@@ -242,4 +436,23 @@ test("httpGetText waits for the supplied limiter", async () => {
   limiter.release();
   const result = await pending;
   assert.equal(result.text, "ok");
+});
+
+test("httpGetText releases its limiter slot when the request fails", async () => {
+  const limiter = new RateLimiter({ concurrency: 1 });
+  await assert.rejects(
+    httpGetText(URL, {
+      limiter,
+      fetchImpl: async () => {
+        throw new Error("network down");
+      },
+      retryDelayMs: 0,
+    }),
+    SourceHttpError,
+  );
+  const result = await httpGetText(URL, {
+    limiter,
+    fetchImpl: async () => new Response("after failure", { status: 200 }),
+  });
+  assert.equal(result.text, "after failure");
 });

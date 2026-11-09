@@ -10,6 +10,7 @@ export const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
 export const DEFAULT_RETRIES = 2;
 export const DEFAULT_RETRY_DELAY_MS = 500;
 export const MAX_RETRY_DELAY_MS = 5_000;
+export const DEFAULT_MAX_RETRY_AFTER_MS = 60_000;
 export const DEFAULT_CONCURRENCY = 5;
 export const GITHUB_SEARCH_REQUESTS_PER_MINUTE = 10;
 export const RAW_REQUESTS_PER_MINUTE = 60;
@@ -135,6 +136,8 @@ export interface HttpOptions {
   maxBytes?: number | undefined;
   // Base delay for bounded exponential backoff between retries.
   retryDelayMs?: number | undefined;
+  // A larger numeric Retry-After falls back to the bounded backoff.
+  maxRetryAfterMs?: number | undefined;
   // Pinned when the caller expects a specific response media type.
   contentType?: string | RegExp | undefined;
   limiter?: RateLimiter | undefined;
@@ -159,10 +162,9 @@ export async function httpGetJson<T>(
   let data: T;
   try {
     data = JSON.parse(res.text) as T;
-  } catch (error) {
-    throw new Error(
-      `GET ${url} returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
-    );
+  } catch {
+    // Never echo parse errors: V8 quotes body content in them.
+    throw new SourceHttpError(url, 0, false, `GET ${url} returned invalid JSON`);
   }
   const out: HttpJsonResult<T> = { data };
   if (res.etag) out.etag = res.etag;
@@ -184,10 +186,17 @@ async function requestText(url: string, opts: HttpOptions): Promise<HttpResult> 
         attempt < DEFAULT_RETRIES;
       if (!retry) throw error;
       const base = opts.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
-      const delay =
-        error.retryAfterMs ??
-        Math.min(base * 2 ** attempt, MAX_RETRY_DELAY_MS);
-      await sleep(delay);
+      const maxRetryAfter =
+        opts.maxRetryAfterMs ?? DEFAULT_MAX_RETRY_AFTER_MS;
+      const honoredRetryAfter =
+        error.retryAfterMs !== undefined &&
+        error.retryAfterMs <= maxRetryAfter
+          ? error.retryAfterMs
+          : undefined;
+      await sleep(
+        honoredRetryAfter ??
+          Math.min(base * 2 ** attempt, MAX_RETRY_DELAY_MS),
+      );
     }
   }
 }
@@ -208,16 +217,7 @@ async function requestOnce(
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
-    const timedOut =
-      error instanceof Error &&
-      (error.name === "TimeoutError" || error.name === "AbortError");
-    const message = timedOut
-      ? `GET ${url} timed out after ${timeoutMs}ms`
-      : `GET ${url} failed: ${redactSecrets(
-          error instanceof Error ? error.message : String(error),
-          headers,
-        )}`;
-    throw new SourceHttpError(url, 0, true, message);
+    throw transportError(url, error, timeoutMs, headers, "request");
   }
   if (res.status === 304) throw new NotModified(url);
   if (!res.ok) {
@@ -237,7 +237,12 @@ async function requestOnce(
     await res.body?.cancel().catch(() => undefined);
     throw error;
   }
-  const text = await readCappedText(url, res, opts.maxBytes ?? DEFAULT_MAX_BYTES);
+  let text: string;
+  try {
+    text = await readCappedText(url, res, opts.maxBytes ?? DEFAULT_MAX_BYTES);
+  } catch (error) {
+    throw transportError(url, error, timeoutMs, headers, "body");
+  }
   const out: HttpResult = { text };
   const etag = res.headers.get("etag");
   if (etag) out.etag = etag;
@@ -254,6 +259,40 @@ function parseRetryAfter(value: string | null): number | undefined {
     : undefined;
 }
 
+function transportError(
+  url: string,
+  error: unknown,
+  timeoutMs: number,
+  headers: Record<string, string>,
+  phase: "request" | "body",
+): SourceHttpError {
+  if (error instanceof SourceHttpError) return error;
+  if (
+    error instanceof Error &&
+    (error.name === "TimeoutError" || error.name === "AbortError")
+  ) {
+    return new SourceHttpError(
+      url,
+      0,
+      true,
+      `GET ${url} timed out after ${timeoutMs}ms`,
+    );
+  }
+  // Body-derived messages can echo payload data; keep those generic.
+  const detail =
+    phase === "request"
+      ? `: ${redactSecrets(
+          error instanceof Error ? error.message : String(error),
+          headers,
+        )}`
+      : " while reading the response body";
+  return new SourceHttpError(url, 0, true, `GET ${url} failed${detail}`);
+}
+
+function mediaType(value: string): string {
+  return (value.split(";")[0] ?? "").trim().toLowerCase();
+}
+
 function checkContentType(
   url: string,
   res: Response,
@@ -264,10 +303,13 @@ function checkContentType(
   const matches =
     actual !== null &&
     (typeof expected === "string"
-      ? actual.toLowerCase().includes(expected.toLowerCase())
+      ? mediaType(actual) === mediaType(expected)
       : expected.test(actual));
   if (!matches) {
-    throw new Error(
+    throw new SourceHttpError(
+      url,
+      0,
+      false,
       `GET ${url} returned content-type ${actual ?? "none"}, expected ${
         expected instanceof RegExp ? expected.source : expected
       }`,
@@ -290,11 +332,17 @@ async function readCappedText(
     total += value.byteLength;
     if (total > maxBytes) {
       await reader.cancel().catch(() => undefined);
-      throw new Error(`GET ${url} response exceeded ${maxBytes} bytes`);
+      throw new SourceHttpError(
+        url,
+        0,
+        false,
+        `GET ${url} response exceeded ${maxBytes} bytes`,
+      );
     }
     chunks.push(value);
   }
-  return Buffer.concat(chunks).toString("utf8");
+  // TextDecoder strips a leading BOM, unlike Buffer.toString("utf8").
+  return new TextDecoder("utf-8").decode(Buffer.concat(chunks));
 }
 
 const SECRET_HEADER = /authorization|cookie|token|api[-_]?key|secret/i;
