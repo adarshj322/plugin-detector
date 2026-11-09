@@ -19,6 +19,14 @@ export const ReviewCandidateSchema = z.object({
   trust: TrustClassSchema,
   license: z.string().min(1),
   pinnedRef: z.string().min(1),
+  risk: z.enum(["low", "medium", "high", "critical"]),
+  maintenance: z.enum(["active", "stale", "archived", "unknown"]),
+  auditStatus: z.enum(["clean", "warning", "critical", "unknown"]),
+  lastVerified: isoDate,
+  retrievedAt: isoDate,
+  // A preserved record survived a transient source failure (or a partial
+  // source refresh) at its old evidence age. It is not a fresh probe.
+  preserved: z.boolean(),
   evidenceSource: z.string().url(),
   evidenceRef: z.string().min(1),
   contentHash: z.string().min(1),
@@ -54,17 +62,38 @@ export const ReviewSourceCountSchema = z.object({
 });
 export type ReviewSourceCount = z.infer<typeof ReviewSourceCountSchema>;
 
+// Manifest source health is copied through unchanged (minus transport
+// validators) so a reviewer sees which sources failed or only partially
+// answered the refresh that produced the snapshot.
+export const ReviewSourceHealthSchema = z.object({
+  id: z.string().min(1),
+  ok: z.boolean(),
+  count: z.number().int().nonnegative().optional(),
+  partial: z.boolean().optional(),
+  error: z.string().min(1).optional(),
+  failures: z
+    .array(z.object({ query: z.string(), error: z.string() }))
+    .optional(),
+});
+export type ReviewSourceHealth = z.infer<typeof ReviewSourceHealthSchema>;
+
 export const ReviewReportSchema = z.object({
   schemaVersion: z.literal(1),
   generatedAt: isoDate,
   snapshotGeneratedAt: isoDate,
+  manifestGeneratedAt: isoDate.nullable(),
   counts: z.object({
+    // total counts records, not unique ids: a rejected record whose prior
+    // candidate was preserved appears in both `probed` and `rejected`.
     total: z.number().int().nonnegative(),
     probed: z.number().int().nonnegative(),
+    preserved: z.number().int().nonnegative(),
     unprobed: z.number().int().nonnegative(),
     rejected: z.number().int().nonnegative(),
+    rejectedAlsoPreserved: z.number().int().nonnegative(),
   }),
   sources: z.array(ReviewSourceCountSchema),
+  sourceHealth: z.array(ReviewSourceHealthSchema),
   candidates: z.array(ReviewCandidateSchema),
   unprobed: z.array(ReviewRefusalSchema),
   rejected: z.array(ReviewRefusalSchema),
@@ -115,6 +144,16 @@ export function buildReviewReport(
       // The probed license is the fetched truth; a listing claim never wins.
       license: evidence.license,
       pinnedRef: candidate.pinnedRef,
+      risk: candidate.risk,
+      maintenance: candidate.maintenance,
+      auditStatus: candidate.auditStatus,
+      lastVerified: candidate.lastVerified,
+      retrievedAt: evidence.retrievedAt,
+      // Without a manifest there is no refresh boundary to compare against;
+      // a committed/bundled snapshot is reported as not preserved.
+      preserved:
+        manifest !== null &&
+        Date.parse(evidence.retrievedAt) < Date.parse(manifest.generatedAt),
       evidenceSource: evidence.sourceUrl,
       evidenceRef: evidence.resolvedRef,
       contentHash: evidence.contentHash,
@@ -198,17 +237,40 @@ export function buildReviewReport(
     .map(([sourceUrl, counts]) => ({ sourceUrl, ...counts }))
     .sort((a, b) => compare(a.sourceUrl, b.sourceUrl));
 
+  const sourceHealth: ReviewSourceHealth[] = Object.entries(
+    manifest?.sources ?? {},
+  )
+    .map(([id, health]) => ({
+      id,
+      ok: health.ok,
+      ...(health.count === undefined ? {} : { count: health.count }),
+      ...(health.partial === undefined ? {} : { partial: health.partial }),
+      ...(health.error === undefined ? {} : { error: health.error }),
+      ...(health.failures === undefined
+        ? {}
+        : { failures: health.failures.map((failure) => ({ ...failure })) }),
+    }))
+    .sort((a, b) => compare(a.id, b.id));
+
+  const candidateIds = new Set(candidates.map((candidate) => candidate.id));
+
   return ReviewReportSchema.parse({
     schemaVersion: 1,
     generatedAt: now.toISOString(),
     snapshotGeneratedAt: snapshot.generatedAt,
+    manifestGeneratedAt: manifest?.generatedAt ?? null,
     counts: {
       total: candidates.length + unprobed.length + rejected.length,
       probed: candidates.length,
+      preserved: candidates.filter((candidate) => candidate.preserved).length,
       unprobed: unprobed.length,
       rejected: rejected.length,
+      rejectedAlsoPreserved: rejected.filter((record) =>
+        candidateIds.has(record.id),
+      ).length,
     },
     sources,
+    sourceHealth,
     candidates,
     unprobed,
     rejected,

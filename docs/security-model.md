@@ -47,12 +47,14 @@ model APIs, and lets the tool work offline.
 
 ## Read-only defaults
 
-`inventory`, `recommend`, `explain`, `plan`, `profiles validate`, and `benchmark`
-are read-only. They do not create, modify, or delete harness configuration.
-`plan` writes a file only when the user passes `--out <file>`. The only commands
-that write are:
+`inventory`, `recommend`, `explain`, `plan`, `registry review`,
+`profiles validate`, and `benchmark` are read-only. They do not create, modify,
+or delete harness configuration. `plan` and `registry review` write a file only
+when the user passes `--out <file>`. The only commands that write are:
 
 - `registry refresh` — an explicit, user-invoked local cache/snapshot update
+- `registry review --out <file>` — writes the JSON review report the user
+  explicitly requested (never the snapshot or manifest)
 - `plan --out <file>` — writes the plan file the user explicitly requested
 - `approve` — writes a one-shot approval token under the state directory
 - `install` — applies an approved plan, with backup and rollback

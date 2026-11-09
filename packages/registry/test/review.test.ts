@@ -126,8 +126,10 @@ test("review report counts probed, unprobed, rejected, and total records", () =>
   assert.deepEqual(report.counts, {
     total: 5,
     probed: 2,
+    preserved: 0,
     unprobed: 1,
     rejected: 2,
+    rejectedAlsoPreserved: 0,
   });
 });
 
@@ -153,6 +155,12 @@ test("review report carries per-candidate evidence for the reviewer", () => {
       trust: "curated",
       license: "Apache-2.0",
       pinnedRef: "v1.2.3",
+      risk: "low",
+      maintenance: "active",
+      auditStatus: "clean",
+      lastVerified: NOW,
+      retrievedAt: NOW,
+      preserved: false,
       evidenceSource:
         "https://raw.githubusercontent.com/acme/alpha/v1.2.3/artifact.json",
       evidenceRef: "v1.2.3",
@@ -164,6 +172,88 @@ test("review report carries per-candidate evidence for the reviewer", () => {
   assert.deepEqual(report.unprobed, []);
   assert.deepEqual(report.rejected, []);
   assert.deepEqual(report.rejectedGroups, []);
+  assert.equal(report.manifestGeneratedAt, null);
+  assert.deepEqual(report.sourceHealth, []);
+  assert.equal(report.counts.preserved, 0);
+  assert.equal(report.counts.rejectedAlsoPreserved, 0);
+});
+
+test("review report marks preserved candidates, ages, and source health", () => {
+  const later = "2026-11-09T01:00:00.000Z";
+  const preserved = candidate("alpha", "skill", {
+    risk: "medium",
+    maintenance: "stale",
+    auditStatus: "warning",
+  });
+  const fresh = candidate("beta", "skill", {
+    lastVerified: later,
+  });
+  if (fresh.artifactEvidence !== undefined) {
+    fresh.artifactEvidence.retrievedAt = later;
+  }
+  const report = buildReviewReport(
+    snapshot([
+      {
+        candidate: preserved,
+        sourceUrl: "https://skills.sh/api/search",
+        trust: "verified",
+      },
+      {
+        candidate: fresh,
+        sourceUrl: "https://skills.sh/api/search",
+        trust: "verified",
+      },
+    ]),
+    manifest({
+      generatedAt: later,
+      sources: {
+        "skills-sh": {
+          ok: true,
+          count: 1,
+          partial: true,
+          failures: [{ query: "topic:alpha", error: "timeout" }],
+        },
+        github: { ok: false, error: "502 Bad Gateway" },
+      },
+      rejected: [
+        {
+          id: "alpha",
+          reason: "ARTIFACT_UNAVAILABLE: timeout",
+          sourceUrl: "https://skills.sh/api/search",
+          rejectedAt: later,
+        },
+      ],
+    }),
+    new Date(later),
+  );
+
+  assert.equal(report.manifestGeneratedAt, later);
+  assert.deepEqual(report.sourceHealth, [
+    {
+      id: "github",
+      ok: false,
+      error: "502 Bad Gateway",
+    },
+    {
+      id: "skills-sh",
+      ok: true,
+      count: 1,
+      partial: true,
+      failures: [{ query: "topic:alpha", error: "timeout" }],
+    },
+  ]);
+  const alpha = report.candidates.find((c) => c.id === "alpha");
+  const beta = report.candidates.find((c) => c.id === "beta");
+  assert.equal(alpha?.preserved, true);
+  assert.equal(alpha?.risk, "medium");
+  assert.equal(alpha?.maintenance, "stale");
+  assert.equal(alpha?.auditStatus, "warning");
+  assert.equal(alpha?.lastVerified, NOW);
+  assert.equal(alpha?.retrievedAt, NOW);
+  assert.equal(beta?.preserved, false);
+  assert.equal(report.counts.preserved, 1);
+  assert.equal(report.counts.rejectedAlsoPreserved, 1);
+  assert.equal(report.counts.total, 3);
 });
 
 test("review report counts records per source URL", () => {

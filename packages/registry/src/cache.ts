@@ -177,20 +177,26 @@ export function readCacheManifest(
 }
 
 // Review must not silently mask a corrupt cache as "no cache": a present but
-// invalid snapshot fails instead of falling back to the bundled seed.
+// invalid snapshot fails instead of falling back to the bundled seed. A
+// missing cache falls back to the bundled snapshot (which Task 11 makes a
+// reviewed, non-empty seed); that path is injectable for tests.
 export function loadSnapshotForReview(opts?: {
   cacheDir?: string;
+  bundledPath?: string;
 }): RegistrySnapshot {
   const cachedPath = join(resolveCacheDir(opts?.cacheDir), SNAPSHOT_FILENAME);
-  const snapshot = existsSync(cachedPath)
-    ? parseSnapshot(readFileSync(cachedPath, "utf8"))
-    : readSnapshotFile(bundledSnapshotPath());
-  if (snapshot === null) {
+  if (existsSync(cachedPath)) {
+    return parseSnapshot(readFileSync(cachedPath, "utf8"));
+  }
+  const bundledPath = opts?.bundledPath ?? bundledSnapshotPath();
+  if (!existsSync(bundledPath)) {
     throw new Error(
       "no registry snapshot found: run `plugin-detector registry refresh`",
     );
   }
-  return snapshot;
+  // A bundled snapshot that exists but does not parse is a packaging error,
+  // not an absent snapshot; surface the parse failure.
+  return parseSnapshot(readFileSync(bundledPath, "utf8"));
 }
 
 // A corrupt manifest is a review failure, not an empty ledger: dropping it

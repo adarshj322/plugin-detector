@@ -50,18 +50,23 @@ function candidate() {
   });
 }
 
-function writeSnapshot(dir: string): void {
-  const snapshot = buildSnapshot(
-    [
-      {
-        candidate: candidate(),
-        sourceUrl: "https://skills.sh/api/search",
-        trust: "verified",
-      },
-    ],
-    new Date(AT),
+function snapshotJson(): string {
+  return JSON.stringify(
+    buildSnapshot(
+      [
+        {
+          candidate: candidate(),
+          sourceUrl: "https://skills.sh/api/search",
+          trust: "verified",
+        },
+      ],
+      new Date(AT),
+    ),
   );
-  writeFileSync(join(dir, SNAPSHOT_FILENAME), JSON.stringify(snapshot));
+}
+
+function writeSnapshot(dir: string): void {
+  writeFileSync(join(dir, SNAPSHOT_FILENAME), snapshotJson());
 }
 
 function writeManifest(dir: string): void {
@@ -97,9 +102,10 @@ function writeManifest(dir: string): void {
   );
 }
 
-async function capture(run: () => Promise<unknown>): Promise<{
+async function capture<T>(run: () => Promise<T>): Promise<{
   logs: string[];
   errors: string[];
+  result: T;
 }> {
   const logs: string[] = [];
   const errors: string[] = [];
@@ -111,13 +117,14 @@ async function capture(run: () => Promise<unknown>): Promise<{
   console.error = (...args: unknown[]): void => {
     errors.push(args.map(String).join(" "));
   };
+  let result!: T;
   try {
-    await run();
+    result = await run();
   } finally {
     console.log = origLog;
     console.error = origError;
   }
-  return { logs, errors };
+  return { logs, errors, result };
 }
 
 test("registry review --json prints a validated report and writes nothing", async () => {
@@ -148,8 +155,10 @@ test("registry review --json prints a validated report and writes nothing", asyn
   assert.deepEqual(report.counts, {
     total: 4,
     probed: 1,
+    preserved: 0,
     unprobed: 1,
     rejected: 2,
+    rejectedAlsoPreserved: 0,
   });
   assert.equal(report.candidates[0]?.id, "alpha");
 });
@@ -195,25 +204,59 @@ test("registry review text output lists evidence and is not a certification", as
 
   assert.deepEqual(errors, []);
   const text = logs.join("\n");
-  assert.match(text, /1 probed, 1 unprobed, 2 rejected/);
+  assert.match(text, /1 probed, 0 preserved, 1 unprobed, 2 rejected/);
   assert.match(text, /alpha \(Alpha Skill\) \[skill\] trust=verified/);
   assert.match(text, /license: Apache-2\.0/);
   assert.match(text, /pin: v1\.2\.3/);
+  assert.match(text, /risk: low maintenance: active audit: clean/);
+  assert.match(text, /last-verified: 2026-11-09T00:00:00\.000Z/);
+  assert.match(text, /evidence-retrieved-at: 2026-11-09T00:00:00\.000Z/);
   assert.match(text, /evidence: https:\/\/raw\.githubusercontent\.com\/acme\/alpha/);
   assert.match(text, /snippet: name: alpha/);
+  assert.match(text, /source-health:/);
+  assert.match(text, /skills-sh: ok count=1/);
   assert.match(text, /rejected-groups:/);
   assert.match(text, /2x ARTIFACT_MISSING: 404/);
   assert.match(text, /not a certification/);
 });
 
-test("registry review exits 1 when no snapshot is available", async () => {
+test("registry review falls back to a non-empty bundled snapshot", async () => {
   const dir = tmpCache();
-  const { logs, errors } = await capture(() =>
-    registryReview(["--cache-dir", dir, "--json"]),
+  const bundled = join(tmpCache(), SNAPSHOT_FILENAME);
+  writeFileSync(bundled, snapshotJson());
+  const { logs, errors, result } = await capture(() =>
+    registryReview(["--cache-dir", dir, "--json"], { bundledPath: bundled }),
+  );
+  assert.deepEqual(errors, []);
+  assert.equal(result.exitCode, 0);
+  const report = ReviewReportSchema.parse(
+    JSON.parse(logs.join("\n")) as unknown,
+  );
+  assert.equal(report.candidates[0]?.id, "alpha");
+  assert.deepEqual(readdirSync(dir), [], "review must not write to the cache");
+});
+
+test("registry review exits 1 when the bundled snapshot is missing", async () => {
+  const dir = tmpCache();
+  const bundled = join(tmpCache(), "absent.json");
+  const { logs, errors, result } = await capture(() =>
+    registryReview(["--cache-dir", dir, "--json"], { bundledPath: bundled }),
   );
   assert.deepEqual(logs, []);
-  assert.equal(errors.length, 1);
-  assert.match(errors[0] ?? "", /no candidates to review/);
+  assert.equal(result.exitCode, 1);
+  assert.match(errors[0] ?? "", /no registry snapshot found/);
+});
+
+test("registry review exits 1 when the bundled snapshot is corrupt", async () => {
+  const dir = tmpCache();
+  const bundled = join(tmpCache(), SNAPSHOT_FILENAME);
+  writeFileSync(bundled, "{not json");
+  const { logs, errors, result } = await capture(() =>
+    registryReview(["--cache-dir", dir, "--json"], { bundledPath: bundled }),
+  );
+  assert.deepEqual(logs, []);
+  assert.equal(result.exitCode, 1);
+  assert.match(errors[0] ?? "", /registry review failed/);
 });
 
 test("registry review exits 1 when the cached snapshot is invalid", async () => {
@@ -240,10 +283,67 @@ test("registry review exits 1 when the manifest is invalid", async () => {
 
 test("registry review exits 2 on usage errors", async () => {
   const unknown = await capture(() => registryReview(["--nope"]));
+  assert.equal(unknown.result.exitCode, 2);
   assert.match(unknown.errors[0] ?? "", /unknown argument/);
 
   const missingOut = await capture(() => registryReview(["--out"]));
-  assert.match(missingOut.errors[0] ?? "", /unknown argument/);
+  assert.equal(missingOut.result.exitCode, 2);
+  assert.match(missingOut.errors[0] ?? "", /missing value for --out/);
+
+  const missingCacheDir = await capture(() =>
+    registryReview(["--cache-dir"]),
+  );
+  assert.equal(missingCacheDir.result.exitCode, 2);
+  assert.match(missingCacheDir.errors[0] ?? "", /missing value for --cache-dir/);
+});
+
+test("registry review --help prints usage and writes nothing", async () => {
+  const { logs, errors, result } = await capture(() => registryReview(["--help"]));
+  assert.equal(result.exitCode, 0);
+  assert.deepEqual(errors, []);
+  assert.match(logs.join("\n"), /usage: plugin-detector registry review/);
+});
+
+test("registry review --out without --json writes the report and prints text", async () => {
+  const dir = tmpCache();
+  writeSnapshot(dir);
+  const out = join(dir, "review.json");
+  const { logs, errors, result } = await capture(() =>
+    registryReview(["--cache-dir", dir, "--out", out]),
+  );
+  assert.deepEqual(errors, []);
+  assert.equal(result.exitCode, 0);
+  assert.match(logs.join("\n"), /1 probed, 0 preserved, 0 unprobed, 0 rejected/);
+  const written = ReviewReportSchema.parse(
+    JSON.parse(readFileSync(out, "utf8")) as unknown,
+  );
+  assert.equal(written.candidates[0]?.id, "alpha");
+});
+
+test("registry review refuses --out over the snapshot or manifest", async () => {
+  const dir = tmpCache();
+  writeSnapshot(dir);
+  for (const name of [SNAPSHOT_FILENAME, MANIFEST_FILENAME]) {
+    const { logs, errors, result } = await capture(() =>
+      registryReview(["--cache-dir", dir, "--out", join(dir, name)]),
+    );
+    assert.equal(result.exitCode, 2);
+    assert.deepEqual(logs, []);
+    assert.match(errors[0] ?? "", /refusing --out/);
+  }
+  assert.equal(readFileSync(join(dir, SNAPSHOT_FILENAME), "utf8"), snapshotJson());
+});
+
+test("registry review exits 1 when --out is unwritable", async () => {
+  const dir = tmpCache();
+  writeSnapshot(dir);
+  const out = join(dir, "missing-directory", "review.json");
+  const { logs, errors, result } = await capture(() =>
+    registryReview(["--cache-dir", dir, "--json", "--out", out]),
+  );
+  assert.deepEqual(logs, []);
+  assert.equal(result.exitCode, 1);
+  assert.match(errors[0] ?? "", /registry review failed/);
 });
 
 test("main dispatches registry review", async () => {

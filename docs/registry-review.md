@@ -31,13 +31,16 @@ Inputs:
 - `registry-snapshot.json` in `--cache-dir`. If that file does not exist, the
   bundled `packages/registry/data/registry-snapshot.json` is reviewed instead.
   A cache snapshot that exists but is invalid fails the review; it is never
-  silently replaced by the bundled file.
+  silently replaced by the bundled file. A bundled snapshot that is missing
+  or invalid also fails the review.
 - `registry-manifest.json` in the same directory, when present. A manifest
   that exists but is invalid also fails the review, because dropping it would
   hide rejected and unprobed records.
 
 The command writes nothing by default. `--out <file>` writes only the JSON
-report; it never modifies the snapshot, the manifest, or a candidate.
+report; it never modifies the snapshot, the manifest, or a candidate. For that
+reason `--out` refuses a path whose basename is `registry-snapshot.json` or
+`registry-manifest.json`.
 
 Exit codes: `0` report produced, `1` missing/invalid input or unwritable
 `--out`, `2` usage error.
@@ -49,8 +52,10 @@ Exit codes: `0` report produced, `1` missing/invalid input or unwritable
 | `schemaVersion` | Report schema version (`1`). |
 | `generatedAt` | Time the report was produced. |
 | `snapshotGeneratedAt` | Time the reviewed snapshot was produced. |
-| `counts` | `total`, `probed`, `unprobed`, `rejected`. `total` is the sum. |
+| `manifestGeneratedAt` | Time the reviewed refresh manifest was produced, or `null` when there is no manifest. |
+| `counts` | `total`, `probed`, `preserved`, `unprobed`, `rejected`, `rejectedAlsoPreserved`. `total` is `probed + unprobed + rejected`; it counts records, not unique IDs (see below). |
 | `sources` | Per source URL: `probed`, `unprobed`, `rejected` counts. |
+| `sourceHealth` | Per manifest source ID: `ok`, `count`, `partial`, `error`, and query `failures`. Empty when there is no manifest. |
 | `candidates` | Accepted (probed) candidates and their evidence. |
 | `unprobed` | Listing-only records from the manifest, with reasons. |
 | `rejected` | Intake refusals from the manifest, with reasons. |
@@ -64,9 +69,22 @@ Each accepted candidate carries:
 - `trust` — the snapshot trust class
 - `license` — the license observed in the probed artifact (not a listing claim)
 - `pinnedRef` — the immutable ref stored on the candidate
+- `risk`, `maintenance`, `auditStatus` — the candidate's risk, maintenance, and
+  audit labels from the snapshot
+- `lastVerified` — when the candidate record was last verified
+- `retrievedAt` — when the artifact evidence itself was fetched
+- `preserved` — `true` when the record survived a transient source failure or
+  partial refresh at its old evidence age instead of being freshly probed
 - `evidenceSource`, `evidenceRef`, `contentHash`, `evidenceSnippets` — the
   probed artifact URL, resolved ref, content hash, and short evidence excerpts
 - `capabilities` — normalized capability IDs
+
+`preserved` is inferred by comparing `retrievedAt` with the manifest's
+`generatedAt`; a bundled/committed snapshot with no manifest reports every
+candidate as not preserved. A preserved candidate may also appear in `rejected`
+when its fresh probe failed transiently, so `total` can count that ID twice.
+`counts.rejectedAlsoPreserved` reports how many rejected IDs also appear as
+preserved candidates; `counts.preserved` counts preserved candidates.
 
 ## Workflow
 
@@ -75,7 +93,9 @@ Each accepted candidate carries:
 3. For every accepted candidate, verify the evidence below.
 4. For every rejected or unprobed record, confirm the reason is expected. A
    hard rejection should not reappear in the snapshot; a transient source
-   failure may have preserved a prior record, which still needs review.
+   failure may have preserved a prior record, which still needs review. Rows
+   marked `preserved: true` (and the `sourceHealth` failures that explain them)
+   are prior candidates, not fresh probes.
 5. Accept or reject each candidate in the snapshot, then commit the reviewed
    snapshot together with this report and its `generatedAt`.
 6. Never commit a snapshot with unexplained source failures or records you did

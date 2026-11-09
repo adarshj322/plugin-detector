@@ -13,10 +13,12 @@ background work the user did not ask for.
 
 ## No-write gate
 
-`inventory`, `recommend`, `explain`, and `plan` are read-only unless you
-pass `plan --out <file>`. The commands that write are `registry refresh`
-(explicit cache refresh), `plan --out` (the plan file you asked for),
-`approve` (the one-shot token store), and `install`, and `install` runs
+`inventory`, `recommend`, `explain`, `plan`, and `registry review` are
+read-only unless you pass `plan --out <file>` or `registry review --out
+<file>`. The commands that write are `registry refresh` (explicit cache
+refresh), `registry review --out` (the review report file you asked for; it
+never writes the snapshot or manifest), `plan --out` (the plan file you asked
+for), `approve` (the one-shot token store), and `install`, and `install` runs
 only after the approval-token flow below completes. Never bypass the CLI:
 do not edit harness config files by hand when a CLI command owns that write.
 

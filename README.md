@@ -222,8 +222,9 @@ npm run registry:refresh   # live public sources; writes the snapshot + local ma
 # to the skills.sh and GitHub search queries (capped; never evidence).
 node packages/cli/dist/src/index.js registry review \
   --cache-dir packages/registry/data --json --out registry-review.json
-# Review provenance, trust flags, license, pin, hash, snippets, and the
-# unprobed/rejected intake entries. The report is evidence, not a certification.
+# Review provenance, trust flags, license, pin, hash, snippets, source health,
+# evidence age (preserved markers), and the unprobed/rejected intake entries.
+# The report is evidence, not a certification.
 # See docs/registry-review.md for the accept/reject criteria.
 git diff -- packages/registry/data/registry-snapshot.json
 git add packages/registry/data/registry-snapshot.json registry-review.json
