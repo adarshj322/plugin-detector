@@ -49,8 +49,17 @@ export interface HttpJsonResult<T> {
 
 export type HttpGetter = (url: string) => Promise<HttpResult>;
 
+export interface SourceFetchFailure {
+  query: string;
+  error: string;
+}
+
 export interface SourceFetch {
   raws: RawCandidate[];
+  // Set when only part of the query plan succeeded. Callers should preserve
+  // prior entries for the failed queries instead of dropping them.
+  partial?: boolean | undefined;
+  failures?: SourceFetchFailure[] | undefined;
   etag?: string | undefined;
   lastModified?: string | undefined;
 }

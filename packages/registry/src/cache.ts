@@ -163,7 +163,8 @@ function defaultFetchers(
         ...(v?.lastModified ? { lastModified: v.lastModified } : {}),
       });
   };
-  // Optional and caller-supplied: read here, never inside the source module.
+  // Production token path: this bound getter owns the Authorization header.
+  // fetchGithub's `token` option serves its default/library transport only.
   const githubToken = process.env.GITHUB_TOKEN?.trim();
   return [
     {

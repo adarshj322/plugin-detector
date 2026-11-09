@@ -6,6 +6,7 @@ import { RateLimiter } from "../src/sources/http.js";
 import {
   fetchGithub,
   GITHUB_MAX_CANDIDATES,
+  GITHUB_MAX_PER_QUERY,
   GITHUB_PER_PAGE,
   GITHUB_TOPIC_QUERIES,
   GITHUB_URL,
@@ -40,14 +41,23 @@ function jsonResult(payload: unknown): { text: string } {
   return { text: JSON.stringify(payload) };
 }
 
-// Builds a page of distinct repositories from the captured item shape.
-function page(prefix: string, count: number): SearchPayload {
+function queryOf(url: string): string {
+  return new URL(url).searchParams.get("q") ?? "";
+}
+
+function slug(query: string): string {
+  return query.replace(/[^a-z0-9-]/gi, "");
+}
+
+// Builds a page from the captured item shape: `unique` distinct repos repeated
+// up to `total` items so full pages can still carry duplicate records.
+function page(prefix: string, unique: number, total: number = unique): SearchPayload {
   const template = fixturePayload().items[0] as SearchItem;
   return {
-    total_count: count,
+    total_count: unique,
     incomplete_results: false,
-    items: Array.from({ length: count }, (_, index) => {
-      const name = `${prefix}-${index}`;
+    items: Array.from({ length: total }, (_, index) => {
+      const name = `${prefix}-${index % unique}`;
       return {
         ...template,
         full_name: `acme/${name}`,
@@ -62,12 +72,12 @@ function fastLimiter(): RateLimiter {
   return new RateLimiter();
 }
 
-test("issues seven independent topic queries with per_page=100 page 1", async () => {
+test("requests all seven public topic queries with per_page=100 page 1", async () => {
   const calls: string[] = [];
   const result = await fetchGithub({
     get: async (url) => {
       calls.push(url);
-      return jsonResult(fixturePayload());
+      return jsonResult(page(slug(queryOf(url)), 100));
     },
     limiter: fastLimiter(),
   });
@@ -81,18 +91,24 @@ test("issues seven independent topic queries with per_page=100 page 1", async ()
     "agent-skill",
     "llm-tools",
   ]);
-  assert.equal(calls.length, 7);
+  assert.equal(calls.length, 7, "every default topic must be requested");
   const urls = calls.map((url) => new URL(url));
   assert.deepEqual(
     urls.map((url) => url.searchParams.get("q")),
-    GITHUB_TOPIC_QUERIES.map((topic) => `topic:${topic}`),
+    GITHUB_TOPIC_QUERIES.map((topic) => `topic:${topic} is:public`),
   );
   for (const url of urls) {
     assert.equal(`${url.origin}${url.pathname}`, GITHUB_URL);
     assert.equal(url.searchParams.get("per_page"), "100");
     assert.equal(url.searchParams.get("page"), "1");
   }
-  assert.equal(result.raws.length, 3, "repeated repositories dedupe by full_name");
+  assert.equal(
+    result.raws.length,
+    GITHUB_TOPIC_QUERIES.length * GITHUB_MAX_PER_QUERY,
+  );
+  assert.ok(result.raws.length <= GITHUB_MAX_CANDIDATES);
+  assert.equal(result.partial, undefined);
+  assert.equal(result.failures, undefined);
 });
 
 test("paginates a full query up to the three-page cap", async () => {
@@ -100,15 +116,16 @@ test("paginates a full query up to the three-page cap", async () => {
   const result = await fetchGithub({
     queries: ["mcp"],
     get: async (url) => {
-      const pageNumber = Number(new URL(url).searchParams.get("page"));
-      pages.push(pageNumber);
-      return jsonResult(page(`p${pageNumber}`, GITHUB_PER_PAGE));
+      pages.push(Number(new URL(url).searchParams.get("page")));
+      // 100 items per page but only 60 distinct repos: the per-query budget is
+      // never reached, so the page cap is what stops the scan.
+      return jsonResult(page("loop", 60, GITHUB_PER_PAGE));
     },
     limiter: fastLimiter(),
   });
 
   assert.deepEqual(pages, [1, 2, 3]);
-  assert.equal(result.raws.length, GITHUB_PER_PAGE * 3);
+  assert.equal(result.raws.length, 60);
 });
 
 test("stops paginating when a page is not full", async () => {
@@ -116,33 +133,38 @@ test("stops paginating when a page is not full", async () => {
   const result = await fetchGithub({
     queries: ["mcp"],
     get: async (url) => {
-      const pageNumber = Number(new URL(url).searchParams.get("page"));
-      pages.push(pageNumber);
-      return jsonResult(page(`s${pageNumber}`, pageNumber === 1 ? 100 : 2));
+      pages.push(Number(new URL(url).searchParams.get("page")));
+      return jsonResult(page("short", 50));
     },
     limiter: fastLimiter(),
   });
 
-  assert.deepEqual(pages, [1, 2]);
-  assert.equal(result.raws.length, 102);
+  assert.deepEqual(pages, [1]);
+  assert.equal(result.raws.length, 50);
 });
 
-test("caps unique repositories at 500 across queries", async () => {
+test("spreads the global cap across the plan; appended terms share the remainder", async () => {
+  const queries = [...GITHUB_TOPIC_QUERIES, "extra-one", "extra-two"];
   const calls: string[] = [];
   const result = await fetchGithub({
-    queries: ["alpha", "beta"],
+    queries,
     get: async (url) => {
       calls.push(url);
-      const parsed = new URL(url);
-      const topic = parsed.searchParams.get("q") ?? "";
-      const pageNumber = Number(parsed.searchParams.get("page"));
-      return jsonResult(page(`${topic}${pageNumber}`, GITHUB_PER_PAGE));
+      return jsonResult(page(slug(queryOf(url)), 100));
     },
     limiter: fastLimiter(),
   });
 
+  assert.equal(calls.length, 8, "the ninth query is never requested");
+  assert.equal(queryOf(calls[7] as string), "topic:extra-one is:public");
   assert.equal(result.raws.length, GITHUB_MAX_CANDIDATES);
-  assert.equal(calls.length, 5, "the cap stops the sixth request");
+  const extraOne = slug("topic:extra-one is:public");
+  assert.equal(
+    result.raws.filter((raw) => raw.id?.startsWith(`acme/${extraOne}-`)).length,
+    10,
+    "the eighth query gets only the remaining 10 slots",
+  );
+  assert.equal(result.partial, undefined);
 });
 
 test("parses default branch, stars, push time, license, and description", () => {
@@ -240,11 +262,11 @@ test("never reads GITHUB_TOKEN from the environment", async () => {
   assert.equal(seen[0]?.get("authorization"), null);
 });
 
-test("one failed query does not discard results from the others", async () => {
+test("a failed query marks the harvest partial and records the failure", async () => {
   const result = await fetchGithub({
     queries: ["mcp", "claude-plugin"],
     get: async (url) => {
-      if (new URL(url).searchParams.get("q") === "topic:mcp") {
+      if (queryOf(url) === "topic:mcp is:public") {
         throw new Error("github search rate limit exceeded");
       }
       return jsonResult(fixturePayload());
@@ -253,6 +275,10 @@ test("one failed query does not discard results from the others", async () => {
   });
 
   assert.equal(result.raws.length, 3);
+  assert.equal(result.partial, true);
+  assert.deepEqual(result.failures, [
+    { query: "mcp", error: "github search rate limit exceeded" },
+  ]);
 });
 
 test("a total query failure surfaces the first error", async () => {
@@ -260,7 +286,7 @@ test("a total query failure surfaces the first error", async () => {
     fetchGithub({
       queries: ["mcp", "claude-plugin"],
       get: async (url) => {
-        if (new URL(url).searchParams.get("q") === "topic:mcp") {
+        if (queryOf(url) === "topic:mcp is:public") {
           throw new Error("first failure");
         }
         throw new Error("second failure");
@@ -288,6 +314,64 @@ test("paces requests through the supplied limiter", async () => {
   limiter.release();
   const result = await pending;
   assert.equal(result.raws.length, 3);
+});
+
+test("malformed JSON fails only that query and marks the harvest partial", async () => {
+  const result = await fetchGithub({
+    queries: ["mcp", "claude-plugin"],
+    get: async (url) =>
+      queryOf(url) === "topic:mcp is:public"
+        ? { text: "{not json" }
+        : jsonResult(fixturePayload()),
+    limiter: fastLimiter(),
+  });
+
+  assert.equal(result.raws.length, 3);
+  assert.equal(result.partial, true);
+  assert.equal(result.failures?.[0]?.query, "mcp");
+  assert.match(result.failures?.[0]?.error ?? "", /returned invalid JSON/);
+  assert.doesNotMatch(
+    result.failures?.[0]?.error ?? "",
+    /not json/,
+    "the body must never be echoed",
+  );
+});
+
+test("incomplete_results marks the harvest partial without discarding records", async () => {
+  const payload = { ...fixturePayload(), incomplete_results: true };
+  const result = await fetchGithub({
+    queries: ["mcp"],
+    get: async () => jsonResult(payload),
+    limiter: fastLimiter(),
+  });
+
+  assert.equal(result.raws.length, 3);
+  assert.equal(result.partial, true);
+  assert.deepEqual(result.failures, [
+    { query: "mcp", error: "incomplete results" },
+  ]);
+});
+
+test("the first query wins when two queries conflict on full_name", async () => {
+  const first = fixturePayload();
+  const conflicting = fixturePayload();
+  const cherry = conflicting.items[0] as SearchItem;
+  cherry.stargazers_count = 1;
+  cherry.description = "first query record";
+
+  const result = await fetchGithub({
+    queries: ["mcp", "claude-plugin"],
+    get: async (url) =>
+      jsonResult(
+        queryOf(url) === "topic:mcp is:public" ? conflicting : first,
+      ),
+    limiter: fastLimiter(),
+  });
+
+  const pony = result.raws.find((raw) => raw.id === "DietrichGebert/ponytail");
+  assert.ok(pony);
+  assert.equal(pony.popularity?.stars, 1);
+  assert.equal(pony.description, "first query record");
 });
 
 test("a payload without an items array fails the query", async () => {
