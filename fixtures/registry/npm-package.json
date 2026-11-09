@@ -1,0 +1,94 @@
+{
+  "_id": "@modelcontextprotocol/server-filesystem",
+  "name": "@modelcontextprotocol/server-filesystem",
+  "dist-tags": {
+    "latest": "2.2.0",
+    "next": "3.0.0-beta.1"
+  },
+  "license": "MIT",
+  "homepage": "https://modelcontextprotocol.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/modelcontextprotocol/servers.git"
+  },
+  "description": "MCP server for filesystem access",
+  "maintainers": [
+    {
+      "name": "jspahrsummers",
+      "email": "justin@jspahrsummers.com"
+    },
+    {
+      "name": "pcarleton",
+      "email": "paul@modelcontextprotocol.io"
+    }
+  ],
+  "readme": "BODY-MARKER package readme is never evidence",
+  "versions": {
+    "1.0.0": {
+      "name": "@modelcontextprotocol/server-filesystem",
+      "version": "1.0.0",
+      "license": "MIT",
+      "homepage": "https://modelcontextprotocol.io",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/modelcontextprotocol/servers.git"
+      },
+      "description": "MCP server for filesystem access",
+      "maintainers": [
+        {
+          "name": "jspahrsummers",
+          "email": "justin@jspahrsummers.com"
+        }
+      ],
+      "deprecated": "use 2.x instead",
+      "dist": {
+        "shasum": "af4d1b4851ffe0c394c6e1ac5135f2b4c3318508",
+        "tarball": "https://registry.npmjs.org/@modelcontextprotocol/server-filesystem/-/server-filesystem-1.0.0.tgz"
+      }
+    },
+    "2.1.0": {
+      "name": "@modelcontextprotocol/server-filesystem",
+      "version": "2.1.0",
+      "license": {
+        "type": "Apache-2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0"
+      },
+      "repository": "github:modelcontextprotocol/servers",
+      "dist": {
+        "tarball": "https://registry.npmjs.org/@modelcontextprotocol/server-filesystem/-/server-filesystem-2.1.0.tgz"
+      }
+    },
+    "2.2.0": {
+      "name": "@modelcontextprotocol/server-filesystem",
+      "version": "2.2.0",
+      "license": "Apache-2.0",
+      "homepage": "https://modelcontextprotocol.io",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/modelcontextprotocol/servers.git"
+      },
+      "description": "MCP server for filesystem access",
+      "maintainers": [
+        {
+          "name": "jspahrsummers",
+          "email": "justin@jspahrsummers.com"
+        },
+        {
+          "name": "pcarleton",
+          "email": "paul@modelcontextprotocol.io"
+        }
+      ],
+      "dist": {
+        "shasum": "7a2a0a18d4e1e0c21d9f6b6d0f2a8c0b4a1f9e21",
+        "tarball": "https://registry.npmjs.org/@modelcontextprotocol/server-filesystem/-/server-filesystem-2.2.0.tgz"
+      }
+    },
+    "3.0.0-beta.1": {
+      "name": "@modelcontextprotocol/server-filesystem",
+      "version": "3.0.0-beta.1",
+      "dist": {
+        "tarball": "https://registry.npmjs.org/@modelcontextprotocol/server-filesystem/-/server-filesystem-3.0.0-beta.1.tgz"
+      }
+    }
+  }
+}

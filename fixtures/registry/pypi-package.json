@@ -1,0 +1,47 @@
+{
+  "info": {
+    "name": "acme-py-mcp",
+    "version": "1.3.0",
+    "license": "MIT",
+    "license_expression": null,
+    "home_page": "https://example.com/acme-py-mcp",
+    "project_urls": {
+      "Documentation": "https://docs.example.com/acme-py-mcp",
+      "Homepage": "https://example.com/acme-py-mcp",
+      "Issues": "https://github.com/acme/acme-py-mcp/issues",
+      "Repository": "https://github.com/acme/acme-py-mcp"
+    },
+    "author": "Acme Maintainers",
+    "author_email": "maintainers@example.com",
+    "maintainer": null,
+    "summary": "MCP server for Acme data",
+    "description": "BODY-MARKER long package description is never evidence"
+  },
+  "last_serial": 12345678,
+  "releases": {
+    "1.2.0": [
+      {
+        "filename": "acme_py_mcp-1.2.0-py3-none-any.whl",
+        "packagetype": "bdist_wheel",
+        "url": "https://files.pythonhosted.org/packages/aa/bb/acme_py_mcp-1.2.0-py3-none-any.whl",
+        "yanked": false
+      }
+    ],
+    "1.3.0": [
+      {
+        "filename": "acme_py_mcp-1.3.0-py3-none-any.whl",
+        "packagetype": "bdist_wheel",
+        "url": "https://files.pythonhosted.org/packages/cc/dd/acme_py_mcp-1.3.0-py3-none-any.whl",
+        "yanked": false
+      }
+    ]
+  },
+  "urls": [
+    {
+      "filename": "acme_py_mcp-1.3.0-py3-none-any.whl",
+      "packagetype": "bdist_wheel",
+      "url": "https://files.pythonhosted.org/packages/cc/dd/acme_py_mcp-1.3.0-py3-none-any.whl",
+      "yanked": false
+    }
+  ]
+}
