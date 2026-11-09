@@ -6,7 +6,10 @@ import { SKILLS_SH_LIMITER, skillsShGet } from "./sources/skills-sh.js";
 export const SKILLS_SH_DOWNLOAD_URL = "https://skills.sh/api/download";
 export const MAX_EVIDENCE_SNIPPET_LENGTH = 300;
 
-export type SkillsShProbeCode = "ARTIFACT_MISSING" | "ARTIFACT_MISMATCH";
+export type SkillsShProbeCode =
+  | "ARTIFACT_MISSING"
+  | "ARTIFACT_MISMATCH"
+  | "ARTIFACT_UNAVAILABLE";
 
 // Typed probe refusal: the candidate id and reason survive into the refresh
 // manifest so rejected skills remain reviewable.
@@ -201,7 +204,7 @@ export async function probeSkillsSh(
   } catch (error) {
     throw new SkillsShProbeError(
       id,
-      "ARTIFACT_MISSING",
+      "ARTIFACT_UNAVAILABLE",
       `download failed: ${error instanceof Error ? error.message : String(error)}`,
     );
   }

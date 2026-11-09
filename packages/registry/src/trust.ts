@@ -223,10 +223,20 @@ export function publisherMatchesProbe(candidate: Candidate): boolean {
       : githubRepo(candidate.repositoryUrl);
   const evidenceSource = evidenceRepo(evidence.sourceUrl);
   if (evidenceSource !== undefined) {
+    if (
+      claimedRepo === undefined ||
+      claimedRepo.owner !== evidenceSource.owner ||
+      claimedRepo.repo !== evidenceSource.repo
+    ) {
+      return false;
+    }
+    // Repository evidence must also cover any package claim: a listing cannot
+    // attach an unrelated package to an official repo and have it installed.
+    if (candidate.packageName === undefined) return true;
+    if (evidence.packageName === undefined) return false;
     return (
-      claimedRepo !== undefined &&
-      claimedRepo.owner === evidenceSource.owner &&
-      claimedRepo.repo === evidenceSource.repo
+      candidate.packageName.trim().toLowerCase() ===
+      evidence.packageName.trim().toLowerCase()
     );
   }
   const probedPackage = evidencePackage(evidence.sourceUrl);

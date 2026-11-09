@@ -5,6 +5,7 @@ import {
   type HttpGetter,
   type HttpResult,
   type SourceFetch,
+  type SourceFetchFailure,
 } from "./http.js";
 
 export const SKILLS_SH_ID = "skills-sh";
@@ -124,6 +125,7 @@ export async function fetchSkillsSh(
   const get = opts.get ?? skillsShGet;
   const queries = normalizeQueries(opts.queries ?? DEFAULT_SKILL_QUERIES);
   const byId = new Map<string, RawCandidate>();
+  const failures: SourceFetchFailure[] = [];
   let succeeded = 0;
   let firstError: unknown;
   for (const query of queries) {
@@ -154,12 +156,22 @@ export async function fetchSkillsSh(
       }
       succeeded += 1;
     } catch (error) {
-      // One failed query must not discard the other eight.
+      // One failed query must not discard the other eight, and refresh must
+      // know the harvest was partial so it can preserve prior candidates.
       if (firstError === undefined) firstError = error;
+      failures.push({
+        query,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
     if (byId.size >= SKILLS_SH_MAX_CANDIDATES) break;
   }
   // Nothing succeeded: surface the first failure instead of an empty harvest.
   if (succeeded === 0 && firstError !== undefined) throw firstError;
-  return { raws: [...byId.values()] };
+  const fetch: SourceFetch = { raws: [...byId.values()] };
+  if (failures.length > 0) {
+    fetch.partial = true;
+    fetch.failures = failures;
+  }
+  return fetch;
 }

@@ -6,16 +6,20 @@ import { z } from "zod";
 import { normalizeCandidate, type NormalizedCandidate } from "./normalize.js";
 import type { RawCandidate } from "./probe.js";
 import { classifyTrust, detectDrift, isOfficialPublisher } from "./trust.js";
-import { probeGithub } from "./probe-github.js";
-import { probePackage, type PackageProbeResult } from "./probe-package.js";
-import { probeSkillsSh } from "./probe-skills-sh.js";
+import { GithubProbeError, probeGithub } from "./probe-github.js";
+import {
+  PackageProbeError,
+  probePackage,
+  type PackageProbeResult,
+} from "./probe-package.js";
+import { probeSkillsSh, SkillsShProbeError } from "./probe-skills-sh.js";
 import {
   buildSnapshot,
   parseSnapshot,
   type RegistrySnapshot,
   type SnapshotEntry,
 } from "./snapshot.js";
-import { httpGetText, NotModified, type SourceFetch } from "./sources/http.js";
+import { httpGetText, NotModified, SourceHttpError, type SourceFetch } from "./sources/http.js";
 import {
   DEFAULT_SKILL_QUERIES,
   fetchSkillsSh,
@@ -212,7 +216,10 @@ export function extendedQueries(
   };
 }
 
-export type ProbeDispatchCode = "ARTIFACT_MISSING" | "ARTIFACT_INVALID";
+export type ProbeDispatchCode =
+  | "ARTIFACT_MISSING"
+  | "ARTIFACT_INVALID"
+  | "ARTIFACT_UNAVAILABLE";
 
 // Typed dispatch refusal: the candidate id and reason survive into the refresh
 // manifest so unprobeable listings remain reviewable.
@@ -225,6 +232,48 @@ export class CandidateProbeError extends Error {
     super(`probe: candidate "${candidateId}" ${reason}`);
     this.name = "CandidateProbeError";
   }
+}
+
+function probeErrorCode(error: unknown): string | undefined {
+  if (
+    error instanceof GithubProbeError ||
+    error instanceof SkillsShProbeError ||
+    error instanceof PackageProbeError ||
+    error instanceof CandidateProbeError
+  ) {
+    return error.code;
+  }
+  return undefined;
+}
+
+// Only a source that could not answer may preserve prior evidence. A hard
+// rejection (missing/mismatch/invalid/too large) is evidence about the
+// artifact itself and must drop the old record.
+export function isTransientProbeError(error: unknown): boolean {
+  const code = probeErrorCode(error);
+  if (code !== undefined) return code === "ARTIFACT_UNAVAILABLE";
+  if (error instanceof SourceHttpError) {
+    return (
+      error.retryable ||
+      error.status === 0 ||
+      error.status === 408 ||
+      error.status === 429 ||
+      error.status >= 500
+    );
+  }
+  if (error instanceof Error) {
+    const networkCode = (error as Error & { code?: unknown }).code;
+    if (
+      typeof networkCode === "string" &&
+      /^(ECONN|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|UND_ERR)/.test(networkCode)
+    ) {
+      return true;
+    }
+    return /timeout|timed out|network|fetch failed|socket hang up/i.test(
+      error.message,
+    );
+  }
+  return false;
 }
 
 export interface ProbeRawOptions {
@@ -277,6 +326,11 @@ function withPackageProbe(
   };
 }
 
+function withoutListingPackage(raw: RawCandidate): RawCandidate {
+  const { packageName: _listingPackage, ...rest } = raw;
+  return rest;
+}
+
 // One proof step per source shape: skills.sh download, GitHub/awesome-list
 // repository manifest, or MCP registry package/github probe. Callers inject
 // the probe functions in tests; production uses the bounded, rate-limited
@@ -291,11 +345,24 @@ export async function probeRawCandidate(
   const id = candidateIdOf(raw);
   switch (sourceId) {
     case SKILLS_SH_ID:
-      return (options.probeSkillsSh ?? probeSkillsSh)(raw);
+      // A listing-supplied package name is not the skill artifact's package;
+      // only evidence fetched by the probe may set one.
+      return (options.probeSkillsSh ?? probeSkillsSh)(
+        withoutListingPackage(raw),
+      );
     case GITHUB_ID:
     case AWESOME_LISTS_ID:
-      return (options.probeGithub ?? probeGithub)(raw);
+      return (options.probeGithub ?? probeGithub)(withoutListingPackage(raw));
     case MCP_REGISTRY_ID: {
+      // A package name without its registry type cannot be probed safely and
+      // must not become an install source by falling through to the repo.
+      if (raw.packageName !== undefined && raw.packageRegistry === undefined) {
+        throw new CandidateProbeError(
+          id,
+          "ARTIFACT_INVALID",
+          "mcp-registry listing has a package name without a registry type",
+        );
+      }
       // Prefer package metadata when the listing names a registry package;
       // otherwise fall back to the repository manifest. No identity means no
       // probe: a bare registry URL is a listing, not an artifact.
@@ -459,8 +526,11 @@ export async function refreshSnapshot(
     };
   };
 
-  // Memoize probes for this run by source + repo/package + ref + branch, so a
-  // duplicate listing in another fetched source is not fetched twice.
+  // Memoize probes for this run so a duplicate listing within one source
+  // (same repo/package + ref + branch) is not fetched twice.
+  // shortcut: dispatch differs per source, so the same artifact reached
+  // through two sources still probes once per source; upgrade if live refresh
+  // shows duplicate fetch volume.
   const probe = opts.probe ?? probeRawCandidate;
   const probeCache = new Map<string, Promise<RawCandidate>>();
   const probeOnce = (raw: RawCandidate, sourceId: string): Promise<RawCandidate> => {
@@ -480,6 +550,9 @@ export async function refreshSnapshot(
   };
 
   const entries: SnapshotEntry[] = [];
+  // Preserved prior records must never beat a fresh probe for the same id.
+  const preservedEntries = new Set<SnapshotEntry>();
+  const freshProbedIds = new Set<string>();
   const failures: Record<string, string> = {};
   const manifestSources: CacheManifest["sources"] = {};
   const rejected: NonNullable<CacheManifest["rejected"]> = [];
@@ -499,12 +572,14 @@ export async function refreshSnapshot(
         for (const p of kept) {
           const candidate = prevById.get(p.id);
           if (candidate) {
-            entries.push({
+            const entry: SnapshotEntry = {
               candidate,
               sourceUrl: p.sourceUrl,
               retrievedAt: p.retrievedAt,
               trust: p.trust,
-            });
+            };
+            preservedEntries.add(entry);
+            entries.push(entry);
           }
         }
         succeeded += 1;
@@ -543,17 +618,18 @@ export async function refreshSnapshot(
         probed: boolean;
       } => {
         const prior = priorEntry(id);
-        return prior === undefined
-          ? { probed: false }
-          : { entry: prior, probed: false };
+        if (prior === undefined) return { probed: false };
+        preservedEntries.add(prior);
+        return { entry: prior, probed: false };
       };
 
       let probed: RawCandidate;
       try {
         probed = await probeOnce(stamped, fetcher.id);
       } catch (err) {
-        // Probe refusal is recorded; a prior probed record survives because
-        // an unreachable source is not evidence that the artifact vanished.
+        // Probe refusal is recorded. Only a source that could not answer
+        // (network/timeout/5xx/unavailable) preserves prior evidence; a hard
+        // artifact rejection removes the old record.
         rejected.push({
           id,
           reason: err instanceof Error ? err.message : String(err),
@@ -563,15 +639,16 @@ export async function refreshSnapshot(
             ? {}
             : { pinnedRef: stamped.pinnedRef }),
         });
-        return keepPrior();
+        return isTransientProbeError(err) ? keepPrior() : { probed: false };
       }
 
       let candidate: NormalizedCandidate;
       try {
         candidate = normalizeCandidate(probed);
       } catch (err) {
-        // Recorded, not dropped: the hard gate holds, but the refusal
-        // surfaces in the manifest for review instead of vanishing.
+        // Normalize failures are hard rejections (archived, install hooks,
+        // prompt injection, namespace squatting): the fresh listing is the
+        // authority, so the prior record is dropped.
         rejected.push({
           id,
           reason: err instanceof Error ? err.message : String(err),
@@ -581,11 +658,12 @@ export async function refreshSnapshot(
             ? {}
             : { pinnedRef: stamped.pinnedRef }),
         });
-        return keepPrior();
+        return { probed: false };
       }
 
       if (candidate.artifactEvidence === undefined) {
         // Listing-only record: visible in the manifest, never in the snapshot.
+        // A fresh listing without evidence also supersedes the prior record.
         unprobed.push({
           id: candidate.id,
           reason:
@@ -596,7 +674,7 @@ export async function refreshSnapshot(
             ? {}
             : { pinnedRef: candidate.pinnedRef }),
         });
-        return keepPrior();
+        return { probed: false };
       }
 
       const prevCandidate = prevById.get(candidate.id);
@@ -637,6 +715,7 @@ export async function refreshSnapshot(
       if (outcome.probed && outcome.entry !== undefined) {
         count += 1;
         freshIdsHere.add(outcome.entry.candidate.id);
+        freshProbedIds.add(outcome.entry.candidate.id);
       }
     }
 
@@ -654,7 +733,10 @@ export async function refreshSnapshot(
           continue;
         }
         const prior = priorEntry(provenance.id);
-        if (prior !== undefined) entries.push(prior);
+        if (prior !== undefined) {
+          preservedEntries.add(prior);
+          entries.push(prior);
+        }
       }
     }
 
@@ -687,19 +769,33 @@ export async function refreshSnapshot(
     if (refreshedUrls.has(p.sourceUrl) || freshIds.has(p.id)) continue;
     const candidate = prevById.get(p.id);
     if (!candidate) continue;
-    entries.push({
+    const entry: SnapshotEntry = {
       candidate,
       sourceUrl: p.sourceUrl,
       retrievedAt: p.retrievedAt,
       trust: p.trust,
-    });
+    };
+    preservedEntries.add(entry);
+    entries.push(entry);
   }
+
+  // A fresh probe is the current truth: any older preserved record for the
+  // same id is removed before dedupe so stale trust cannot win.
+  const currentEntries = entries.filter(
+    (entry) =>
+      !(
+        preservedEntries.has(entry) &&
+        freshProbedIds.has(entry.candidate.id)
+      ),
+  );
 
   // Snapshot and limit apply to probed records only; unprobed candidates are
   // manifest evidence, not snapshot entries.
-  const probedEntries = entries.filter(
+  const probedEntries = currentEntries.filter(
     (entry) => entry.candidate.artifactEvidence !== undefined,
   );
+  // Limit is applied after preservation and dedupe filtering, so preserved
+  // entries can consume limit slots alongside fresh probes.
   const limited =
     opts.limit === undefined
       ? probedEntries
@@ -715,7 +811,13 @@ export async function refreshSnapshot(
           .slice(0, Math.max(0, opts.limit));
   const snapshot = buildSnapshot(limited, new Date(nowIso));
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, SNAPSHOT_FILENAME), JSON.stringify(snapshot, null, 2));
+  // An empty result must not shadow a populated bundled snapshot on a first
+  // refresh. If a prior local snapshot existed, write the empty result so
+  // hard-rejected candidates cannot survive.
+  const writeSnapshotFile = snapshot.candidates.length > 0 || prev !== null;
+  if (writeSnapshotFile) {
+    writeFileSync(join(dir, SNAPSHOT_FILENAME), JSON.stringify(snapshot, null, 2));
+  }
   const manifest: CacheManifest = {
     schemaVersion: 1,
     generatedAt: nowIso,
@@ -724,5 +826,11 @@ export async function refreshSnapshot(
     ...(unprobed.length > 0 ? { unprobed } : {}),
   };
   writeFileSync(join(dir, MANIFEST_FILENAME), JSON.stringify(manifest, null, 2));
-  return { ok: true, exitCode: 0, snapshot, failures, written: true };
+  return {
+    ok: true,
+    exitCode: 0,
+    snapshot,
+    failures,
+    written: writeSnapshotFile,
+  };
 }

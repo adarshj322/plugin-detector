@@ -178,10 +178,12 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
 
   const compatibilityFor = (candidate: (typeof snapshot.candidates)[number]) =>
     compatAdapter ? compatAdapter.compatibility(candidate) : 1;
-  // Source listings that never probed a manifest are not recommendations:
-  // they stay visible through `explain` and the refresh manifest instead.
+  // Source listings that never fetched a real artifact are not
+  // recommendations: they stay visible through `explain` and the refresh
+  // manifest instead. Legacy snapshots that predate artifactEvidence are
+  // treated as unprobed.
   const probed = snapshot.candidates.filter(
-    (candidate) => candidate.artifactProbed !== false,
+    (candidate) => candidate.artifactEvidence !== undefined,
   );
   const scored = scoreCandidateSet(probed, {
     installedCapabilities: installedRecords,

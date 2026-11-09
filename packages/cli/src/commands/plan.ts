@@ -99,8 +99,9 @@ export async function plan(argv: string[]): Promise<PlanResult> {
   }
 
   // A source-declared artifact that was never probed cannot produce a write
-  // plan even if a snapshot wrongly labels it verified.
-  const probed = resolved.candidate.artifactProbed !== false;
+  // plan even if a snapshot wrongly labels it verified. Legacy snapshots
+  // without artifactEvidence are unprobed.
+  const probed = resolved.candidate.artifactEvidence !== undefined;
   const installPlan = adapter.installPlan(
     resolved.candidate,
     probed ? resolved.trust : "unverified",

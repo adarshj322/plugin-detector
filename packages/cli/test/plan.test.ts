@@ -51,6 +51,18 @@ function candidate(
     packageName: `@ex/${id}`,
     installMode: "verified",
     lastVerified: "2026-11-08T00:00:00.000Z",
+    artifactEvidence: {
+      kind: "plugin",
+      sourceUrl: `https://raw.githubusercontent.com/example/${id}/HEAD/plugin.json`,
+      resolvedRef: "v1.0.0",
+      contentHash: "a".repeat(64),
+      license: "MIT",
+      name: id,
+      packageName: `@ex/${id}`,
+      capabilities: [],
+      evidenceSnippets: [`name: ${id}`],
+      retrievedAt: "2026-11-08T00:00:00.000Z",
+    },
     provenance: "official",
     risk: "low",
     maintenance: "active",
@@ -133,10 +145,10 @@ beforeEach(() => {
     { candidate: candidate("x1"), trust: "unverified" },
     { candidate: candidate("k1"), trust: "curated" },
     {
-      candidate: CandidateSchema.parse({
-        ...candidate("p1"),
-        artifactProbed: false,
-      }),
+      candidate: (() => {
+        const { artifactEvidence: _evidence, ...unprobed } = candidate("p1");
+        return CandidateSchema.parse({ ...unprobed, artifactProbed: false });
+      })(),
       trust: "verified",
     },
   ]);
@@ -249,6 +261,16 @@ test("plan re-derives identical hashes across invocations", async () => {
 
 test("plan refuses a write for an unprobed candidate even if trust says verified", async () => {
   const { logs } = await capture(() => plan(planArgs("p1")));
+  const payload = PlanJsonSchema.parse(JSON.parse(logs.join("\n")) as unknown);
+  assert.equal(payload.facts.status, "recipe");
+  assert.ok(payload.facts.plan.operations.every((op) => op.kind === "recipe"));
+  assert.match(payload.facts.recipe ?? "", /not verified/);
+});
+
+test("plan refuses a write for a legacy verified snapshot without evidence", async () => {
+  const { artifactEvidence: _evidence, ...legacy } = candidate("l1");
+  writeSnapshot([{ candidate: legacy, trust: "verified" }]);
+  const { logs } = await capture(() => plan(planArgs("l1")));
   const payload = PlanJsonSchema.parse(JSON.parse(logs.join("\n")) as unknown);
   assert.equal(payload.facts.status, "recipe");
   assert.ok(payload.facts.plan.operations.every((op) => op.kind === "recipe"));

@@ -16,6 +16,9 @@ export const ArtifactEvidenceSchema = z.object({
   contentHash: z.string().min(1),
   license: z.string().min(1),
   name: z.string().min(1).optional(),
+  // Package identity declared by the probed artifact itself (package.json /
+  // npm or PyPI metadata). Listing-supplied package names never set this.
+  packageName: z.string().min(1).optional(),
   version: z.string().min(1).optional(),
   capabilities: z.array(z.string().min(1)).default([]),
   evidenceSnippets: z.array(z.string().min(1)).default([]),

@@ -124,7 +124,7 @@ export async function install(argv: string[]): Promise<InstallResult> {
   // Trust and the expected plan come from the snapshot + adapter, never from
   // the supplied file. This runs before any token is consumed, so a tampered
   // or unverified plan cannot burn an approval.
-  if (resolved.candidate.artifactProbed === false) {
+  if (resolved.candidate.artifactEvidence === undefined) {
     reportBlocked(
       json,
       "install",

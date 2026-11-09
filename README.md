@@ -205,7 +205,10 @@ plugin.json, or npm/PyPI metadata) before accepting it: only candidates with
 real artifact evidence enter the snapshot. Listing-only records and probe
 failures stay visible in `registry-manifest.json` (`unprobed` and `rejected`)
 and can never produce a write plan. A prior probed candidate is preserved when
-its probe fails or a source query is partial, instead of being silently dropped.
+a transient source failure (network/timeout/5xx) or a partial source query
+prevents a fresh probe; a hard artifact rejection removes it instead of
+silently surviving. Listing-supplied package names that the probed evidence
+cannot confirm are dropped, so they can never become an install source.
 The local manifest records intake refusals for the latest refresh run only.
 
 To build a real snapshot:

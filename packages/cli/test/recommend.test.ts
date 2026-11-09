@@ -251,3 +251,31 @@ test("source-declared unprobed candidates are excluded from recommendations", as
   const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
   assert.ok(parsed.facts.recommendations.every((r) => r.candidateId !== "cand-1"));
 });
+
+test("legacy verified snapshots without artifact evidence are not recommended", async () => {
+  const env = setup();
+  const { artifactEvidence: _evidence, ...legacy } = candidate("cand-legacy");
+  writeFileSync(
+    join(env.cache, "registry-snapshot.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      generatedAt: "2026-11-08T00:00:00.000Z",
+      candidates: [legacy],
+      provenance: [
+        {
+          id: legacy.id,
+          sourceUrl: legacy.sources[0],
+          retrievedAt: "2026-11-08T00:00:00.000Z",
+          trust: "verified",
+        },
+      ],
+    }),
+  );
+  const { logs } = await capture(() =>
+    recommend([...baseArgs(env), "--json"]),
+  );
+  const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
+  assert.ok(
+    parsed.facts.recommendations.every((r) => r.candidateId !== "cand-legacy"),
+  );
+});

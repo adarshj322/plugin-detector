@@ -46,7 +46,8 @@ export type GithubProbeCode =
   | "ARTIFACT_MISSING"
   | "ARTIFACT_MISMATCH"
   | "ARTIFACT_INVALID"
-  | "ARTIFACT_TOO_LARGE";
+  | "ARTIFACT_TOO_LARGE"
+  | "ARTIFACT_UNAVAILABLE";
 
 // Typed probe refusal: the candidate id and reason survive into the refresh
 // manifest so rejected GitHub candidates remain reviewable.
@@ -465,6 +466,9 @@ function buildResult(
     contentHash,
     license,
     name: manifest.name,
+    ...(manifest.packageName === undefined
+      ? {}
+      : { packageName: manifest.packageName }),
     // Task 7 owns capability inference; the probe records none of its own.
     capabilities: [],
     evidenceSnippets: snippets.slice(0, 2),
@@ -561,10 +565,11 @@ export async function probeGithub(
           );
         }
         // A transport/throttle failure is not a missing artifact: stop instead
-        // of hammering the remaining paths and refs.
+        // of hammering the remaining paths and refs. The transient code lets
+        // refresh keep a prior probed record instead of dropping it.
         throw new GithubProbeError(
           id,
-          "ARTIFACT_MISSING",
+          "ARTIFACT_UNAVAILABLE",
           `fetching ${spec.path} failed: ${boundedReason(
             error instanceof Error ? error.message : String(error),
           )}`,

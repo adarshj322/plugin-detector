@@ -63,6 +63,18 @@ function candidate(
     packageName: `@ex/${id}`,
     installMode: "verified",
     lastVerified: "2026-11-08T00:00:00.000Z",
+    artifactEvidence: {
+      kind: "plugin",
+      sourceUrl: `https://raw.githubusercontent.com/example/${id}/HEAD/plugin.json`,
+      resolvedRef: "v1.0.0",
+      contentHash: "a".repeat(64),
+      license: "MIT",
+      name: id,
+      packageName: `@ex/${id}`,
+      capabilities: [],
+      evidenceSnippets: [`name: ${id}`],
+      retrievedAt: "2026-11-08T00:00:00.000Z",
+    },
     provenance: "official",
     risk: "low",
     maintenance: "active",
@@ -328,6 +340,31 @@ test("install rejects an unverified candidate before consuming the token", async
     readFileSync(join(base, "state", "approvals"), "utf8"),
   ) as { tokens: Record<string, { usedAt: string | null }> };
   assert.equal(store.tokens[token]?.usedAt, null, "token must not be consumed");
+});
+
+test("install rejects a legacy verified snapshot without artifact evidence", async () => {
+  const plan = pluginPlan();
+  writePlan(plan);
+  const { artifactEvidence: _evidence, ...legacy } = candidate("c1");
+  writeSnapshot([{ candidate: legacy, trust: "verified" }]);
+  const { errors } = await capture(() =>
+    install([
+      "--plan-file",
+      planFile,
+      "--candidate",
+      "c1",
+      "--harness",
+      "opencode",
+      "--cache-dir",
+      cacheDir,
+      "--home",
+      home,
+      "--root",
+      root,
+    ]),
+  );
+  assert.ok(errors.some((line) => line.includes("artifact-unprobed")));
+  assert.ok(!existsSync(join(root, "opencode.json")));
 });
 
 test("install rejects a plan for a different candidate than --candidate", async () => {

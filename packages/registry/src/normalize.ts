@@ -39,6 +39,25 @@ function provenanceOf(input: RawCandidate): Candidate["provenance"] {
   return "unknown";
 }
 
+function normalizePypiName(value: string): string {
+  return value.trim().toLowerCase().replace(/[-_.]+/g, "-");
+}
+
+// A probed artifact owns its package identity. A listing-supplied package
+// name that evidence cannot confirm is dropped and treated as an identity
+// contradiction, so it can neither verify nor become an install source.
+function packageNameMatchesEvidence(
+  declared: string | undefined,
+  probed: string | undefined,
+  registry: RawCandidate["packageRegistry"],
+): boolean {
+  if (declared === undefined) return true;
+  if (probed === undefined) return false;
+  return registry === "pypi"
+    ? normalizePypiName(declared) === normalizePypiName(probed)
+    : declared.trim().toLowerCase() === probed.trim().toLowerCase();
+}
+
 // Evidence-only normalization: capabilities/domains come solely from the
 // probed artifact manifest data; tags/topics/keywords/description/README never
 // populate a scoring field. Throws when the evidence gate fails.
@@ -84,7 +103,17 @@ export function normalizeCandidate(input: RawCandidate): NormalizedCandidate {
     .filter((t): t is string => t !== undefined && t.length > 0)
     .join("\n\n");
   const untrustedCopyRisk = INJECTION_PATTERN.test(untrustedText);
-  const provenance = provenanceOf(input);
+  const packageNameOk = packageNameMatchesEvidence(
+    input.packageName,
+    input.artifactProbe?.packageName,
+    input.packageRegistry,
+  );
+  const packageConflict =
+    input.packageName !== undefined &&
+    input.artifactProbe !== undefined &&
+    !packageNameOk;
+  const packageName = packageNameOk ? input.packageName : undefined;
+  const provenance = packageConflict ? "community" : provenanceOf(input);
 
   const candidate = CandidateSchema.parse({
     id,
@@ -96,7 +125,7 @@ export function normalizeCandidate(input: RawCandidate): NormalizedCandidate {
     license: input.license,
     pinnedRef: input.pinnedRef,
     ...(input.repositoryUrl ? { repositoryUrl: input.repositoryUrl } : {}),
-    ...(input.packageName ? { packageName: input.packageName } : {}),
+    ...(packageName ? { packageName } : {}),
     installMode:
       probe.probed && provenance === "official" ? "verified" : "manual",
     lastVerified: input.lastVerified ?? new Date().toISOString(),

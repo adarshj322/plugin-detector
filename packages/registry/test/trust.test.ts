@@ -267,9 +267,10 @@ test("publisher binding requires the package scope to match the claimed repo", (
       repositoryUrl: "https://github.com/openai/openai-node",
       packageName: "@openai/sdk",
       packageRegistry: "npm",
-      artifactProbe: artifactProbe(
-        "https://registry.npmjs.org/%40openai%2Fsdk",
-      ),
+      artifactProbe: {
+        ...artifactProbe("https://registry.npmjs.org/%40openai%2Fsdk"),
+        packageName: "@openai/sdk",
+      },
     }),
   );
   assert.equal(publisherMatchesProbe(scoped), true);
@@ -280,9 +281,10 @@ test("publisher binding requires the package scope to match the claimed repo", (
       repositoryUrl: "https://github.com/openai/openai-node",
       packageName: "evil-mcp",
       packageRegistry: "npm",
-      artifactProbe: artifactProbe(
-        "https://registry.npmjs.org/evil-mcp",
-      ),
+      artifactProbe: {
+        ...artifactProbe("https://registry.npmjs.org/evil-mcp"),
+        packageName: "evil-mcp",
+      },
     }),
   );
   assert.equal(unscoped.provenance, "publisher");
@@ -311,4 +313,42 @@ test("publisher binding refuses registry type or PyPI evidence without ownership
   );
   assert.equal(publisherMatchesProbe(pypi), false);
   assert.equal(classifyTrust(pypi, evidence()), "unverified");
+});
+
+test("repo evidence must bind a claimed packageName to the probed artifact", () => {
+  const conflictingEvidence = artifactProbe(
+    "https://raw.githubusercontent.com/openai/openai-node/HEAD/plugin.json",
+  );
+  const conflicting = normalizeCandidate(
+    rawCandidate({
+      repositoryUrl: "https://github.com/openai/openai-node",
+      packageName: "evil-mcp",
+      artifactProbe: conflictingEvidence,
+    }),
+  );
+  // Listing-supplied package identity is dropped, and the contradiction
+  // prevents publisher trust even though the repository evidence matches.
+  assert.equal(conflicting.packageName, undefined);
+  assert.equal(conflicting.provenance, "community");
+  assert.equal(classifyTrust(conflicting, evidence()), "unverified");
+
+  // Defense for a candidate built outside normalize: the package claim still
+  // must match evidence.packageName.
+  const forged = { ...conflicting, packageName: "evil-mcp" };
+  assert.equal(publisherMatchesProbe(forged), false);
+
+  const matchingEvidence = {
+    ...conflictingEvidence,
+    packageName: "@openai/sdk",
+  };
+  const matching = normalizeCandidate(
+    rawCandidate({
+      repositoryUrl: "https://github.com/openai/openai-node",
+      packageName: "@openai/sdk",
+      artifactProbe: matchingEvidence,
+    }),
+  );
+  assert.equal(matching.packageName, "@openai/sdk");
+  assert.equal(publisherMatchesProbe(matching), true);
+  assert.equal(classifyTrust(matching, evidence()), "verified");
 });

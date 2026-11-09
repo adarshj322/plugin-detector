@@ -194,6 +194,8 @@ test("one failed query does not discard results from the others", async () => {
     "https://skills.sh/api/search?q=mcp",
   ]);
   assert.equal(fetch.raws.length, searchPayload().skills.length);
+  assert.equal(fetch.partial, true);
+  assert.deepEqual(fetch.failures, [{ query: "broken", error: "throttled" }]);
 });
 
 test("a total query failure still surfaces the first error", async () => {
@@ -418,7 +420,10 @@ test("download probe failures are typed and name the candidate", async () => {
   ];
   for (const text of cases) {
     const error = await probeError(listing(), text);
-    assert.equal(error.code, "ARTIFACT_MISSING");
+    assert.equal(
+      error.code,
+      text instanceof Error ? "ARTIFACT_UNAVAILABLE" : "ARTIFACT_MISSING",
+    );
     assert.equal(error.candidateId, "github/awesome-copilot/mcp-cli");
     assert.ok(error.reason.length > 0);
   }

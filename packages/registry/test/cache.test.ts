@@ -1,15 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { NotModified } from "../src/sources/http.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   buildSnapshot,
   extendedQueries,
+  GithubProbeError,
   loadSnapshot,
   MAX_EXTRA_QUERIES,
   normalizeCandidate,
+  PackageProbeError,
   probeRawCandidate,
   readCacheManifest,
   refreshSnapshot,
@@ -133,10 +135,13 @@ test("refresh writes snapshot and prefers cache over bundled", async () => {
 
 test("refresh verifies an official publisher only when the artifact was probed", async () => {
   const dir = tmpCache();
-  const probe = artifactProbe(
-    "probed-one",
-    "https://raw.githubusercontent.com/anthropics/probed-one/HEAD/server.json",
-  );
+  const probe = {
+    ...artifactProbe(
+      "probed-one",
+      "https://raw.githubusercontent.com/anthropics/probed-one/HEAD/server.json",
+    ),
+    packageName: "@anthropic-ai/probed-one",
+  };
   const result = await refreshSnapshot({
     cacheDir: dir,
     now: NOW,
@@ -393,7 +398,7 @@ test("listing-only candidates stay out of the snapshot and surface in the manife
   assert.deepEqual(manifest?.rejected ?? [], []);
 });
 
-test("a failed probe keeps the previous probed candidate and records the reason", async () => {
+test("a transient probe failure keeps the previous probed candidate", async () => {
   const dir = tmpCache();
   const priorVerifiedAt = "2026-10-01T00:00:00.000Z";
   const prior = normalizeCandidate(
@@ -412,7 +417,11 @@ test("a failed probe keeps the previous probed candidate and records the reason"
     cacheDir: dir,
     now: NOW,
     probe: async () => {
-      throw new Error("probe transport down");
+      throw new PackageProbeError(
+        "acme-thumb",
+        "ARTIFACT_UNAVAILABLE",
+        "registry unavailable",
+      );
     },
     fetchers: [fetcherOf(SOURCE_URL, [rawCandidate({ id: "keep-me" })])],
   });
@@ -426,8 +435,79 @@ test("a failed probe keeps the previous probed candidate and records the reason"
   assert.ok(
     (manifest?.rejected ?? []).some(
       (entry) =>
-        entry.id === "keep-me" && entry.reason.includes("probe transport down"),
+        entry.id === "keep-me" && entry.reason.includes("registry unavailable"),
     ),
+  );
+});
+
+test("a hard probe rejection removes the previous verified candidate", async () => {
+  const dir = tmpCache();
+  const prior = normalizeCandidate(
+    rawCandidate({ id: "drop-me", lastVerified: "2026-10-01T00:00:00.000Z" }),
+  );
+  writeFileSync(
+    join(dir, "registry-snapshot.json"),
+    JSON.stringify(
+      buildSnapshot(
+        [{ candidate: prior, sourceUrl: SOURCE_URL, trust: "verified" }],
+        new Date("2026-10-01T00:00:00.000Z"),
+      ),
+    ),
+  );
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    probe: async () => {
+      throw new GithubProbeError(
+        "drop-me",
+        "ARTIFACT_MISMATCH",
+        "manifest name does not match the listing",
+      );
+    },
+    fetchers: [fetcherOf(SOURCE_URL, [rawCandidate({ id: "drop-me" })])],
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.snapshot?.candidates, []);
+  const manifest = readCacheManifest({ cacheDir: dir });
+  assert.ok(
+    (manifest?.rejected ?? []).some(
+      (entry) => entry.id === "drop-me" && /ARTIFACT_MISMATCH|match/.test(entry.reason),
+    ),
+  );
+  // The old snapshot must not retain the dropped candidate.
+  const written = loadSnapshot({ cacheDir: dir });
+  assert.deepEqual(written.candidates, []);
+});
+
+test("a hard normalize rejection removes the previous verified candidate", async () => {
+  const dir = tmpCache();
+  const prior = normalizeCandidate(
+    rawCandidate({ id: "archived-prior", lastVerified: "2026-10-01T00:00:00.000Z" }),
+  );
+  writeFileSync(
+    join(dir, "registry-snapshot.json"),
+    JSON.stringify(
+      buildSnapshot(
+        [{ candidate: prior, sourceUrl: SOURCE_URL, trust: "verified" }],
+        new Date("2026-10-01T00:00:00.000Z"),
+      ),
+    ),
+  );
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    probe: async (raw) => raw,
+    fetchers: [
+      fetcherOf(SOURCE_URL, [
+        rawCandidate({ id: "archived-prior", maintenance: "archived" }),
+      ]),
+    ],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.snapshot?.candidates.some((c) => c.id === "archived-prior"), false);
+  const manifest = readCacheManifest({ cacheDir: dir });
+  assert.ok(
+    (manifest?.rejected ?? []).some((entry) => entry.id === "archived-prior"),
   );
 });
 
@@ -477,6 +557,176 @@ test("a partial source keeps prior probed candidates alongside fresh ones", asyn
   );
 });
 
+test("a fresh probed entry beats a preserved stale verified entry for the same id", async () => {
+  const dir = tmpCache();
+  const prior = normalizeCandidate(
+    rawCandidate({ id: "dedupe-me", lastVerified: "2026-10-01T00:00:00.000Z" }),
+  );
+  writeFileSync(
+    join(dir, "registry-snapshot.json"),
+    JSON.stringify(
+      buildSnapshot(
+        [{ candidate: prior, sourceUrl: "https://example.com/source-a", trust: "verified" }],
+        new Date("2026-10-01T00:00:00.000Z"),
+      ),
+    ),
+  );
+  const fresh = rawCandidate({
+    id: "dedupe-me",
+    sourceKind: "community",
+    repositoryUrl: "https://github.com/acme/dedupe-me",
+    registryUrl: undefined,
+  });
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    fetchers: [
+      {
+        id: "source-a",
+        url: "https://example.com/source-a",
+        fetch: async () => ({
+          raws: [],
+          partial: true,
+          failures: [{ query: "q", error: "timeout" }],
+        }),
+      },
+      {
+        id: "source-b",
+        url: "https://example.com/source-b",
+        fetch: async () => ({ raws: [fresh] }),
+      },
+    ],
+  });
+  assert.equal(result.ok, true);
+  const snapshot = result.snapshot;
+  assert.equal(snapshot?.candidates.length, 1);
+  assert.equal(snapshot?.candidates[0]?.id, "dedupe-me");
+  assert.equal(snapshot?.provenance[0]?.trust, "unverified");
+  assert.equal(snapshot?.provenance[0]?.sourceUrl, "https://example.com/source-b");
+});
+
+test("probe concurrency is bounded at four and keeps input order", async () => {
+  const dir = tmpCache();
+  let active = 0;
+  let maxActive = 0;
+  const raws = Array.from({ length: 8 }, (_, i) =>
+    rawCandidate({
+      id: `concurrent-${i}`,
+      artifactProbe: undefined,
+      artifactProbed: false,
+    }),
+  );
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    probe: async (raw) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active -= 1;
+      return {
+        ...raw,
+        artifactProbe: artifactProbe(String(raw.id)),
+      };
+    },
+    fetchers: [fetcherOf(SOURCE_URL, raws)],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(maxActive, 4);
+  assert.deepEqual(
+    result.snapshot?.candidates.map((c) => c.id),
+    raws.map((raw) => raw.id).sort() as string[],
+  );
+});
+
+test("refresh passes the source id to the probe dispatcher", async () => {
+  const dir = tmpCache();
+  const seen: string[] = [];
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    probe: async (raw, sourceId) => {
+      seen.push(sourceId);
+      return { ...raw, artifactProbe: artifactProbe(String(raw.id)) };
+    },
+    fetchers: [
+      { id: "skills-sh", url: "https://skills.sh/api/search", fetch: async () => ({ raws: [rawCandidate({ id: "s1", artifactProbe: undefined })] }) },
+      { id: "github", url: "https://api.github.com/search/repositories", fetch: async () => ({ raws: [rawCandidate({ id: "g1", artifactProbe: undefined })] }) },
+      { id: "mcp-registry", url: "https://registry.modelcontextprotocol.io/v0/servers", fetch: async () => ({ raws: [rawCandidate({ id: "m1", artifactProbe: undefined })] }) },
+    ],
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(seen.sort(), ["github", "mcp-registry", "skills-sh"]);
+});
+
+test("limit applies after probed/preserved entries are merged", async () => {
+  const dir = tmpCache();
+  const prior = normalizeCandidate(
+    rawCandidate({ id: "a-prior", lastVerified: "2026-10-01T00:00:00.000Z" }),
+  );
+  writeFileSync(
+    join(dir, "registry-snapshot.json"),
+    JSON.stringify(
+      buildSnapshot(
+        [{ candidate: prior, sourceUrl: "https://example.com/source-a", trust: "verified" }],
+        new Date("2026-10-01T00:00:00.000Z"),
+      ),
+    ),
+  );
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    limit: 1,
+    fetchers: [
+      {
+        id: "source-a",
+        url: "https://example.com/source-a",
+        fetch: async () => ({
+          raws: [],
+          partial: true,
+          failures: [{ query: "q", error: "timeout" }],
+        }),
+      },
+      {
+        id: "source-b",
+        url: "https://example.com/source-b",
+        fetch: async () => ({ raws: [rawCandidate({ id: "b-fresh" })] }),
+      },
+    ],
+  });
+  assert.deepEqual(result.snapshot?.candidates.map((c) => c.id), ["a-prior"]);
+});
+
+test("listing packageName cannot attach to matching official repo evidence", async () => {
+  const dir = tmpCache();
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    fetchers: [
+      fetcherOf(SOURCE_URL, [
+        rawCandidate({
+          id: "openai-node",
+          sourceKind: "community",
+          repositoryUrl: "https://github.com/openai/openai-node",
+          packageName: "evil-mcp",
+          packageRegistry: "npm",
+          artifactProbe: artifactProbe(
+            "openai-node",
+            "https://raw.githubusercontent.com/openai/openai-node/HEAD/plugin.json",
+          ),
+          registryUrl: undefined,
+        }),
+      ]),
+    ],
+  });
+  assert.equal(result.ok, true);
+  const candidate = result.snapshot?.candidates[0];
+  assert.equal(candidate?.id, "openai-node");
+  assert.equal(candidate?.packageName, undefined);
+  assert.equal(candidate?.provenance, "community");
+  assert.equal(result.snapshot?.provenance[0]?.trust, "unverified");
+});
+
 test("extra use-case queries extend both searchable sources", () => {
   const plan = extendedQueries(["video", "Agent", "video"]);
   assert.ok(plan.skillsSh.includes("video"));
@@ -523,7 +773,7 @@ test("refresh forwards extra queries to the default fetcher factory", async () =
   assert.deepEqual(seen, ["video"]);
 });
 
-test("all sources returning no candidates is a valid empty refresh", async () => {
+test("all sources returning no candidates does not write an empty snapshot", async () => {
   const dir = tmpCache();
   const result = await refreshSnapshot({
     cacheDir: dir,
@@ -533,6 +783,9 @@ test("all sources returning no candidates is a valid empty refresh", async () =>
   assert.equal(result.ok, true);
   assert.equal(result.exitCode, 0);
   assert.deepEqual(result.snapshot?.candidates, []);
+  assert.equal(result.written, false);
+  assert.equal(existsSync(join(dir, "registry-snapshot.json")), false);
+  assert.ok(existsSync(join(dir, "registry-manifest.json")));
 });
 
 test("probeRawCandidate dispatches by source and preserves package metadata", async () => {
@@ -554,10 +807,13 @@ test("probeRawCandidate dispatches by source and preserves package metadata", as
       assert.equal(name, "@acme/mcp");
       assert.equal(version, "2.0.0");
       return {
-        evidence: artifactProbe(
-          "@acme/mcp",
-          "https://registry.npmjs.org/%40acme%2Fmcp",
-        ),
+        evidence: {
+          ...artifactProbe(
+            "@acme/mcp",
+            "https://registry.npmjs.org/%40acme%2Fmcp",
+          ),
+          packageName: "@acme/mcp",
+        },
         metadata: {
           registry: "npm",
           name: "@acme/mcp",
@@ -633,6 +889,14 @@ test("probeRawCandidate dispatches by source and preserves package metadata", as
       "mcp-registry",
     ),
     /no package or repository identity/,
+  );
+
+  await assert.rejects(
+    probeRawCandidate(
+      { ...mcpRaw, packageRegistry: undefined },
+      "mcp-registry",
+    ),
+    /registry type/,
   );
 
   let preProbedCalls = 0;

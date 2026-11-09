@@ -114,10 +114,21 @@ Code plugins are recipe-only because the marketplace/plugin flow, not an
 are recipe-only when an `opencode.jsonc` exists, because the merge writer cannot
 preserve comments.
 
-Live refresh in v0.1 does not probe each candidate's manifest or package
-metadata. Its records are marked unprobed and source-declared: they can be
-inspected with `explain` but are excluded from `recommend` and can never produce
-a write plan. Automatic install requires a manually reviewed, probed snapshot.
+Live refresh fetches each listed artifact's manifest or package metadata before
+accepting it: only candidates with real artifact evidence enter the snapshot.
+A candidate whose probe returns a hard rejection (missing, mismatched,
+invalid, or oversized artifact), or whose normalization fails (archived,
+install hooks, prompt-injection copy, namespace squatting), is removed from
+the snapshot and recorded in the manifest. A transient source failure
+(network/timeout/5xx/unavailable) preserves the prior probed record at its old
+`lastVerified` age instead. Listing-only records are recorded as `unprobed`
+and can never produce a write plan. Automatic install requires a manually
+reviewed, probed snapshot.
+Publisher trust is bound to the probed artifact: repository evidence must name
+the claimed GitHub owner/repo, and any package claim must match the package the
+probe itself observed. Listing-supplied package names that evidence cannot
+confirm are dropped and downgrade the record, so an official repository cannot
+launder an unrelated package into an install command.
 The MCP registry parser accepts the live v0 schema and maps repository, package,
 and remote metadata; a non-empty payload that maps to zero records is a source
 failure, and the previous snapshot entries are preserved.
@@ -182,9 +193,8 @@ for scope, response targets, and safe-harbor terms.
 These are tracked as v1.0 gates in the changelog:
 
 - no persistent local log/retention implementation yet;
-- live artifact probing is not implemented; live refresh records are unprobed,
-  excluded from recommendations, and recipe-only until a reviewed snapshot is
-  curated;
+- live artifact probing is implemented, but a v1.0 release still requires a
+  reviewed, probed snapshot committed to the repository;
 - Codex and Cursor mutation is recipe-only; Claude Code plugins and OpenCode
   plugin/MCP writes into JSONC configs are recipe-only;
 - the bundled registry snapshot is a seed/placeholder until a reviewed live

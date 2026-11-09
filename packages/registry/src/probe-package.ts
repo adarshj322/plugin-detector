@@ -109,6 +109,7 @@ function buildEvidence(
       .digest("hex"),
     license,
     name: metadata.name,
+    packageName: metadata.name,
     version: metadata.version,
     // Task 7 owns capability inference; the probe records none of its own.
     capabilities: [],
