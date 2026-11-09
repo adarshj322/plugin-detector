@@ -109,6 +109,48 @@ test("refresh writes snapshot and prefers cache over bundled", async () => {
   assert.equal(loaded.candidates[0]?.lastVerified, NOW.toISOString());
 });
 
+test("refresh verifies an official publisher only when the artifact was probed", async () => {
+  const dir = tmpCache();
+  const probe = {
+    kind: "mcp-server" as const,
+    sourceUrl: "https://registry.example.com/acme-thumb/1.4.2",
+    resolvedRef: "npm:acme-thumb@1.4.2",
+    contentHash: "a".repeat(64),
+    license: "MIT",
+    name: "acme-thumb",
+    capabilities: [],
+    evidenceSnippets: ["name: acme-thumb"],
+    retrievedAt: NOW.toISOString(),
+  };
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    fetchers: [
+      fetcherOf(SOURCE_URL, [
+        rawCandidate({
+          id: "probed-one",
+          sourceKind: "community",
+          repositoryUrl: "https://github.com/anthropics/probed-one",
+          packageName: "@anthropic-ai/probed-one",
+          artifactProbe: probe,
+        }),
+        rawCandidate({
+          id: "listing-one",
+          sourceKind: "community",
+          repositoryUrl: "https://github.com/openai/listing-one",
+          packageName: "@openai/listing-one",
+        }),
+      ]),
+    ],
+  });
+  assert.equal(result.ok, true);
+  const byId = new Map(
+    (result.snapshot?.provenance ?? []).map((entry) => [entry.id, entry.trust]),
+  );
+  assert.equal(byId.get("probed-one"), "verified");
+  assert.equal(byId.get("listing-one"), "unverified");
+});
+
 test("total network failure exits 2 with zero cache mutation", async () => {
   const dir = tmpCache();
   const result = await refreshSnapshot({

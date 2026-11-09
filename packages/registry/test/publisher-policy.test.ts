@@ -13,7 +13,6 @@ function rawCandidate(overrides: Partial<RawCandidate> = {}): RawCandidate {
     id: "acme-thumb",
     name: "Acme Thumbnails",
     artifact: { kind: "mcp", file: "server.json" },
-    artifactProbed: true,
     sourceKind: "community",
     pinnedRef: "1.4.2",
     license: "MIT",
@@ -84,30 +83,78 @@ test("GitHub owner match is exact, case-insensitive, and GitHub-only", () => {
     false,
   );
   assert.equal(
+    isOfficialPublisher({ repositoryUrl: "https://github.com/openai-evil/plugin" }),
+    false,
+  );
+  assert.equal(
     isOfficialPublisher({ repositoryUrl: "https://gitlab.com/openai/plugin" }),
     false,
   );
   assert.equal(isOfficialPublisher({ repositoryUrl: "not a url" }), false);
 });
 
-test("npm scope match is exact and does not accept lookalikes", () => {
-  assert.equal(isOfficialPublisher({ packageName: "@openai/sdk" }), true);
-  assert.equal(isOfficialPublisher({ packageName: "@openai-evil/sdk" }), false);
-  assert.equal(isOfficialPublisher({ packageName: "@openaix/sdk" }), false);
-  assert.equal(isOfficialPublisher({ packageName: "@openai" }), false);
-  assert.equal(isOfficialPublisher({ packageName: "openai" }), true);
-  assert.equal(isOfficialPublisher({ packageName: "openaix" }), false);
+test("package names alone never establish publisher identity", () => {
+  for (const packageName of [
+    "@openai/sdk",
+    "@anthropic-ai/sdk",
+    "openai",
+    "linear",
+    "google",
+    "google-genai",
+    "OpenAI_SDK",
+    "openaix",
+  ]) {
+    assert.equal(isOfficialPublisher({ packageName }), false, packageName);
+  }
 });
 
-test("PyPI namespace match uses a dash boundary, never a substring", () => {
-  assert.equal(isOfficialPublisher({ packageName: "openai" }), true);
-  assert.equal(isOfficialPublisher({ packageName: "openai-sdk" }), true);
-  assert.equal(isOfficialPublisher({ packageName: "OpenAI_SDK" }), true);
-  assert.equal(isOfficialPublisher({ packageName: "openaix" }), false);
-  assert.equal(isOfficialPublisher({ packageName: "my-openai" }), false);
+test("registered npm scope must agree with the repository owner", () => {
+  assert.equal(
+    isOfficialPublisher({
+      repositoryUrl: "https://github.com/openai/openai-node",
+      packageName: "@openai/sdk",
+    }),
+    true,
+  );
+  assert.equal(
+    isOfficialPublisher({
+      repositoryUrl: "https://github.com/anthropics/skills",
+      packageName: "@anthropic-ai/sdk",
+    }),
+    true,
+  );
+  assert.equal(
+    isOfficialPublisher({
+      repositoryUrl: "https://github.com/openai/openai-node",
+      packageName: "@openai-evil/sdk",
+    }),
+    false,
+  );
+  assert.equal(
+    isOfficialPublisher({
+      repositoryUrl: "https://github.com/openai/openai-node",
+      packageName: "@anthropic-ai/sdk",
+    }),
+    false,
+  );
+  assert.equal(
+    isOfficialPublisher({
+      repositoryUrl: "https://github.com/acme/thumb",
+      packageName: "@openai/sdk",
+    }),
+    false,
+  );
+  // Unscoped names carry no ownership claim and cannot contradict the repo.
+  assert.equal(
+    isOfficialPublisher({
+      repositoryUrl: "https://github.com/openai/openai-node",
+      packageName: "openai",
+    }),
+    true,
+  );
 });
 
-test("normalization maps official publishers to publisher provenance", () => {
+test("normalization maps official publisher repos to publisher provenance", () => {
   const candidate = normalizeCandidate(
     rawCandidate({
       sourceKind: "community",
@@ -115,6 +162,19 @@ test("normalization maps official publishers to publisher provenance", () => {
     }),
   );
   assert.equal(candidate.provenance, "publisher");
+});
+
+test("manifest packageName cannot manufacture publisher provenance", () => {
+  for (const packageName of ["openai", "linear", "@openai/sdk"]) {
+    const candidate = normalizeCandidate(
+      rawCandidate({
+        sourceKind: "community",
+        repositoryUrl: "https://github.com/acme/evil",
+        packageName,
+      }),
+    );
+    assert.equal(candidate.provenance, "community", packageName);
+  }
 });
 
 test("official registry listing without an official publisher is not official", () => {
@@ -149,6 +209,17 @@ test("a self-declared publisher without the allowlist stays community", () => {
     rawCandidate({
       sourceKind: "publisher",
       repositoryUrl: "https://github.com/acme/thumb",
+    }),
+  );
+  assert.equal(candidate.provenance, "community");
+});
+
+test("official repo with a mismatched package scope stays community", () => {
+  const candidate = normalizeCandidate(
+    rawCandidate({
+      sourceKind: "community",
+      repositoryUrl: "https://github.com/openai/openai-node",
+      packageName: "@anthropic-ai/sdk",
     }),
   );
   assert.equal(candidate.provenance, "community");

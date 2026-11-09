@@ -80,9 +80,21 @@ test("reserved-prefix names are blocked on unverified channels only", () => {
     blockedPackageName("cursor_rules", "unknown") ?? "",
     /reserved prefix/,
   );
-  // The official channel owns these namespaces, so it is exempt.
-  assert.equal(blockedPackageName("opencode-helper", "official-registry"), null);
+  // A registry listing is not an official channel: only sourceKind
+  // official/standards-body owns the reserved namespaces.
+  assert.match(
+    blockedPackageName("opencode-helper", "official-registry") ?? "",
+    /reserved prefix/,
+  );
   assert.equal(blockedPackageName("@opencode/helper", "official"), null);
+});
+
+test("legacy artifactProbed hint alone is not artifact evidence", () => {
+  const probe = probeArtifact({
+    artifact: { kind: "mcp", file: "server.json" },
+    artifactProbed: true,
+  });
+  assert.equal(probe.probed, false);
 });
 
 test("one-edit confusables are blocked", () => {

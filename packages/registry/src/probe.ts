@@ -122,13 +122,12 @@ export const RESERVED_NAMESPACES = [
 const PROMPT_INJECTION_PATTERN =
   /\bignore\s+(all\s+)?(previous|prior|above|earlier|preceding)\s+instructions?\b|\bdisregard\s[^.\n]{0,80}?\b(instructions?|safety|policies?|guidelines?|restrictions?)\b|\byou\s+are\s+now\s+(an?\s+)?(unrestricted|root|admin|different)\b|\bnew\s+system\s+prompt\b/i;
 
+// Only a self-declared official channel owns the reserved namespaces. An
+// official registry is still a listing: normalize treats it as community
+// unless the publisher policy matches, so it gets no exemption here.
 function isOfficialSource(sourceKind: string | undefined): boolean {
   const kind = (sourceKind ?? "").trim().toLowerCase();
-  return (
-    kind === "official" ||
-    kind === "official-registry" ||
-    kind === "standards-body"
-  );
+  return kind === "official" || kind === "standards-body";
 }
 
 // True when the names differ by a single substitution, insertion, deletion,
@@ -281,10 +280,9 @@ export function probeArtifact(input: RawCandidate): ArtifactProbe {
     };
   }
 
-  // Evidence presence is authoritative: fetched evidence wins over any legacy
-  // listing flag, which remains only for v1 fixture/listing compatibility.
-  const probed =
-    input.artifactProbe !== undefined || input.artifactProbed !== false;
+  // Evidence presence is authoritative: only a fetched ArtifactEvidence makes
+  // a record probed. The legacy listing flag is never evidence by itself.
+  const probed = input.artifactProbe !== undefined;
   const evidence: string[] = [];
   if (file) evidence.push(`artifact file ${JSON.stringify(ref.file)}`);
   evidence.push(`artifact kind ${JSON.stringify(ref.kind)}`);

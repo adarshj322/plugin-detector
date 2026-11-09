@@ -188,3 +188,9 @@ test("source-declared unprobed artifacts stay unprobed and manual-install only",
   assert.equal(candidate.artifactProbed, false);
   assert.equal(candidate.installMode, "manual");
 });
+
+test("a legacy artifactProbed hint without evidence is unprobed", () => {
+  const candidate = normalizeCandidate(rawCandidate({ artifactProbed: true }));
+  assert.equal(candidate.artifactProbed, false);
+  assert.equal(candidate.installMode, "manual");
+});

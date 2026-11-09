@@ -122,6 +122,30 @@ test("artifactProbed must be true even for an official source", () => {
   assert.equal(classifyTrust(unprobed, evidence()), "unverified");
 });
 
+test("missing artifact evidence is unprobed even with an official repo", () => {
+  const candidate = normalizeCandidate(
+    rawCandidate({
+      sourceKind: "official",
+      artifactProbe: undefined,
+      artifactProbed: undefined,
+    }),
+  );
+  assert.equal(candidate.artifactProbed, false);
+  assert.equal(classifyTrust(candidate, evidence()), "unverified");
+});
+
+test("manifest packageName cannot make a community repo verified", () => {
+  const candidate = normalizeCandidate(
+    rawCandidate({
+      sourceKind: "community",
+      repositoryUrl: "https://github.com/acme/evil",
+      packageName: "openai",
+    }),
+  );
+  assert.equal(candidate.provenance, "community");
+  assert.equal(classifyTrust(candidate, evidence()), "unverified");
+});
+
 test("archived, stale, critical audit, and closed license block verified", () => {
   const base = normalizeCandidate(rawCandidate());
   assert.equal(

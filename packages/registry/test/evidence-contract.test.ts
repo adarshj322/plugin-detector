@@ -40,6 +40,7 @@ function validEvidence(): Record<string, unknown> {
 test("a listing alone cannot produce artifact evidence", () => {
   const raw = makeRaw({ artifactProbed: false });
   assert.equal(raw.artifactProbe, undefined);
+  assert.equal(probeArtifact(raw).probed, false);
 });
 
 test("artifact evidence requires content hash and resolved ref", () => {

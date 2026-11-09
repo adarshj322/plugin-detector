@@ -1,9 +1,11 @@
 import type { Candidate } from "@plugin-detector/core";
 
-// Exact publisher identities approved for v1. GitHub owners are compared
-// case-insensitively; npm scopes are byte-exact; PyPI names match a namespace
-// only at a PEP 503 separator boundary, so lookalikes never pass. Adding a
-// name here promotes every package it publishes: keep it explicit.
+// Exact publisher identities approved for v1. Publisher trust comes from the
+// probed repository owner only: package names are self-declared listing fields
+// and never grant identity. npm scopes below are retained solely to detect a
+// contradiction between a scoped package name and the repository owner; the
+// scope alone never promotes a candidate. PyPI/unscoped names carry no
+// ownership claim and are ignored.
 export const OFFICIAL_PUBLISHERS = {
   githubOrgs: new Set([
     "anthropics",
@@ -40,28 +42,25 @@ export const OFFICIAL_PUBLISHERS = {
     "@linear",
     "@sentry",
   ]),
-  // PyPI has no enforced scopes: v1 treats an exact project name or a
-  // dash-separated prefix as the namespace claim.
-  pypiNamespaces: new Set([
-    "anthropic",
-    "anthropics",
-    "modelcontextprotocol",
-    "microsoft",
-    "github",
-    "vercel",
-    "vercel-labs",
-    "supabase",
-    "playwright",
-    "openai",
-    "google",
-    "google-labs-code",
-    "aws",
-    "cloudflare",
-    "stripe",
-    "figma",
-    "linear",
-    "sentry",
-  ]),
+};
+
+// Scope owner aliases: the npm account and GitHub org need not share a name.
+const NPM_SCOPE_OWNERS: Record<string, readonly string[]> = {
+  "@anthropic-ai": ["anthropics"],
+  "@modelcontextprotocol": ["modelcontextprotocol"],
+  "@microsoft": ["microsoft"],
+  "@github": ["github"],
+  "@vercel": ["vercel-labs"],
+  "@supabase": ["supabase"],
+  "@playwright": ["playwright"],
+  "@openai": ["openai"],
+  "@google": ["google", "google-labs-code"],
+  "@aws": ["aws"],
+  "@cloudflare": ["cloudflare"],
+  "@stripe": ["stripe"],
+  "@figma": ["figma"],
+  "@linear": ["linear"],
+  "@sentry": ["sentry"],
 };
 
 export interface PublisherCandidate {
@@ -85,30 +84,21 @@ function npmScope(packageName: string): string | undefined {
   return /^(@[^/]+)\//.exec(packageName.trim())?.[1];
 }
 
-function pypiProjectName(packageName: string): string | undefined {
-  const name = packageName.trim();
-  // Scoped npm names never fall through to the PyPI namespace check.
-  if (name.startsWith("@")) return undefined;
-  return name.toLowerCase().replace(/[._-]+/g, "-");
-}
-
 export function isOfficialPublisher(candidate: PublisherCandidate): boolean {
-  if (candidate.repositoryUrl !== undefined) {
-    const owner = githubOwner(candidate.repositoryUrl);
-    if (owner !== undefined && OFFICIAL_PUBLISHERS.githubOrgs.has(owner)) {
-      return true;
-    }
+  const owner =
+    candidate.repositoryUrl === undefined
+      ? undefined
+      : githubOwner(candidate.repositoryUrl);
+  if (owner === undefined || !OFFICIAL_PUBLISHERS.githubOrgs.has(owner)) {
+    return false;
   }
   const packageName = candidate.packageName?.trim();
-  if (packageName === undefined || packageName === "") return false;
+  if (packageName === undefined || packageName === "") return true;
   const scope = npmScope(packageName);
-  if (scope !== undefined) return OFFICIAL_PUBLISHERS.npmScopes.has(scope);
-  const name = pypiProjectName(packageName);
-  if (name === undefined) return false;
-  for (const namespace of OFFICIAL_PUBLISHERS.pypiNamespaces) {
-    if (name === namespace || name.startsWith(`${namespace}-`)) return true;
-  }
-  return false;
+  // Unscoped names cannot grant or revoke identity: they are not ownership
+  // evidence. A malformed scoped name is a disagreement, not a pass.
+  if (scope === undefined) return !packageName.startsWith("@");
+  return NPM_SCOPE_OWNERS[scope]?.includes(owner) === true;
 }
 
 export interface TrustEvidence {
