@@ -149,6 +149,9 @@ export interface HttpOptions {
   maxRetryAfterMs?: number | undefined;
   // Pinned when the caller expects a specific response media type.
   contentType?: string | RegExp | undefined;
+  // Fetch redirect policy; artifact probes pin "error" so content can never
+  // silently move off the expected host.
+  redirect?: "follow" | "error" | "manual" | undefined;
   limiter?: RateLimiter | undefined;
   etag?: string | undefined;
   lastModified?: string | undefined;
@@ -223,6 +226,7 @@ async function requestOnce(
   try {
     res = await impl(url, {
       headers,
+      redirect: opts.redirect ?? "follow",
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
@@ -276,6 +280,16 @@ function transportError(
   phase: "request" | "body",
 ): SourceHttpError {
   if (error instanceof SourceHttpError) return error;
+  // A redirect refused by the transport is a policy failure, not a transient
+  // one: return a fixed message so the Location target is never echoed.
+  if (phase === "request" && isRedirectError(error)) {
+    return new SourceHttpError(
+      url,
+      0,
+      false,
+      `GET ${url} was redirected; refusing to follow`,
+    );
+  }
   if (
     error instanceof Error &&
     (error.name === "TimeoutError" || error.name === "AbortError")
@@ -300,6 +314,15 @@ function transportError(
 
 function mediaType(value: string): string {
   return (value.split(";")[0] ?? "").trim().toLowerCase();
+}
+
+// undici reports a refused redirect as "fetch failed" with the real cause on
+// `cause`, so inspect both shapes.
+function isRedirectError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (/redirect/i.test(error.message)) return true;
+  const cause = (error as { cause?: unknown }).cause;
+  return cause instanceof Error && /redirect/i.test(cause.message);
 }
 
 function checkContentType(

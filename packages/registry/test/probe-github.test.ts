@@ -9,6 +9,7 @@ import {
   GITHUB_RAW_LIMITER,
   GithubProbeError,
   MAX_MANIFEST_BYTES,
+  githubRawGet,
   probeGithub,
 } from "../src/probe-github.js";
 import { parseGithubSearch } from "../src/sources/github.js";
@@ -182,6 +183,32 @@ test("package.json is a tool artifact and a scoped name matches the repo", async
   assert.doesNotMatch(JSON.stringify(probed), /BODY-MARKER/);
 });
 
+test("package.json propagates its package name to the intake gate", async () => {
+  const probed = await probe(
+    listing("evil"),
+    servedGet({
+      "package.json": JSON.stringify({
+        name: "@opencode/evil",
+        version: "1.0.0",
+      }),
+    }),
+  );
+  assert.equal(probed.packageName, "@opencode/evil");
+  const gate = probeArtifact(probed);
+  assert.equal(gate.found, false);
+  assert.match(gate.reason ?? "", /reserved/);
+  assert.throws(() => normalizeCandidate(probed), /reserved/);
+});
+
+test("server.json propagates its first package identifier", async () => {
+  const probed = await probe(
+    listing("cool-server"),
+    servedGet({ "server.json": fixture("server.json") }),
+  );
+  assert.equal(probed.packageName, "@acme/cool-server");
+  assert.doesNotThrow(() => normalizeCandidate(probed));
+});
+
 test("server.json is an mcp-server and matches a reverse-DNS name", async () => {
   const probed = await probe(
     listing("cool-server"),
@@ -252,6 +279,36 @@ test("a mismatched artifact name throws ARTIFACT_MISMATCH", async () => {
   assert.match(error.reason, /cool-skill/);
 });
 
+test("a mismatched plugin name throws ARTIFACT_MISMATCH", async () => {
+  const error = await probeError(
+    listing("cool-plugin"),
+    servedGet({
+      "plugin.json": JSON.stringify({
+        name: "other-plugin",
+        version: "1.0.0",
+      }),
+    }),
+  );
+  assert.equal(error.code, "ARTIFACT_MISMATCH");
+  assert.match(error.reason, /other-plugin/);
+  assert.match(error.reason, /cool-plugin/);
+});
+
+test("error reasons escape and bound manifest names", async () => {
+  const error = await probeError(
+    listing("cool-skill"),
+    servedGet({
+      // A block scalar keeps a real newline in the parsed name.
+      "SKILL.md":
+        "---\nname: |\n  evil\n  INJECTED\ndescription: x\n---\n",
+    }),
+  );
+  assert.equal(error.code, "ARTIFACT_MISMATCH");
+  assert.doesNotMatch(error.reason, /\n/);
+  assert.match(error.reason, /\\n/);
+  assert.ok(error.reason.length < 300);
+});
+
 test("traversal in a ref or declared path is refused before any request", async () => {
   const cases: RawCandidate[] = [
     listing("cool-skill", { defaultBranch: "../../etc" }),
@@ -259,6 +316,9 @@ test("traversal in a ref or declared path is refused before any request", async 
     listing("cool-skill", { defaultBranch: "main\\..\\evil" }),
     listing("cool-skill", {
       artifact: { kind: "plugin", file: "../../etc/passwd" },
+    }),
+    listing("cool-skill", {
+      artifact: { kind: "plugin", file: "/etc/passwd" },
     }),
   ];
   for (const raw of cases) {
@@ -400,6 +460,34 @@ test("a missing default branch probes HEAD only", async () => {
   assert.equal(probed.artifactProbe?.resolvedRef, "HEAD");
 });
 
+test("a HEAD default branch is not probed twice", async () => {
+  const calls: string[] = [];
+  const error = await probeError(
+    listing("cool-skill", { defaultBranch: "HEAD" }),
+    servedGet({}, calls),
+  );
+  assert.equal(error.code, "ARTIFACT_MISSING");
+  assert.equal(calls.length, 5);
+});
+
+test("a branch with a slash is preserved as path segments", async () => {
+  const calls: string[] = [];
+  const probed = await probeGithub(
+    listing("cool-skill", { defaultBranch: "feature/cool-skill" }),
+    async (url) => {
+      calls.push(url);
+      if (url.endsWith("/SKILL.md")) return { text: fixture("SKILL.md") };
+      throw notFound(url);
+    },
+    { limiter: fastLimiter() },
+  );
+  assert.equal(
+    calls[0],
+    "https://raw.githubusercontent.com/acme/cool-skill/feature/cool-skill/SKILL.md",
+  );
+  assert.equal(probed.artifactProbe?.resolvedRef, "feature/cool-skill");
+});
+
 test("license falls back to the listing, then unknown", async () => {
   const noLicense = JSON.stringify({ name: "cool-tool", version: "1.0.0" });
   const fromListing = await probe(
@@ -459,6 +547,44 @@ test("manifest bodies are never stored, only bounded snippets", async () => {
   const snippets = probed.artifactProbe?.evidenceSnippets ?? [];
   assert.ok(snippets.length <= 2);
   for (const snippet of snippets) assert.ok(snippet.length <= 300);
+});
+
+test("stored skill descriptions are bounded display copy", async () => {
+  const description = `Long skill ${"x".repeat(400)}`;
+  const probed = await probe(
+    listing("cool-skill"),
+    servedGet({
+      "SKILL.md": `---\nname: cool-skill\ndescription: ${description}\n---\n`,
+    }),
+  );
+  assert.match(probed.description ?? "", /^Long skill/);
+  assert.ok((probed.description ?? "").length <= 300);
+});
+
+test("the default raw getter refuses redirects without echoing the target", async () => {
+  const originalFetch = globalThis.fetch;
+  const seen: Array<RequestInit | undefined> = [];
+  globalThis.fetch = async (_input, init) => {
+    seen.push(init);
+    throw new TypeError(
+      "fetch failed: unexpected redirect to https://evil.example/BODY-MARKER-target",
+    );
+  };
+  let caught: unknown;
+  try {
+    await probeGithub(listing("cool-skill"), githubRawGet, {
+      limiter: new RateLimiter(),
+    });
+  } catch (error) {
+    caught = error;
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.equal(seen[0]?.redirect, "error");
+  assert.ok(caught instanceof GithubProbeError);
+  assert.equal(caught.code, "ARTIFACT_INVALID");
+  assert.match(caught.reason, /redirect/i);
+  assert.doesNotMatch(caught.reason, /BODY-MARKER/);
 });
 
 test("install lifecycle hooks are recorded for the intake gate", async () => {

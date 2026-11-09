@@ -45,6 +45,36 @@ test("sends conditional headers and returns text with validators", async () => {
   assert.equal(headers.get("accept"), "application/json");
 });
 
+test("redirect defaults to follow and an explicit mode reaches fetch", async () => {
+  const modes: Array<RequestInit["redirect"]> = [];
+  const fetchImpl: typeof fetch = async (_input, init) => {
+    modes.push(init?.redirect);
+    return new Response("payload", { status: 200 });
+  };
+  await httpGetText(URL, { fetchImpl });
+  await httpGetText(URL, { fetchImpl, redirect: "error" });
+  assert.deepEqual(modes, ["follow", "error"]);
+});
+
+test("a refused redirect is non-retryable and never echoes the target", async () => {
+  const fetchImpl: typeof fetch = async () => {
+    throw new TypeError("fetch failed", {
+      cause: new Error("unexpected redirect to https://evil.example/BODY-MARKER"),
+    });
+  };
+  await assert.rejects(
+    httpGetText(URL, { fetchImpl, redirect: "error" }),
+    (error: unknown) => {
+      assert.ok(error instanceof SourceHttpError);
+      assert.equal(error.status, 0);
+      assert.equal(error.retryable, false);
+      assert.match(error.message, /redirect/i);
+      assert.doesNotMatch(error.message, /BODY-MARKER/);
+      return true;
+    },
+  );
+});
+
 test("304 is NotModified, not an error response", async () => {
   const fetchImpl = fetchReturning(new Response(null, { status: 304 }));
   await assert.rejects(httpGetText(URL, { fetchImpl }), (error: unknown) => {

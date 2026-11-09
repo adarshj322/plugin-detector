@@ -19,14 +19,23 @@ export const GITHUB_RAW_BASE = "https://raw.githubusercontent.com";
 // shared 5 MiB listing body limit.
 export const MAX_MANIFEST_BYTES = 256 * 1024;
 
-// Fixed probe order: the first artifact that exists and validates wins.
-export const GITHUB_ARTIFACT_PATHS = [
-  "SKILL.md",
-  ".claude-plugin/plugin.json",
-  "plugin.json",
-  "package.json",
-  "server.json",
-] as const;
+type ProbedArtifactType = Extract<
+  ArtifactType,
+  "skill" | "plugin" | "mcp-server" | "tool"
+>;
+
+// Single source for probe order and artifact type; first valid artifact wins.
+const ARTIFACT_KINDS = {
+  "SKILL.md": "skill",
+  ".claude-plugin/plugin.json": "plugin",
+  "plugin.json": "plugin",
+  "package.json": "tool",
+  "server.json": "mcp-server",
+} as const satisfies Record<string, ProbedArtifactType>;
+
+export const GITHUB_ARTIFACT_PATHS = Object.keys(
+  ARTIFACT_KINDS,
+) as ReadonlyArray<keyof typeof ARTIFACT_KINDS>;
 
 // raw.githubusercontent.com allows 60 requests/min unauthenticated.
 export const GITHUB_RAW_LIMITER = new RateLimiter({
@@ -47,7 +56,7 @@ export class GithubProbeError extends Error {
     readonly code: GithubProbeCode,
     readonly reason: string,
   ) {
-    super(`github: candidate "${candidateId}" ${reason}`);
+    super(`github: candidate ${quoted(candidateId)} ${reason}`);
     this.name = "GithubProbeError";
   }
 }
@@ -57,23 +66,14 @@ export interface ProbeGithubOptions {
   limiter?: RateLimiter | undefined;
 }
 
-type ProbedArtifactType = Extract<
-  ArtifactType,
-  "skill" | "plugin" | "mcp-server" | "tool"
->;
-
 interface ArtifactSpec {
-  path: (typeof GITHUB_ARTIFACT_PATHS)[number];
+  path: keyof typeof ARTIFACT_KINDS;
   kind: ProbedArtifactType;
 }
 
-const ARTIFACTS: readonly ArtifactSpec[] = [
-  { path: "SKILL.md", kind: "skill" },
-  { path: ".claude-plugin/plugin.json", kind: "plugin" },
-  { path: "plugin.json", kind: "plugin" },
-  { path: "package.json", kind: "tool" },
-  { path: "server.json", kind: "mcp-server" },
-];
+const ARTIFACTS: readonly ArtifactSpec[] = GITHUB_ARTIFACT_PATHS.map(
+  (path) => ({ path, kind: ARTIFACT_KINDS[path] }),
+);
 
 interface ManifestData {
   kind: ProbedArtifactType;
@@ -81,6 +81,7 @@ interface ManifestData {
   version?: string | undefined;
   license?: string | undefined;
   description?: string | undefined;
+  packageName?: string | undefined;
   installHooks?: string[] | undefined;
 }
 
@@ -93,8 +94,16 @@ interface RepoParts {
 // every request, including injected getters, so cache's timeout-bound getter
 // cannot bypass it. Do not wrap this getter again.
 export function githubRawGet(url: string): Promise<HttpResult> {
-  return httpGetText(url, { maxBytes: MAX_MANIFEST_BYTES });
+  return httpGetText(url, {
+    maxBytes: MAX_MANIFEST_BYTES,
+    // Raw content must come from the fixed host; a redirect is an error.
+    redirect: "error",
+  });
 }
+
+// shortcut: raw.githubusercontent serves repository blobs, not symlink
+// entries, so a symlinked manifest cannot be distinguished from a missing
+// one; redirects are refused and the host is fixed.
 
 function str(v: unknown): string | undefined {
   return typeof v === "string" && v.trim().length > 0 ? v.trim() : undefined;
@@ -192,6 +201,18 @@ function boundedSnippet(value: string): string {
     : singleLine.slice(0, MAX_EVIDENCE_SNIPPET_LENGTH);
 }
 
+// Untrusted names/refs end up in review reasons: quote-escape control
+// characters and cap the length so a manifest cannot forge log lines.
+function quoted(value: string): string {
+  const bounded =
+    value.length <= 120 ? value : `${value.slice(0, 120)}...`;
+  return JSON.stringify(bounded);
+}
+
+function boundedReason(value: string): string {
+  return value.length <= 300 ? value : `${value.slice(0, 300)}...`;
+}
+
 function parseManifest(
   id: string,
   path: string,
@@ -255,20 +276,26 @@ function parseManifest(
   const out: ManifestData = { kind, name, version };
   const license = licenseOf(root["license"]);
   if (license !== undefined) out.license = license;
-  if (
-    path === "server.json" &&
-    !nonEmptyArray(root["remotes"]) &&
-    !nonEmptyArray(root["packages"])
-  ) {
-    throw new GithubProbeError(
-      id,
-      "ARTIFACT_INVALID",
-      `${path} has neither remotes nor packages`,
-    );
-  }
   if (path === "package.json") {
+    // The package identity must reach normalize's reserved-namespace gate.
+    out.packageName = name;
     const hooks = installHooksOf(root["scripts"]);
     if (hooks.length > 0) out.installHooks = hooks;
+  }
+  if (path === "server.json") {
+    if (!nonEmptyArray(root["remotes"]) && !nonEmptyArray(root["packages"])) {
+      throw new GithubProbeError(
+        id,
+        "ARTIFACT_INVALID",
+        `${path} has neither remotes nor packages`,
+      );
+    }
+    const packages = root["packages"];
+    const firstPackage = Array.isArray(packages)
+      ? record(packages[0])
+      : undefined;
+    const identifier = str(firstPackage?.["identifier"]);
+    if (identifier !== undefined) out.packageName = identifier;
   }
   return out;
 }
@@ -311,14 +338,14 @@ function repositoryParts(raw: RawCandidate, id: string): RepoParts {
     throw new GithubProbeError(
       id,
       "ARTIFACT_INVALID",
-      `repositoryUrl scheme "${url.protocol}" is not http(s)`,
+      `repositoryUrl scheme ${quoted(url.protocol)} is not http(s)`,
     );
   }
   if (url.hostname.toLowerCase() !== "github.com") {
     throw new GithubProbeError(
       id,
       "ARTIFACT_INVALID",
-      `repositoryUrl host "${url.hostname}" is not github.com`,
+      `repositoryUrl host ${quoted(url.hostname)} is not github.com`,
     );
   }
   const segments = url.pathname.split("/").filter(Boolean);
@@ -360,7 +387,7 @@ function probeRefs(raw: RawCandidate, id: string): string[] {
       throw new GithubProbeError(
         id,
         "ARTIFACT_INVALID",
-        `default branch "${ref}" contains a traversal or unsafe path segment`,
+        `default branch ${quoted(ref)} contains a traversal or unsafe path segment`,
       );
     }
   }
@@ -457,7 +484,10 @@ function buildResult(
   // Only the skill's frontmatter description is display copy. JSON manifests
   // carry no description/readme: the body itself is never stored.
   if (manifest.kind === "skill" && manifest.description !== undefined) {
-    out.description = manifest.description;
+    out.description = boundedSnippet(manifest.description);
+  }
+  if (manifest.packageName !== undefined) {
+    out.packageName = manifest.packageName;
   }
   if (manifest.installHooks !== undefined && manifest.installHooks.length > 0) {
     out.installHooks = manifest.installHooks;
@@ -483,7 +513,7 @@ export async function probeGithub(
     throw new GithubProbeError(
       id,
       "ARTIFACT_INVALID",
-      `declared artifact path "${declared}" contains a traversal or unsafe path segment`,
+      `declared artifact path ${quoted(declared)} contains a traversal or unsafe path segment`,
     );
   }
   const { owner, repo } = repositoryParts(raw, id);
@@ -517,14 +547,27 @@ export async function probeGithub(
           );
           continue;
         }
+        // The raw host is fixed; a redirect could move content elsewhere. The
+        // transport already discarded the target, so the reason stays fixed.
+        if (
+          error instanceof SourceHttpError &&
+          error.status === 0 &&
+          /redirect/i.test(error.message)
+        ) {
+          throw new GithubProbeError(
+            id,
+            "ARTIFACT_INVALID",
+            `${spec.path} fetch was redirected; raw content must come from ${GITHUB_RAW_BASE}`,
+          );
+        }
         // A transport/throttle failure is not a missing artifact: stop instead
         // of hammering the remaining paths and refs.
         throw new GithubProbeError(
           id,
           "ARTIFACT_MISSING",
-          `fetching ${spec.path} failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
+          `fetching ${spec.path} failed: ${boundedReason(
+            error instanceof Error ? error.message : String(error),
+          )}`,
         );
       }
       if (text === undefined) continue;
@@ -543,7 +586,7 @@ export async function probeGithub(
           new GithubProbeError(
             id,
             "ARTIFACT_MISMATCH",
-            `${spec.path} name "${manifest.name}" does not match listing repo "${repo}"`,
+            `${spec.path} name ${quoted(manifest.name)} does not match listing repo ${quoted(repo)}`,
           ),
         );
         continue;
