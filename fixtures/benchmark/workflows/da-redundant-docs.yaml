@@ -1,0 +1,64 @@
+# Benchmark workflow. Docs writer already installed, so that skill is redundant.
+id: da-redundant-docs
+domain: data-analysis
+declaration: data-analysis
+signals:
+  - jupyter-notebook
+  - csv-dataset
+installed:
+  - id: installed-docs
+    capabilities:
+      - docs.writing
+candidates:
+  - id: da-rd-frames
+    name: RD Frames
+    capabilities:
+      - data.analysis
+    stars: 2900
+  - id: da-rd-plan
+    name: RD Planner
+    capabilities:
+      - planning.orchestration
+    stars: 1900
+  - id: da-rd-models
+    name: RD Models
+    capabilities:
+      - data.analysis
+    stars: 1700
+  - id: da-rd-pipeline
+    name: RD Pipeline
+    capabilities:
+      - data.analysis
+      - planning.orchestration
+    stars: 1500
+  - id: da-rd-dup
+    name: Duplicate Docs
+    capabilities:
+      - docs.writing
+    stars: 900
+  - id: pop-render-farm
+    name: Render Farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+  - id: pop-pixel-system
+    name: Pixel System
+    capabilities:
+      - design.frontend
+    stars: 105000
+requiredCapabilities:
+  - data.analysis
+  - docs.writing
+  - planning.orchestration
+optionalCapabilities: []
+expectedRequiredIds:
+  - da-rd-frames
+  - da-rd-plan
+  - da-rd-models
+  - da-rd-pipeline
+expectedRedundantIds:
+  - da-rd-dup
+unacceptableIds:
+  - pop-render-farm
+  - pop-pixel-system
+rationale: Docs writing is already installed and enabled, so the duplicate must score redundant while analysis skills stay required.

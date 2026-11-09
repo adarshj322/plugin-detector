@@ -1,0 +1,208 @@
+name: release
+
+# Publish only from version tags. Pull requests never publish.
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify tag matches package versions
+        run: |
+          set -euo pipefail
+          root="$(node -p "require('./package.json').version")"
+          test "${GITHUB_REF_NAME}" = "v${root}" || {
+            echo "::error::tag ${GITHUB_REF_NAME} does not match root version ${root}"
+            exit 1
+          }
+          for dir in packages/core packages/adapters/* packages/profiles packages/registry packages/cli packages/skill; do
+            version="$(node -p "require('./${dir}/package.json').version")"
+            test "${version}" = "${root}" || {
+              echo "::error::${dir} version ${version} does not match root version ${root}"
+              exit 1
+            }
+          done
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - name: Recommendation benchmark gate
+        run: npm run benchmark
+
+      - name: Enforce reviewed registry snapshot on v1 tags
+        if: startsWith(github.ref_name, 'v1.')
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const snapshot = JSON.parse(
+            readFileSync("packages/registry/data/registry-snapshot.json", "utf8"),
+          );
+          const problems = [];
+          if (!Array.isArray(snapshot.candidates) || snapshot.candidates.length === 0) {
+            problems.push("snapshot has zero candidates (still the seed/placeholder)");
+          }
+          if (snapshot.generatedAt === "2026-11-08T00:00:00.000Z") {
+            problems.push("snapshot still carries the seed generatedAt timestamp");
+          }
+          if (!Number.isFinite(Date.parse(snapshot.generatedAt))) {
+            problems.push("snapshot generatedAt is not a valid ISO date");
+          }
+          const provenanceIds = new Set(
+            (snapshot.provenance ?? []).map((entry) => entry.id),
+          );
+          for (const candidate of snapshot.candidates ?? []) {
+            if (!provenanceIds.has(candidate.id)) {
+              problems.push(`candidate ${candidate.id} has no provenance record`);
+            }
+          }
+          if (problems.length > 0) {
+            for (const problem of problems) console.error(`::error::${problem}`);
+            console.error(
+              "Run `npm run registry:refresh`, review the diff, approve it, and commit the pinned snapshot before tagging v1.",
+            );
+            process.exit(1);
+          }
+          console.log(
+            `registry snapshot accepted: ${snapshot.candidates.length} candidates, generatedAt ${snapshot.generatedAt}`,
+          );
+          NODE
+
+      - run: npm audit --omit=dev
+
+      - name: Verify package file lists
+        run: |
+          set -euo pipefail
+          for dir in packages/core packages/adapters/* packages/profiles packages/registry packages/cli packages/skill; do
+            (cd "${dir}" && npm pack --dry-run >/dev/null)
+          done
+
+      - name: Smoke-test the built CLI
+        run: npx plugin-detector inventory --json >/dev/null
+
+  publish:
+    name: Publish npm and GitHub release
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Select npm dist-tag
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            v0.*|*-*) echo "NPM_TAG=next" >> "$GITHUB_ENV" ;;
+            *) echo "NPM_TAG=latest" >> "$GITHUB_ENV" ;;
+          esac
+
+      - name: Pack workspace packages
+        run: |
+          set -euo pipefail
+          mkdir -p release-artifacts
+          for dir in \
+            packages/core \
+            packages/adapters/shared \
+            packages/adapters/opencode \
+            packages/adapters/claude-code \
+            packages/adapters/codex \
+            packages/adapters/cursor \
+            packages/profiles \
+            packages/registry \
+            packages/cli \
+            packages/skill
+          do
+            (cd "${dir}" && npm pack --pack-destination "${GITHUB_WORKSPACE}/release-artifacts")
+          done
+          (cd release-artifacts && sha256sum ./*.tgz > SHA256SUMS)
+          cat release-artifacts/SHA256SUMS
+
+      - name: Publish to npm with provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Dependency order: every package is published after its workspace deps.
+          for dir in \
+            packages/core \
+            packages/adapters/shared \
+            packages/adapters/opencode \
+            packages/adapters/claude-code \
+            packages/adapters/codex \
+            packages/adapters/cursor \
+            packages/profiles \
+            packages/registry \
+            packages/cli \
+            packages/skill
+          do
+            name="$(node -p "require('./${dir}/package.json').name")"
+            version="$(node -p "require('./${dir}/package.json').version")"
+            base="$(printf '%s' "${name#@}" | tr '/' '-')"
+            tarball="release-artifacts/${base}-${version}.tgz"
+            test -f "${tarball}" || {
+              echo "::error::expected tarball ${tarball} was not produced"
+              exit 1
+            }
+            npm publish "${tarball}" --provenance --access public --tag "${NPM_TAG}"
+          done
+
+      - name: Generate release notes
+        run: |
+          set -euo pipefail
+          sed \
+            -e "s/{{VERSION}}/${GITHUB_REF_NAME}/g" \
+            -e "s/{{TAG}}/${GITHUB_REF_NAME}/g" \
+            -e "s/{{COMMIT}}/${GITHUB_SHA}/g" \
+            .github/GITHUB_RELEASE_NOTES.template > release-notes.md
+          {
+            echo
+            echo "## Checksums"
+            echo
+            echo '```'
+            cat release-artifacts/SHA256SUMS
+            echo '```'
+          } >> release-notes.md
+          cat release-notes.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "${GITHUB_REF_NAME}" \
+            release-artifacts/*.tgz \
+            release-artifacts/SHA256SUMS \
+            --title "plugin-detector ${GITHUB_REF_NAME}" \
+            --notes-file release-notes.md \
+            --verify-tag

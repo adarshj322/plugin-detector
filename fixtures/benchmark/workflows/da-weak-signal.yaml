@@ -1,0 +1,54 @@
+# Benchmark workflow. Weak-signal data folder with only generic files.
+id: da-weak-signal
+domain: data-analysis
+declaration: data-analysis
+signals:
+  - editorconfig
+installed: []
+candidates:
+  - id: da-weak-frames
+    name: Weak Frames
+    capabilities:
+      - data.analysis
+    stars: 2400
+  - id: da-weak-report
+    name: Weak Report
+    capabilities:
+      - docs.writing
+    stars: 1800
+  - id: da-weak-plan
+    name: Weak Planner
+    capabilities:
+      - planning.orchestration
+    stars: 1500
+  - id: da-weak-clean
+    name: Weak Cleaner
+    capabilities:
+      - data.analysis
+      - docs.writing
+    stars: 1300
+  - id: pop-render-farm
+    name: Render Farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+  - id: pop-pixel-system
+    name: Pixel System
+    capabilities:
+      - design.frontend
+    stars: 105000
+requiredCapabilities:
+  - data.analysis
+  - docs.writing
+  - planning.orchestration
+optionalCapabilities: []
+expectedRequiredIds:
+  - da-weak-frames
+  - da-weak-report
+  - da-weak-plan
+  - da-weak-clean
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-render-farm
+  - pop-pixel-system
+rationale: With only a generic signal the profile resolves partial, yet analysis capability overlap still beats raw popularity.

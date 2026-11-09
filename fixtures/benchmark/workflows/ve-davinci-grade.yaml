@@ -1,0 +1,65 @@
+# Benchmark workflow. DaVinci project expecting transcode-heavy pipeline.
+id: ve-davinci-grade
+domain: video-editing
+declaration: video-editing
+signals:
+  - davinci-project
+  - ffmpeg-preset
+  - channel-uploads
+installed: []
+candidates:
+  - id: ve-dv-transcode
+    name: DV Transcoder
+    capabilities:
+      - media.transcode
+    stars: 3600
+  - id: ve-dv-captions
+    name: DV Captioner
+    capabilities:
+      - speech.captions
+    stars: 2000
+  - id: ve-dv-thumbs
+    name: DV Thumbnails
+    capabilities:
+      - design.thumbnail
+    stars: 1900
+  - id: ve-dv-master
+    name: DV Mastering
+    capabilities:
+      - media.transcode
+      - speech.captions
+      - design.thumbnail
+    stars: 2500
+  - id: ve-dv-proxy
+    name: DV Proxy Maker
+    capabilities:
+      - media.transcode
+    stars: 1100
+  - id: pop-test-pilot
+    name: Test Pilot
+    capabilities:
+      - testing.runner
+      - testing.e2e
+    stars: 180000
+  - id: pop-ship-line
+    name: Ship Line
+    capabilities:
+      - ci.release
+      - containers.orchestration
+    stars: 130000
+requiredCapabilities:
+  - media.transcode
+  - speech.captions
+  - design.thumbnail
+optionalCapabilities: []
+expectedRequiredIds:
+  - ve-dv-transcode
+  - ve-dv-captions
+  - ve-dv-thumbs
+  - ve-dv-master
+  - ve-dv-proxy
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-test-pilot
+  - pop-ship-line
+rationale: DaVinci research is transcode-heavy, so labels mirror the three media capabilities and popular code skills stay unacceptable.

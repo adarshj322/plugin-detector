@@ -1,0 +1,42 @@
+{
+  "name": "plugin-detector-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adarshj322/plugin-detector.git"
+  },
+  "workspaces": [
+    "packages/*",
+    "packages/adapters/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "tsc -b && node --test \"packages/*/dist/test/*.test.js\" \"packages/adapters/*/dist/test/*.test.js\"",
+    "typecheck": "tsc -b",
+    "lint": "tsc -b",
+    "benchmark": "npm run benchmark -w plugin-detector",
+    "registry:refresh": "npm run build && node packages/cli/dist/src/index.js registry refresh --cache-dir packages/registry/data"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CODE_OF_CONDUCT.md",
+    "docs/adapters.md",
+    "docs/security-model.md",
+    "docs/profile-schema.md",
+    "docs/benchmark.md"
+  ],
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,66 @@
+# Benchmark workflow. Kubernetes plus Ansible expecting orchestration help.
+id: ops-k8s-ansible
+domain: devops-infrastructure
+declaration: devops-infrastructure
+signals:
+  - kubernetes-manifest
+  - ansible-playbook
+  - helm-chart
+installed: []
+candidates:
+  - id: ops-k8s-apply
+    name: K8s Applier
+    capabilities:
+      - containers.orchestration
+    stars: 3600
+  - id: ops-playbook
+    name: Playbook Linter
+    capabilities:
+      - ci.release
+      - harness.management
+    stars: 2400
+  - id: ops-cve
+    name: CVE Watcher
+    capabilities:
+      - security.dependencies
+    stars: 2500
+  - id: ops-rollout
+    name: Rollout Manager
+    capabilities:
+      - containers.orchestration
+      - ci.release
+    stars: 2000
+  - id: ops-hosts
+    name: Host Inventory
+    capabilities:
+      - harness.management
+    stars: 1400
+  - id: pop-caption-pro
+    name: Caption Pro
+    capabilities:
+      - speech.captions
+      - design.thumbnail
+    stars: 95000
+  - id: pop-cite-wise
+    name: Cite Wise
+    capabilities:
+      - docs.writing
+      - publishing.delivery
+    stars: 88000
+requiredCapabilities:
+  - ci.release
+  - containers.orchestration
+  - security.dependencies
+  - harness.management
+optionalCapabilities: []
+expectedRequiredIds:
+  - ops-k8s-apply
+  - ops-playbook
+  - ops-cve
+  - ops-rollout
+  - ops-hosts
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-caption-pro
+  - pop-cite-wise
+rationale: K8s Ansible research stresses orchestration and rollouts, so labels track delivery capabilities and popular media and writing skills are unacceptable.

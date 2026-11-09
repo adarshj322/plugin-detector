@@ -1,0 +1,8 @@
+#!/bin/sh
+# Thin wrapper: resolve the plugin-detector CLI and hand off all arguments.
+# Contains no logic beyond resolution.
+if command -v plugin-detector >/dev/null 2>&1; then
+  exec plugin-detector "$@"
+else
+  exec npx plugin-detector "$@"
+fi

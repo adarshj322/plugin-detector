@@ -1,0 +1,234 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Release stages: `0.1` alpha, `0.5` beta, `1.0` stable.
+
+## [Unreleased]
+
+### Added
+
+- `plugin-detector rollback --plan-file <file>`: restores the exact preimages
+  recorded by an applied plan, so rollback remains available after a successful
+  install, not only on apply failure.
+- Consent surface now prints source, canonical URL, artifact type, pinned ref,
+  license, trust evidence, permission and environment-variable names, and
+  expected side effects; unavailable metadata is printed as explicit `unknown`.
+  `plan --json` exposes the same fields.
+- Adapter compatibility is now a real factor in the score and is shared by
+  `recommend` and the benchmark through one `scoreCandidateSet` helper.
+  Compatibility `0` is a hard gate: an incompatible artifact can never be
+  `required` and is excluded from the returned top set; `explain` prints the
+  `risky` verdict.
+- Live MCP registry parsing supports the real v0 shape
+  (`servers[].server` with `repository`, `packages`, `remotes`, and `_meta`),
+  including latest-version selection. A non-empty payload that maps to zero
+  records is a source failure, and previous entries are preserved.
+- Source-declared refresh records are explicitly marked **unprobed**: they are
+  excluded from `recommend` and can never produce a write plan. Listing
+  capabilities/domains are no longer copied into scoring, and omitted
+  maintenance/audit now default to `unknown`.
+- Snapshot generation deduplicates by candidate id deterministically, prefers
+  the highest-trust source, merges source URLs, and emits one provenance record
+  per id. A duplicate-id refresh fixture covers the GitHub + awesome-list case.
+- JSONC parsing accepts trailing commas; skill frontmatter capabilities accept
+  comma-separated, flow-list, and block-list YAML forms.
+- `inventory --json` now emits the empty `estimates` and `untrustedCopy`
+  sections required by the output contract.
+- 304 refreshes carry ETag/last-modified validators forward and never re-stamp
+  candidates as freshly verified.
+
+### Changed
+
+- Claude Code plugin plans are recipe-only: writing `enabledPlugins` alone does
+  not install a plugin, so v0.1 never claims automatic Claude plugin install.
+- OpenCode plugin/MCP config writes are recipe-only when an `opencode.jsonc`
+  exists (with or without a sibling `.json`), because the merge writer cannot
+  preserve comments and a second JSON config could shadow the real one.
+- The benchmark baseline now uses twelve real, high-star repositories with
+  owner-reviewed capability labels and stars recorded 2026-11-09, replacing the
+  synthetic strawman. `gateBenchmark` now fails on missing expected `required`
+  and `redundant` labels as well as optional.
+- The approval-store lock release is owner-token checked and stale-lock breaks
+  verify inode + content before unlinking, narrowing the stale-break race.
+- Docs and quick starts now show the actual token handoff from `approve` to
+  `install` with shell-safe placeholders, and document live-refresh as
+  unprobed/recipe-only.
+
+## [0.1.0] - 2026-11-08
+
+First alpha of the local-first harness plugin detector. This release proves the
+core, adapters, consent gate, and recommendation benchmark; it is **not** a v1.0
+artifact and does not claim that the registry corpus or every install path is
+production-verified.
+
+### Added
+
+- TypeScript/Node 22 ESM monorepo with strict typechecking and no native runtime
+  dependencies beyond Zod.
+- Shared core: candidate/capability/install-plan schemas, versioned capability
+  taxonomy, deterministic scoring, verdicts (`required`, `useful-optional`,
+  `redundant`, `risky`, `no-good-candidates`), approval-token primitives, and
+  install/rollback helpers.
+- Six bundled use-case profiles: `software-development`, `video-editing`,
+  `research-writing`, `data-analysis`, `devops-infrastructure`,
+  `design-frontend`.
+- Registry package: source fetchers for skills.sh, the MCP registry, GitHub, and
+  an awesome list; deterministic normalization; trust classification; drift
+  detection; intake refusal recording; local cache and bundled snapshot loading.
+- Four harness adapters:
+  - OpenCode — detection, inventory, compatibility, verified-only writer
+    (recipe-only for JSONC configs), recipe fallback, backups/rollback.
+  - Claude Code — detection, inventory, compatibility, verified-only
+    skills/project-MCP writer, recipe fallback (plugins are recipe-only),
+    backups/rollback.
+  - Codex — full detection/inventory; **recipe-only**, no automatic writes.
+  - Cursor — full detection/inventory; **recipe-only**, no automatic writes;
+    experimental MCP/skill/rule support.
+- CLI `plugin-detector` with `inventory`, `recommend`, `explain`, `plan`,
+  `profiles validate`, `registry refresh`, `approve`, `install`, and `benchmark`.
+  Read-only commands are asserted not to write; JSON outputs are Zod-validated.
+- `plan` turns a snapshot candidate plus harness into the full install plan
+  (operations, backup refs, rollback, trust, canonical hash) and prints the
+  exact `approve`/`install` handoff. Unverified and curated candidates get a
+  manual recipe instead of a write plan.
+- `install` now requires `--candidate` and `--harness`, re-derives the expected
+  plan from the registry snapshot and adapter, and rejects an unverified
+  candidate or any hash mismatch before consuming the approval token.
+- One-shot, candidate-scoped and complete-plan-hash-scoped approval tokens with a
+  default 10-minute / maximum 30-minute TTL, non-TTY refusal, single-use
+  consumption, and `0600` token files. `approve` prints the token once for
+  handoff; the hash binds candidate, harness, operations, backups, and rollback.
+- Every published package ships its own `LICENSE` and `README.md`, and every
+  published manifest carries a description.
+- Portable skill (`@plugin-detector/skill`) with SKILL.md, verdict template,
+  agent metadata, and a POSIX shim. Manual installation only in 0.1.0.
+- Red-team fixtures and tests for typo-squats, prompt injection, malicious
+  postinstall hooks, silent drift, stale/archived artifacts, closed licenses,
+  and dependency confusion.
+- Recommendation benchmark with 30 labeled workflows across six domains,
+  precision@5, a frozen popularity-only baseline, a 0.80 mean floor, strict-beat
+  semantics, optional-label checks, and `--fail-on-low-value`.
+- Release surface: MIT license, README, adapter matrix, security model, profile
+  schema, contributing guide, security policy, code of conduct, changelog,
+  GitHub release-notes template, and provenance release workflow.
+- Release workflow on `v*` tags: clean checkout, Node 22, `npm ci`, typecheck,
+  full tests, benchmark gate, build, `npm pack`, npm publish with provenance,
+  SHA-256 checksums, and GitHub Release. No publish on pull requests.
+
+### Changed
+
+- The npm CLI package is published unscoped as **`plugin-detector`** so
+  `npx plugin-detector` and `npm install -g plugin-detector` work as documented.
+  Internal library packages remain under `@plugin-detector/*` and release in
+  lockstep.
+- Package `files` fields now ship only runtime `dist/src` (plus profiles,
+  registry data, and skill assets). Compiled tests and `tsbuildinfo` are no longer
+  packed.
+
+### Registry snapshot
+
+- The bundled snapshot is a **seed/placeholder**:
+  `schemaVersion: 1`, `generatedAt: 2026-11-08T00:00:00.000Z`, zero candidates.
+  `recommend` therefore returns `no-good-candidates` until a live refresh is
+  reviewed and committed.
+- `npm run registry:refresh` refreshes `packages/registry/data/registry-snapshot.json`
+  from live public sources and writes a local, uncommitted `registry-manifest.json`
+  for review.
+
+### Unresolved v1.0 gates
+
+These are release blockers for a stable `1.0`, not for `0.1.0`:
+
+- [ ] **Reviewed registry snapshot.** Run `npm run registry:refresh` against live
+  public sources, review the generated snapshot (timestamps, pinned refs, trust,
+  provenance, rejected intake), explicitly approve the diff, and commit/pin it
+  with its `generatedAt`. The current committed file is the seed/placeholder.
+  v0.1 refresh records are unprobed and excluded from recommendations, so the
+  reviewed snapshot must also carry probed artifact evidence. The release
+  workflow rejects `v1.*` tags when the snapshot is empty, still has the seed
+  timestamp, or has incomplete provenance.
+- [ ] **Live artifact probing and publisher/official source policy.** v0.1 marks
+  every live-refresh record unprobed: it does not fetch `SKILL.md`, plugin/MCP
+  manifests, or `package.json`, so it cannot detect package install hooks or
+  reach `verified`. Implement per-candidate manifest/package probing (including
+  `installHooks` from package metadata) and an explicit allowlisted
+  publisher/official source policy that can earn `verified`; until then
+  auto-install requires a manually reviewed, probed snapshot.
+- [ ] **Live source health and breadth.** A live refresh from this commit
+  returned partial results: `skills.sh/api/skills` and the awesome-list URL
+  both returned HTTP 404, while the GitHub and MCP registry sources produced
+  candidates. The MCP parser now handles the real v0 shape; re-verify/replace the
+  two 404 endpoints and add the spec's npm/PyPI metadata and harness-native
+  marketplace sources. A snapshot with unexplained source failures must not be
+  approved.
+- [ ] **Curated auto-install policy.** The design describes automatic install for
+  "verified/curated" sources; the v0.1 writers accept only `verified` and emit a
+  recipe for `curated`. Align the written policy and the implementation before
+  v1.0 rather than leaving the documentation ahead of the code.
+- [ ] **Live fallback.** The design calls for a live lookup only when the
+  snapshot/cache misses; v0.1 reads only the bundled snapshot or local cache.
+  Add the lower-confidence live fallback, or amend the design before v1.0.
+- [ ] **Profile-configurable scoring weights.** The formula is implemented and
+  documented, but weights are constants, not configurable per profile as the
+  design requires.
+- [ ] **Candidate checksum/attestation evidence.** Trust classification accepts a
+  caller-provided checksum signal; v0.1 does not fetch or verify candidate
+  checksums/attestations where a source offers them.
+- [ ] **Live adapter verification.** Codex and Cursor remain recipe-only until
+  live verification plus review flips `installVerified`. OpenCode and Claude Code
+  writers are fixture/mutation tested; a live smoke test in a disposable home
+  before v1.0 is still expected.
+- [ ] **Interactive CLI default.** The spec describes an interactive CLI mode by
+  default; 0.1.0 requires flags and delegates conversation to the harness skill.
+- [ ] **Adapter contract alignment (`discoverConfig`, `fixtures`).** Config
+  discovery currently happens inside `detect`/`inventory`, and fixtures are
+  test-side repository data rather than an adapter method. Add the spec's
+  `discoverConfig`/`fixtures` surface or amend the design before v1.0.
+- [ ] **Claude plugin marketplace automation.** Claude Code plugin plans are
+  recipe-only because writing `enabledPlugins` does not install anything.
+  Implement the documented marketplace/plugin install flow with a fresh-plugin
+  fixture, or keep plugins recipe-only at v1.0.
+- [ ] **Claude marketplace metadata query.** Claude Code inventory reads
+  marketplace references from local config but does not query marketplace
+  metadata; add the query (or amend the design) before v1.0.
+- [ ] **OpenCode JSONC comment-preserving writer.** OpenCode plugin/MCP config
+  writes are recipe-only when `opencode.jsonc` exists. Add a comment-preserving
+  JSONC editor (or keep the recipe-only path at v1.0).
+- [ ] **Permission and environment-variable metadata.** Plans print explicit
+  `unknown` for permission/env-var names because registry records do not carry
+  them. Collect and surface them from probed manifests before v1.0.
+- [ ] **Coverage gates.** The spec's minimum 85% line coverage on core and 100% on
+  rollback/write paths is not yet measured/enforced in CI.
+- [ ] **Local observability.** No persistent local log/retention implementation
+  yet; the no-telemetry promise holds, but the target
+  `~/.plugin-detector/logs` with documented retention is pending.
+- [ ] **Recommendation contract completeness.** `fit`, `credibility`, and
+  `estimated_context_cost` are exposed through score/explain components rather
+  than all being first-class fields in the recommendation schema.
+- [ ] **Independent benchmark label review.** The 30 fixtures and owner-review
+  protocol exist; an additional reviewer's sign-off is still pending.
+- [ ] **Release operations.** Signed `v1.0.0` tag, configured `NPM_TOKEN`/OIDC
+  trusted publishing, and a real npm/GitHub release are operational steps that
+  cannot be completed by CI configuration alone.
+
+### Known limitations
+
+- `recommend` requires `--use-case`; it does not yet run an interactive wizard.
+- Registry refresh uses public sources but their APIs/shapes can change; failures
+  are isolated per source and never silently re-stamped as fresh. Live refresh
+  records are unprobed, excluded from recommendations, and recipe-only.
+- Cursor's MCP/skill/rule support is experimental.
+- Claude Code plugins and OpenCode plugin/MCP writes into JSONC configs are
+  recipe-only in v0.1.
+- The Codex TOML reader intentionally supports a subset of TOML and reports the
+  file as partial rather than guessing when it sees unsupported syntax.
+- Scores are editorial estimates, not calibrated probabilities.
+- Passing the benchmark proves only this project's recommendation gate, not the
+  safety of any candidate.
+
+## [0.0.0] - 2026-11-08
+
+Internal scaffold only. Superseded by 0.1.0; no public artifacts.

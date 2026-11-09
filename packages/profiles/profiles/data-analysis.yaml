@@ -1,0 +1,30 @@
+# v1 use-case profile: data analysis and reporting.
+id: data-analysis
+version: 1
+displayName: Data Analysis
+description: Exploring datasets and producing figures and reports.
+capabilities:
+  - data.analysis
+  - docs.writing
+  - planning.orchestration
+signalQueries:
+  - jupyter-notebook
+  - pandas-import
+  - r-project
+  - sql-migrations
+  - csv-dataset
+  - parquet-dataset
+  - matplotlib-figure
+  - duckdb-store
+negativeSignals:
+  - premiere-project
+  - final-cut-library
+  - davinci-project
+  - figma-file
+defaultDomains:
+  - analysis
+  - reporting
+expectedValueTiers:
+  - time-saved
+  - quality-uplift
+  - cost-reduction

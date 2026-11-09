@@ -1,0 +1,16 @@
+# Project Codex config: a [[plugins]] table-array entry, a project MCP
+# server with secret env values, and a dotted key into a known table.
+[[plugins]]
+name = "table-plugin"
+version = "2.0.0"
+
+[mcp_servers.project-db]
+command = "node"
+args = ["db-server.js"]
+enabled = true
+
+[mcp_servers.project-db.env]
+DB_PASSWORD = "db-secret-value-that-must-never-appear"
+
+[mcp_servers]
+extra.enabled = false

@@ -1,0 +1,65 @@
+# Benchmark workflow. Final Cut library expecting captions and thumbnails.
+id: ve-final-cut
+domain: video-editing
+declaration: video-editing
+signals:
+  - final-cut-library
+  - caption-track
+  - thumbnail-brief
+installed: []
+candidates:
+  - id: ve-fc-captions
+    name: FC Captioner
+    capabilities:
+      - speech.captions
+    stars: 2600
+  - id: ve-fc-thumbs
+    name: FC Thumbnails
+    capabilities:
+      - design.thumbnail
+    stars: 2300
+  - id: ve-fc-transcode
+    name: FC Transcoder
+    capabilities:
+      - media.transcode
+    stars: 3100
+  - id: ve-fc-pack
+    name: FC Packager
+    capabilities:
+      - speech.captions
+      - design.thumbnail
+    stars: 1500
+  - id: ve-fc-export
+    name: FC Exporter
+    capabilities:
+      - media.transcode
+      - design.thumbnail
+    stars: 1400
+  - id: pop-test-pilot
+    name: Test Pilot
+    capabilities:
+      - testing.runner
+      - testing.e2e
+    stars: 180000
+  - id: pop-ship-line
+    name: Ship Line
+    capabilities:
+      - ci.release
+      - containers.orchestration
+    stars: 130000
+requiredCapabilities:
+  - media.transcode
+  - speech.captions
+  - design.thumbnail
+optionalCapabilities: []
+expectedRequiredIds:
+  - ve-fc-captions
+  - ve-fc-thumbs
+  - ve-fc-transcode
+  - ve-fc-pack
+  - ve-fc-export
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-test-pilot
+  - pop-ship-line
+rationale: Final Cut research emphasizes captions and thumbnails, so capability labels follow suit and popular code skills are unacceptable.

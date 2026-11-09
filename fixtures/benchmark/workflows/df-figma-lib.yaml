@@ -1,0 +1,69 @@
+# Benchmark workflow. Figma library expecting tokens and components.
+id: df-figma-lib
+domain: design-frontend
+declaration: design-frontend
+signals:
+  - figma-file
+  - design-tokens
+  - svg-assets
+installed: []
+candidates:
+  - id: df-opt-docs
+    capabilities:
+      - docs.writing
+    stars: 1600
+  - id: df-tokens
+    name: Token Builder
+    capabilities:
+      - design.frontend
+    stars: 3700
+  - id: df-components
+    name: Component Kit
+    capabilities:
+      - design.frontend
+    stars: 3100
+  - id: df-thumbs
+    name: Thumbnail Crafter
+    capabilities:
+      - design.thumbnail
+    stars: 2300
+  - id: df-system
+    name: Design System
+    capabilities:
+      - design.frontend
+      - design.thumbnail
+    stars: 2000
+  - id: df-a11y
+    name: A11y Checker
+    capabilities:
+      - design.frontend
+    stars: 1500
+  - id: pop-test-pilot
+    name: Test Pilot
+    capabilities:
+      - testing.runner
+      - testing.e2e
+    stars: 180000
+  - id: pop-frame-stats
+    name: Frame Stats
+    capabilities:
+      - data.analysis
+    stars: 110000
+requiredCapabilities:
+  - design.frontend
+  - design.thumbnail
+optionalCapabilities:
+  - docs.writing
+expectedRequiredIds:
+  - df-tokens
+  - df-components
+  - df-thumbs
+  - df-system
+  - df-a11y
+expectedRedundantIds: []
+expectedOptionalIds:
+  - df-opt-docs
+unacceptableIds:
+  - pop-test-pilot
+  - pop-frame-stats
+rationale: Figma research centers on tokens and components, so labels mirror design capabilities and popular test and data skills are unacceptable.

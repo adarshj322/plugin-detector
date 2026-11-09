@@ -1,0 +1,47 @@
+{
+  "name": "plugin-detector",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "Local-first CLI that inventories harness plugins, recommends candidates, and installs only with explicit consent.",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adarshj322/plugin-detector.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/adarshj322/plugin-detector#readme",
+  "bugs": {
+    "url": "https://github.com/adarshj322/plugin-detector/issues"
+  },
+  "scripts": {
+    "benchmark": "node dist/src/index.js benchmark --fixtures ../../fixtures/benchmark --fail-on-low-value"
+  },
+  "bin": {
+    "plugin-detector": "./dist/src/index.js"
+  },
+  "exports": {
+    ".": "./dist/src/index.js",
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/src/index.d.ts",
+  "files": [
+    "dist/src"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@plugin-detector/claude-code": "0.1.0",
+    "@plugin-detector/codex": "0.1.0",
+    "@plugin-detector/core": "0.1.0",
+    "@plugin-detector/cursor": "0.1.0",
+    "@plugin-detector/opencode": "0.1.0",
+    "@plugin-detector/profiles": "0.1.0",
+    "@plugin-detector/registry": "0.1.0",
+    "zod": "4.6.7"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": ".*",
+        "hooks": [{ "type": "command", "command": "echo user-scope-hook" }]
+      }
+    ]
+  }
+}

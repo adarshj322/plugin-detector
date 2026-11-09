@@ -1,0 +1,63 @@
+{
+  // Marketplace metadata lives here; plugin records preserve the marketplace
+  // name and pinned version in their id. configRefs point back at this file.
+  "installedMarketplaces": {
+    "official": {
+      "source": "github:anthropics/claude-marketplace",
+      "installLocation": "~/.claude/plugins/marketplaces/official"
+    },
+    "community": {
+      "source": "github:example/community-plugins",
+      "installLocation": "~/.claude/plugins/marketplaces/community"
+    },
+    "thirdparty": {
+      "source": "https://plugins.example.com/marketplace.json",
+      "installLocation": "~/.claude/plugins/marketplaces/thirdparty"
+    }
+  },
+  // installedPlugins carries scope + pinned version; enabledPlugins is the
+  // on/off switch (false = disabled but still installed).
+  "installedPlugins": {
+    "reviewer@official": {
+      "name": "reviewer",
+      "marketplace": "official",
+      "version": "1.4.0",
+      "scope": "user",
+      "enabled": true
+    },
+    "e2e-help@community": {
+      "name": "e2e-help",
+      "marketplace": "community",
+      "version": "0.9.2",
+      "scope": "project",
+      "enabled": true
+    },
+    "scratchpad@thirdparty": {
+      "name": "scratchpad",
+      "marketplace": "thirdparty",
+      "version": "2.0.1",
+      "scope": "local",
+      "enabled": true
+    },
+    "old-linter@thirdparty": {
+      "name": "old-linter",
+      "marketplace": "thirdparty",
+      "version": "0.3.0",
+      "scope": "user",
+      "enabled": true
+    },
+    "noversion@community": {
+      "name": "noversion",
+      "marketplace": "community",
+      "scope": "project",
+      "enabled": true
+    }
+  },
+  "enabledPlugins": {
+    "reviewer@official": true,
+    "e2e-help@community": true,
+    "scratchpad@thirdparty": true,
+    "old-linter@thirdparty": false,
+    "mystery@unlisted": true
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ok-server": {
+      "command": "node",
+      "enabled": true
+    }
+  },
+  "labFeatures": {
+    "turbo": true
+  }
+}

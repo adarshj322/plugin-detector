@@ -1,0 +1,72 @@
+# Benchmark workflow. Terraform root expecting plan and release help.
+id: ops-terraform
+domain: devops-infrastructure
+declaration: devops-infrastructure
+signals:
+  - terraform-root
+  - github-actions
+  - prometheus-config
+installed: []
+candidates:
+  - id: ops-opt-runbook
+    capabilities:
+      - docs.writing
+    stars: 1700
+  - id: ops-plan
+    name: Plan Reviewer
+    capabilities:
+      - ci.release
+    stars: 3800
+  - id: ops-containers
+    name: Container Helper
+    capabilities:
+      - containers.orchestration
+    stars: 3200
+  - id: ops-deps
+    name: Dependency Scanner
+    capabilities:
+      - security.dependencies
+    stars: 2900
+  - id: ops-harness
+    name: Harness Manager
+    capabilities:
+      - harness.management
+    stars: 2100
+  - id: ops-release
+    name: Release Runner
+    capabilities:
+      - ci.release
+      - containers.orchestration
+    stars: 1800
+  - id: pop-caption-pro
+    name: Caption Pro
+    capabilities:
+      - speech.captions
+      - design.thumbnail
+    stars: 95000
+  - id: pop-cite-wise
+    name: Cite Wise
+    capabilities:
+      - docs.writing
+      - publishing.delivery
+    stars: 88000
+requiredCapabilities:
+  - ci.release
+  - containers.orchestration
+  - security.dependencies
+  - harness.management
+optionalCapabilities:
+  - docs.writing
+expectedRequiredIds:
+  - ops-plan
+  - ops-containers
+  - ops-deps
+  - ops-harness
+  - ops-release
+expectedRedundantIds: []
+expectedOptionalIds:
+  - ops-opt-runbook
+unacceptableIds:
+  - pop-caption-pro
+  - pop-cite-wise
+rationale: Terraform research centers on plans and releases, so labels mirror delivery capabilities and popular media and writing skills are unacceptable.

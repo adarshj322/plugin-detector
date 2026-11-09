@@ -1,0 +1,2 @@
+{ this is not valid JSON, trailing commas are fine but this isn't,,,
+  /* unterminated block comment

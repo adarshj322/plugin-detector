@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "."
+  },
+  "include": ["src", "test"],
+  "references": [
+    { "path": "../core" },
+    { "path": "../registry" },
+    { "path": "../profiles" },
+    { "path": "../adapters/opencode" },
+    { "path": "../adapters/claude-code" },
+    { "path": "../adapters/codex" },
+    { "path": "../adapters/cursor" }
+  ]
+}

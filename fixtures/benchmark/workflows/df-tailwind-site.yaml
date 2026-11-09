@@ -1,0 +1,62 @@
+# Benchmark workflow. Tailwind site expecting utility styling and prototypes.
+id: df-tailwind-site
+domain: design-frontend
+declaration: design-frontend
+signals:
+  - tailwind-config
+  - css-modules
+  - framer-project
+installed: []
+candidates:
+  - id: df-utilities
+    name: Utility Styler
+    capabilities:
+      - design.frontend
+    stars: 3200
+  - id: df-proto
+    name: Prototype Builder
+    capabilities:
+      - design.frontend
+      - design.thumbnail
+    stars: 2400
+  - id: df-palette
+    name: Palette Maker
+    capabilities:
+      - design.frontend
+    stars: 1800
+  - id: df-cards
+    name: Card Designer
+    capabilities:
+      - design.thumbnail
+    stars: 1600
+  - id: df-layout
+    name: Layout Grid
+    capabilities:
+      - design.frontend
+    stars: 1400
+  - id: pop-test-pilot
+    name: Test Pilot
+    capabilities:
+      - testing.runner
+      - testing.e2e
+    stars: 180000
+  - id: pop-frame-stats
+    name: Frame Stats
+    capabilities:
+      - data.analysis
+    stars: 110000
+requiredCapabilities:
+  - design.frontend
+  - design.thumbnail
+optionalCapabilities: []
+expectedRequiredIds:
+  - df-utilities
+  - df-proto
+  - df-palette
+  - df-cards
+  - df-layout
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-test-pilot
+  - pop-frame-stats
+rationale: Tailwind research pairs utilities with prototypes, so labels use design capabilities and popular test and data skills are unacceptable.

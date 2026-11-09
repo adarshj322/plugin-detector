@@ -1,0 +1,19 @@
+{
+  // Project settings: hooks keyed by event with per-matcher entries. The
+  // adapter records event/matcher names only; hook command strings are never
+  // executed and never copied into records.
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [{ "type": "command", "command": "grep -r C0MMAND-SECRET-marker .claude/hooks/lint.sh" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [{ "type": "command", "command": "echo done" }]
+      }
+    ]
+  }
+}

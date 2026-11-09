@@ -1,0 +1,36 @@
+# v1 use-case profile: general software development.
+id: software-development
+version: 1
+displayName: Software Development
+description: Building, testing, and shipping code in a general-purpose software repo.
+capabilities:
+  - testing.runner
+  - testing.e2e
+  - code-review.quality
+  - code-review.security
+  - debugging.systematic
+  - vcs.workflow
+  - docs.writing
+signalQueries:
+  - package-manifest
+  - tsconfig
+  - eslint-config
+  - pytest
+  - python-manifest
+  - cargo-manifest
+  - go-module
+  - git-repo
+  - ci-config
+  - dockerfile
+negativeSignals:
+  - premiere-project
+  - final-cut-library
+  - davinci-project
+  - lightroom-catalog
+defaultDomains:
+  - coding
+  - testing
+expectedValueTiers:
+  - time-saved
+  - quality-uplift
+  - risk-reduction

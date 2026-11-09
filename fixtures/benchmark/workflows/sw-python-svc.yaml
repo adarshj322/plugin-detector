@@ -1,0 +1,67 @@
+# Benchmark workflow. Python service expecting pytest, security review, and docs.
+id: sw-python-svc
+domain: software-development
+declaration: software-development
+signals:
+  - python-manifest
+  - pytest
+  - git-repo
+installed: []
+candidates:
+  - id: sw-pytest-run
+    name: Pytest Runner
+    capabilities:
+      - testing.runner
+    stars: 5100
+  - id: sw-sec-review
+    name: Security Reviewer
+    capabilities:
+      - code-review.security
+    stars: 3900
+  - id: sw-trace-debug
+    name: Trace Debugger
+    capabilities:
+      - debugging.systematic
+    stars: 2200
+  - id: sw-e2e-flow
+    name: E2E Flow
+    capabilities:
+      - testing.e2e
+      - docs.writing
+    stars: 1600
+  - id: sw-changelog
+    name: Changelog Writer
+    capabilities:
+      - docs.writing
+    stars: 900
+  - id: pop-render-farm
+    name: Render Farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+  - id: pop-caption-pro
+    name: Caption Pro
+    capabilities:
+      - speech.captions
+      - design.thumbnail
+    stars: 95000
+requiredCapabilities:
+  - testing.runner
+  - testing.e2e
+  - code-review.quality
+  - code-review.security
+  - debugging.systematic
+  - vcs.workflow
+  - docs.writing
+optionalCapabilities: []
+expectedRequiredIds:
+  - sw-pytest-run
+  - sw-sec-review
+  - sw-trace-debug
+  - sw-e2e-flow
+  - sw-changelog
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-render-farm
+  - pop-caption-pro
+rationale: Python service research points at pytest and security review, so labels follow profile capabilities while popular media skills stay unacceptable.

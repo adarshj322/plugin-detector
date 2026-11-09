@@ -1,0 +1,31 @@
+# v1 use-case profile: infrastructure and delivery operations.
+id: devops-infrastructure
+version: 1
+displayName: DevOps Infrastructure
+description: Provisioning infrastructure and running release pipelines.
+capabilities:
+  - ci.release
+  - containers.orchestration
+  - security.dependencies
+  - harness.management
+signalQueries:
+  - terraform-root
+  - dockerfile
+  - ci-config
+  - kubernetes-manifest
+  - ansible-playbook
+  - github-actions
+  - helm-chart
+  - prometheus-config
+negativeSignals:
+  - premiere-project
+  - final-cut-library
+  - latex-manifest
+  - zotero-library
+defaultDomains:
+  - delivery
+  - operations
+expectedValueTiers:
+  - time-saved
+  - cost-reduction
+  - risk-reduction

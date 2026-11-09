@@ -1,0 +1,67 @@
+# Benchmark workflow. Rust CLI expecting tests, dual review, and git workflow.
+id: sw-rust-cli
+domain: software-development
+declaration: software-development
+signals:
+  - cargo-manifest
+  - git-repo
+  - ci-config
+installed: []
+candidates:
+  - id: sw-cargo-test
+    name: Cargo Tester
+    capabilities:
+      - testing.runner
+    stars: 3300
+  - id: sw-dual-review
+    name: Dual Reviewer
+    capabilities:
+      - code-review.quality
+      - code-review.security
+    stars: 2900
+  - id: sw-cli-debug
+    name: CLI Debugger
+    capabilities:
+      - debugging.systematic
+    stars: 1400
+  - id: sw-release-notes
+    name: Release Notes
+    capabilities:
+      - docs.writing
+    stars: 800
+  - id: sw-commit-flow
+    name: Commit Flow
+    capabilities:
+      - vcs.workflow
+    stars: 2100
+  - id: pop-render-farm
+    name: Render Farm
+    capabilities:
+      - media.transcode
+    stars: 120000
+  - id: pop-caption-pro
+    name: Caption Pro
+    capabilities:
+      - speech.captions
+      - design.thumbnail
+    stars: 95000
+requiredCapabilities:
+  - testing.runner
+  - testing.e2e
+  - code-review.quality
+  - code-review.security
+  - debugging.systematic
+  - vcs.workflow
+  - docs.writing
+optionalCapabilities: []
+expectedRequiredIds:
+  - sw-cargo-test
+  - sw-dual-review
+  - sw-cli-debug
+  - sw-release-notes
+  - sw-commit-flow
+expectedRedundantIds: []
+unacceptableIds:
+  - pop-render-farm
+  - pop-caption-pro
+rationale: Rust CLI research stresses cargo tests and thorough review, so capability labels track the profile and media skills are unacceptable.

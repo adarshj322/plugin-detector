@@ -1,0 +1,78 @@
+{
+  "frozenAt": "2026-11-09",
+  "note": "Hand-frozen popularity-only baseline for the precision@5 gate: twelve real, genuinely popular repositories, ordered by raw GitHub stars recorded 2026-11-09. Capability labels are owner-reviewed editorial labels for what each project offers, NOT fit labels for any workflow. This is deliberately a star-count dump: a raw popularity ranking must not beat use-case-fit recommendations. Frozen: do not regenerate from live sources. Owner-review protocol for label/baseline changes is in docs/benchmark.md.",
+  "candidates": [
+    {
+      "id": "torvalds/linux",
+      "name": "Linux kernel",
+      "capabilities": ["debugging.systematic"],
+      "stars": 254921
+    },
+    {
+      "id": "react/react",
+      "name": "React",
+      "capabilities": ["design.frontend"],
+      "stars": 252429
+    },
+    {
+      "id": "microsoft/vscode",
+      "name": "Visual Studio Code",
+      "capabilities": ["docs.writing"],
+      "stars": 195212
+    },
+    {
+      "id": "ollama/ollama",
+      "name": "Ollama",
+      "capabilities": ["planning.orchestration"],
+      "stars": 186411
+    },
+    {
+      "id": "langchain-ai/langchain",
+      "name": "LangChain",
+      "capabilities": ["planning.orchestration"],
+      "stars": 149240
+    },
+    {
+      "id": "Comfy-Org/ComfyUI",
+      "name": "ComfyUI",
+      "capabilities": ["media.transcode", "design.thumbnail"],
+      "stars": 145852
+    },
+    {
+      "id": "vercel/next.js",
+      "name": "Next.js",
+      "capabilities": ["design.frontend"],
+      "stars": 143429
+    },
+    {
+      "id": "kubernetes/kubernetes",
+      "name": "Kubernetes",
+      "capabilities": ["containers.orchestration"],
+      "stars": 128938
+    },
+    {
+      "id": "denoland/deno",
+      "name": "Deno",
+      "capabilities": ["testing.runner"],
+      "stars": 108924
+    },
+    {
+      "id": "pytorch/pytorch",
+      "name": "PyTorch",
+      "capabilities": ["data.analysis"],
+      "stars": 105271
+    },
+    {
+      "id": "microsoft/playwright",
+      "name": "Playwright",
+      "capabilities": ["testing.e2e", "testing.runner"],
+      "stars": 99636
+    },
+    {
+      "id": "oven-sh/bun",
+      "name": "Bun",
+      "capabilities": ["testing.runner"],
+      "stars": 96722
+    }
+  ]
+}

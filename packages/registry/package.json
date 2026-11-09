@@ -1,0 +1,36 @@
+{
+  "name": "@plugin-detector/registry",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "Registry snapshot loader, source refresh, normalization, and trust classification for plugin-detector.",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adarshj322/plugin-detector.git",
+    "directory": "packages/registry"
+  },
+  "homepage": "https://github.com/adarshj322/plugin-detector#readme",
+  "bugs": {
+    "url": "https://github.com/adarshj322/plugin-detector/issues"
+  },
+  "exports": {
+    ".": "./dist/src/index.js",
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/src/index.d.ts",
+  "files": [
+    "dist/src",
+    "data"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@plugin-detector/core": "0.1.0",
+    "zod": "4.6.7"
+  }
+}

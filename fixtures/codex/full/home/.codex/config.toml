@@ -1,0 +1,19 @@
+model = "gpt-5-codex"
+approval_policy = "on-request"
+timeout_seconds = 30
+temperature = 0.7
+
+plugins = ["reviewer@1.4.0", "e2e-help"]
+
+[mcp_servers.reviewer]
+command = "node"
+args = ["review-server.js"]
+enabled = true
+
+[mcp_servers.reviewer.env]
+REVIEW_TOKEN = "sk-codex-secret-value-that-must-never-appear"
+PUBLIC_FLAG = "true"
+
+[mcp_servers.disabled-docs]
+url = "https://docs.example.com/mcp"
+enabled = false
