@@ -542,3 +542,29 @@ test("CLI-level gate fails on a realistic regression and prints the offender", a
   assert.match(output, /offenders=pop-fit-impostor/);
   assert.match(output, /fail:.*pop-fit-impostor/);
 });
+
+test("gate fails on missing required and redundant labels, not only optional", () => {
+  const missing: BenchmarkSummary = {
+    workflows: [
+      {
+        id: "missing",
+        domain: "software-development",
+        precisionAt5: 0.9,
+        baselinePrecisionAt5: 0.2,
+        beatBaseline: true,
+        offenders: [],
+        top: [],
+        missingRequired: ["core-test-runner"],
+        missingRedundant: ["sw-git-pop-helper"],
+        missingOptional: [],
+      },
+    ],
+    meanPrecisionAt5: 0.9,
+    meanBaselinePrecisionAt5: 0.2,
+    offenderCount: 0,
+  };
+  const gated = gateBenchmark(missing, { failOnLowValue: true });
+  assert.equal(gated.exitCode, 1);
+  assert.ok(gated.failures.some((f) => /expected required/.test(f)));
+  assert.ok(gated.failures.some((f) => /expected redundant/.test(f)));
+});

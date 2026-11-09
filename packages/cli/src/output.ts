@@ -25,6 +25,8 @@ export type HarnessInventory = z.infer<typeof HarnessInventorySchema>;
 export const InventoryJsonSchema = z.object({
   command: z.literal("inventory"),
   facts: z.object({ harnesses: z.array(HarnessInventorySchema) }),
+  estimates: z.object({}),
+  untrustedCopy: z.object({ withheld: z.array(z.string()) }),
 });
 export type InventoryJson = z.infer<typeof InventoryJsonSchema>;
 
@@ -73,6 +75,7 @@ export const ExplainJsonSchema = z.object({
     trust: z.enum(["verified", "curated", "unverified"]),
     capabilities: z.array(z.string().min(1)),
     license: z.string(),
+    verdict: Verdict,
     riskFlags: z.array(z.string().min(1)),
     snapshotGeneratedAt: z.string().min(1),
     snapshotAgeDays: z.number().nonnegative(),
@@ -122,6 +125,15 @@ export const PlanJsonSchema = z.object({
     harness: z.string().min(1),
     trust: z.enum(["verified", "curated", "unverified"]),
     status: z.enum(["write", "recipe"]),
+    source: z.string().min(1),
+    canonicalUrl: z.string().min(1),
+    artifactType: z.string().min(1),
+    pinnedRef: z.string().min(1),
+    license: z.string().min(1),
+    trustEvidence: z.string().min(1),
+    permissions: z.string().min(1),
+    envVars: z.string().min(1),
+    sideEffects: z.string().min(1),
     plan: InstallPlanSchema,
     planHash: z.string().regex(/^[0-9a-f]{64}$/),
     recipe: z.string().optional(),
@@ -152,6 +164,16 @@ export const InstallJsonSchema = z.object({
   }),
 });
 export type InstallJson = z.infer<typeof InstallJsonSchema>;
+
+export const RollbackJsonSchema = z.object({
+  command: z.literal("rollback"),
+  facts: z.object({
+    candidateId: z.string().min(1),
+    harness: z.string().min(1),
+    restored: z.array(z.string()),
+  }),
+});
+export type RollbackJson = z.infer<typeof RollbackJsonSchema>;
 
 // Section printers keep the same three headers on stdout so scripted
 // consumers can split on them as reliably as --json consumers split keys.

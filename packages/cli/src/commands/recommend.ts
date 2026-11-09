@@ -1,7 +1,7 @@
 import {
   DEFAULT_REQUIRED_THRESHOLD,
   decideVerdict,
-  scoreCandidate,
+  scoreCandidateSet,
   type CapabilityRecord,
   type HarnessId,
 } from "@plugin-detector/core";
@@ -176,28 +176,28 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
         profile.signalQueries.length;
   const profileCaps = new Set<string>(profile.capabilities);
 
-  const scored = snapshot.candidates.map((candidate) => {
-    const useCaseMatch =
+  const compatibilityFor = (candidate: (typeof snapshot.candidates)[number]) =>
+    compatAdapter ? compatAdapter.compatibility(candidate) : 1;
+  // Source listings that never probed a manifest are not recommendations:
+  // they stay visible through `explain` and the refresh manifest instead.
+  const probed = snapshot.candidates.filter(
+    (candidate) => candidate.artifactProbed !== false,
+  );
+  const scored = scoreCandidateSet(probed, {
+    installedCapabilities: installedRecords,
+    profileDomains: [...profile.capabilities],
+    harness: (selected === "unknown" ? "unknown" : selected) as HarnessId,
+    projectSignalMatch,
+    useCaseMatchFor: (candidate) =>
       candidate.capabilities.length === 0
         ? 0
         : candidate.capabilities.filter((c) => profileCaps.has(c)).length /
-          candidate.capabilities.length;
-    const rec = scoreCandidate({
-      candidate,
-      installedCapabilities: installedRecords,
-      profileDomains: [...profile.capabilities],
-      harness: (selected === "unknown" ? "unknown" : selected) as HarnessId,
-      useCaseMatch,
-      projectSignalMatch,
-    });
-    // shortcut: adapter compatibility is displayed but not yet fed into the
-    // scorer (scoring.ts treats every artifact as installable); wiring lands
-    // in a later task alongside adapter-gated verdicts.
-    const compatibility = compatAdapter
-      ? compatAdapter.compatibility(candidate)
-      : null;
-    return { rec, compatibility };
-  });
+          candidate.capabilities.length,
+    compatibilityFor,
+  }).map((rec) => ({
+    rec,
+    compatibility: compatAdapter ? compatibilityFor(rec.candidate) : null,
+  }));
   scored.sort((a, b) =>
     b.rec.score === a.rec.score
       ? a.rec.candidate.id < b.rec.candidate.id

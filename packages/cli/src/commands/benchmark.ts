@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import {
-  scoreCandidate,
+  scoreCandidateSet,
   type Candidate,
   type CapabilityRecord,
 } from "@plugin-detector/core";
@@ -311,24 +311,24 @@ export function scoreWorkflow(
     ...workflow.optionalCapabilities,
   ]);
 
-  const scoreAll = (specs: BenchmarkCandidateSpec[], domain: string) =>
-    specs.map((spec) => {
-      const candidate = toCandidate(spec, domain);
-      const useCaseMatch =
+  const scoreAll = (specs: BenchmarkCandidateSpec[], domain: string) => {
+    const candidates = specs.map((spec) => toCandidate(spec, domain));
+    const recs = scoreCandidateSet(candidates, {
+      installedCapabilities: installed,
+      profileDomains: [...profile.capabilities],
+      harness: "unknown",
+      projectSignalMatch,
+      useCaseMatchFor: (candidate) =>
         candidate.capabilities.length === 0
           ? 0
           : candidate.capabilities.filter((c) => profileCaps.has(c)).length /
-            candidate.capabilities.length;
-      const rec = scoreCandidate({
-        candidate,
-        installedCapabilities: installed,
-        profileDomains: [...profile.capabilities],
-        harness: "unknown",
-        useCaseMatch,
-        projectSignalMatch,
-      });
-      return { candidate, rec };
+            candidate.capabilities.length,
     });
+    return candidates.map((candidate, i) => ({
+      candidate,
+      rec: recs[i] as (typeof recs)[number],
+    }));
+  };
 
   const scored = scoreAll(workflow.candidates, workflow.domain);
   scored.sort((a, b) =>
@@ -471,6 +471,16 @@ export function gateBenchmark(
   for (const result of summary.workflows) {
     for (const offender of result.offenders) {
       failures.push(`${result.id}: low-value ${offender.candidateId} (${offender.reason})`);
+    }
+    for (const id of result.missingRequired) {
+      failures.push(
+        `${result.id}: expected required candidate ${id} did not receive that verdict`,
+      );
+    }
+    for (const id of result.missingRedundant) {
+      failures.push(
+        `${result.id}: expected redundant candidate ${id} did not receive that verdict`,
+      );
     }
     for (const id of result.missingOptional) {
       failures.push(

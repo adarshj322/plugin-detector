@@ -1,4 +1,8 @@
-import { scoreBreakdown, type CapabilityRecord } from "@plugin-detector/core";
+import {
+  scoreBreakdown,
+  scoreCandidate,
+  type CapabilityRecord,
+} from "@plugin-detector/core";
 import { loadSnapshot } from "@plugin-detector/registry";
 import {
   ExplainJsonSchema,
@@ -75,7 +79,7 @@ export async function explain(argv: string[]): Promise<ExplainResult> {
   // Self-context scoring: explain has no profile, so the candidate is scored
   // against its own declared domains (useCaseMatch 1, no project signals).
   // This shows component behavior, never a recommendation verdict.
-  const breakdown = scoreBreakdown({
+  const scoreInput = {
     candidate,
     installedCapabilities: installed,
     profileDomains: candidate.useCaseDomains,
@@ -87,7 +91,10 @@ export async function explain(argv: string[]): Promise<ExplainResult> {
       | "unknown",
     useCaseMatch: 1,
     projectSignalMatch: 0,
-  });
+    compatibility: compatibilityByHarness[selected] ?? 1,
+  };
+  const breakdown = scoreBreakdown(scoreInput);
+  const verdict = scoreCandidate(scoreInput).verdict;
   const overlapRecords = installed
     .filter((record) =>
       record.capabilities.some((cap) => candidate.capabilities.includes(cap)),
@@ -128,6 +135,7 @@ export async function explain(argv: string[]): Promise<ExplainResult> {
           trust,
           capabilities: candidate.capabilities,
           license: candidate.license,
+          verdict,
           riskFlags,
           snapshotGeneratedAt: generatedAt,
           snapshotAgeDays: Math.max(0, snapshotAgeDays),
@@ -157,6 +165,7 @@ export async function explain(argv: string[]): Promise<ExplainResult> {
     `pinned-ref: ${candidate.pinnedRef}`,
     `source: ${provenance?.sourceUrl ?? candidate.sources[0] ?? "(none)"}`,
     `trust: ${trust}`,
+    `verdict: ${verdict} (self-context; run recommend for a use-case verdict)`,
     `license: ${candidate.license}`,
     `capabilities: ${candidate.capabilities.join(", ") || "(none)"}`,
     `risk-flags: ${riskFlags.join(", ")}`,

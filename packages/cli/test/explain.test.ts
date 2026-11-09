@@ -151,3 +151,30 @@ test("unknown candidate id exits 1", async () => {
   });
   assert.equal(code, 1);
 });
+
+test("explain surfaces a risky verdict for a hard-gated candidate", async () => {
+  const env = setup();
+  const risky = { ...CANDIDATE, auditStatus: "critical" as const };
+  const snapshot = buildSnapshot(
+    [{ candidate: risky, sourceUrl: "https://example.com/cand-explain" }],
+    new Date("2026-11-08T00:00:00.000Z"),
+  );
+  writeFileSync(
+    join(env.cache, "registry-snapshot.json"),
+    JSON.stringify(snapshot),
+  );
+  const { logs } = await capture(() =>
+    explain([
+      "cand-explain",
+      "--cache-dir",
+      env.cache,
+      "--home",
+      env.home,
+      "--root",
+      env.root,
+      "--json",
+    ]),
+  );
+  const parsed = ExplainJsonSchema.parse(JSON.parse(logs.join("\n")));
+  assert.equal(parsed.facts.verdict, "risky");
+});

@@ -207,3 +207,21 @@ test("scoring is deterministic", () => {
     "https://example.com/repo",
   ]);
 });
+
+test("adapter compatibility multiplies the score and zero is a hard gate", () => {
+  const base = {
+    candidate: candidate(),
+    installedCapabilities: [],
+    profileDomains: ["testing.runner"],
+    harness: "opencode" as const,
+    useCaseMatch: 1,
+    projectSignalMatch: 1,
+  };
+  const compatible = scoreCandidate({ ...base, compatibility: 1 });
+  const partial = scoreCandidate({ ...base, compatibility: 0.5 });
+  const incompatible = scoreCandidate({ ...base, compatibility: 0 });
+  assert.ok(partial.score < compatible.score, "compatibility must multiply fit");
+  assert.equal(incompatible.score, 0);
+  assert.equal(incompatible.verdict, "risky");
+  assert.match(incompatible.reasoning, /incompatible harness/);
+});

@@ -202,3 +202,39 @@ test("unknown use case exits 2 listing valid ids", async () => {
   assert.equal(code, 2);
   assert.match(errors.join("\n"), /software-development/);
 });
+
+test("adapter compatibility zero hard-gates and never returns required", async () => {
+  const env = setup();
+  writeSnapshot(env.cache, [
+    candidate("cand-1", { artifactType: "tool" }),
+    candidate("cand-2"),
+  ]);
+  let code = -1;
+  const { logs } = await capture(async () => {
+    code = (
+      await recommend([...baseArgs(env), "--harness", "opencode", "--json"])
+    ).exitCode;
+  });
+  assert.equal(code, 0);
+  const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
+  assert.ok(
+    parsed.facts.recommendations.every((r) => r.candidateId !== "cand-1"),
+    "incompatible tool must be excluded from the recommendation set",
+  );
+  assert.ok(
+    parsed.facts.recommendations.every((r) => r.verdict !== "required" || r.candidateId !== "cand-1"),
+  );
+});
+
+test("source-declared unprobed candidates are excluded from recommendations", async () => {
+  const env = setup();
+  writeSnapshot(env.cache, [
+    candidate("cand-1", { artifactProbed: false }),
+    candidate("cand-2"),
+  ]);
+  const { logs } = await capture(() =>
+    recommend([...baseArgs(env), "--json"]),
+  );
+  const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
+  assert.ok(parsed.facts.recommendations.every((r) => r.candidateId !== "cand-1"));
+});

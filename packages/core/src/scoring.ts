@@ -13,6 +13,9 @@ export interface ScoreInput {
   harness: HarnessId;
   useCaseMatch: number;
   projectSignalMatch: number;
+  // Adapter-provided 0-1 compatibility. Omitted means 1 (no harness-specific
+  // constraint, e.g. an unknown harness or a fixture corpus).
+  compatibility?: number;
 }
 
 export interface ScoreBreakdown {
@@ -149,9 +152,7 @@ export function scoreBreakdown(input: ScoreInput): ScoreBreakdown {
   );
   const value = credibilityOf(input.candidate);
   const immediacy = domainOverlap(input.candidate, input.profileDomains);
-  // shortcut: adapter harness-compatibility scores land in later tasks; v1
-  // treats every artifact type as installable on every harness.
-  const compatibility = 1;
+  const compatibility = clamp01(input.compatibility ?? 1);
   let overlap = 1;
   for (const record of input.installedCapabilities) {
     if (sharesCapability(input.candidate, record)) {
@@ -183,6 +184,8 @@ function hardGateReason(
   compatibility: number,
 ): string | null {
   if (candidate.license.trim().length === 0) return "missing license";
+  if (candidate.artifactProbed === false)
+    return "artifact was declared by a source listing but never probed";
   if (candidate.auditStatus === "critical")
     return "critical audit finding for the pinned artifact";
   if (candidate.maintenance === "archived") return "archived maintenance";
@@ -203,6 +206,34 @@ function redundantReason(input: ScoreInput): string | null {
     ),
   );
   return fullyCovered ? "capability already installed and enabled" : null;
+}
+
+export interface ScoreSetContext {
+  installedCapabilities: CapabilityRecord[];
+  profileDomains: string[];
+  harness: HarnessId;
+  projectSignalMatch: number;
+  useCaseMatchFor: (candidate: Candidate) => number;
+  compatibilityFor?: (candidate: Candidate) => number;
+}
+
+// Shared by `recommend` and the benchmark so both exercise identical
+// candidate-building rules (use-case match, compatibility, project signals).
+export function scoreCandidateSet(
+  candidates: Candidate[],
+  context: ScoreSetContext,
+): Recommendation[] {
+  return candidates.map((candidate) =>
+    scoreCandidate({
+      candidate,
+      installedCapabilities: context.installedCapabilities,
+      profileDomains: context.profileDomains,
+      harness: context.harness,
+      useCaseMatch: context.useCaseMatchFor(candidate),
+      projectSignalMatch: context.projectSignalMatch,
+      compatibility: context.compatibilityFor?.(candidate) ?? 1,
+    }),
+  );
 }
 
 export function scoreCandidate(input: ScoreInput): Recommendation {

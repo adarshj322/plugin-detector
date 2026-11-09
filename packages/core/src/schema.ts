@@ -62,6 +62,10 @@ export const CandidateSchema = z.object({
   packageName: z.string().min(1).optional(),
   installMode: z.enum(["verified", "manual"]),
   lastVerified: isoDate,
+  // False when the record only declares an artifact ref from a listing and no
+  // manifest/package metadata was fetched. Unprobed candidates are excluded
+  // from recommendations and can never produce a write plan.
+  artifactProbed: z.boolean().optional(),
   provenance: z.enum(["official", "publisher", "community", "unknown"]),
   risk: z.enum(["low", "medium", "high", "critical"]),
   maintenance: z.enum(["active", "stale", "archived", "unknown"]),
