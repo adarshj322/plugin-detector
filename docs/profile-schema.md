@@ -29,11 +29,13 @@ set is:
 ```text
 testing.runner            testing.e2e              code-review.quality
 code-review.security      planning.orchestration   planning.brainstorm
-debugging.systematic      vcs.workflow              ci.release
-containers.orchestration  docs.writing              design.frontend
-design.thumbnail          data.analysis             media.transcode
-speech.captions           publishing.delivery       security.dependencies
-harness.management
+debugging.systematic      vcs.workflow             ci.release
+containers.orchestration  cloud.infra              docs.writing
+design.frontend           design.thumbnail         data.analysis
+data.database             browser.automation       search.web
+media.transcode           media.video              media.image
+speech.captions           collaboration.chat       publishing.delivery
+security.dependencies     harness.management
 ```
 
 Aliases are accepted only for the explicit table in

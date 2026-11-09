@@ -1,18 +1,16 @@
 import type { CanonicalCapabilityId } from "@plugin-detector/core";
 
 // Deterministic capability inference for probed artifact evidence only. Each
-// rule is an explicit phrase list with a minimum matched length; generic words
-// ("search", "cloud", "video") intentionally map to nothing.
+// rule is an explicit phrase list; the phrase itself is the minimum evidence,
+// and generic words ("search", "cloud", "video") intentionally map to nothing.
 interface CapabilityRule {
   id: CanonicalCapabilityId;
-  minEvidenceLength: number;
   patterns: readonly RegExp[];
 }
 
 const RULES: readonly CapabilityRule[] = [
   {
     id: "testing.runner",
-    minEvidenceLength: 6,
     patterns: [
       /\btest runners?\b/i,
       /\bunit tests?\b/i,
@@ -24,18 +22,16 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "testing.e2e",
-    minEvidenceLength: 5,
     patterns: [
-      /\bend-to-end tests?(ing)?\b/i,
+      /\bend[\s-]+to[\s-]+end[\s-]+tests?(ing)?\b/i,
       /\be2e tests?(ing)?\b/i,
       /\be2e suites?\b/i,
       /\bcypress\b/i,
-      /\bbrowser end-to-end\b/i,
+      /\bbrowser[\s-]+end[\s-]+to[\s-]+end\b/i,
     ],
   },
   {
     id: "code-review.quality",
-    minEvidenceLength: 6,
     patterns: [
       /\bcode reviews?\b/i,
       /\bpull request reviews?\b/i,
@@ -47,7 +43,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "code-review.security",
-    minEvidenceLength: 4,
     patterns: [
       /\bsecurity reviews?\b/i,
       /\bsecurity audits?\b/i,
@@ -59,18 +54,16 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "planning.orchestration",
-    minEvidenceLength: 11,
     patterns: [
       /\btask orchestration\b/i,
       /\bworkflow orchestration\b/i,
-      /\b(multi-)?agent orchestration\b/i,
+      /\b(multi[\s-]+)?agent[\s-]+orchestration\b/i,
       /\bproject planning\b/i,
       /\borchestrators?\b/i,
     ],
   },
   {
     id: "planning.brainstorm",
-    minEvidenceLength: 8,
     patterns: [
       /\bbrainstorm(ing)?\b/i,
       /\bidea generation\b/i,
@@ -80,7 +73,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "debugging.systematic",
-    minEvidenceLength: 8,
     patterns: [
       /\bsystematic debugging\b/i,
       /\broot cause analysis\b/i,
@@ -91,7 +83,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "vcs.workflow",
-    minEvidenceLength: 11,
     patterns: [
       /\bgit workflow\b/i,
       /\bversion control\b/i,
@@ -103,7 +94,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "ci.release",
-    minEvidenceLength: 7,
     patterns: [
       /\bcontinuous integration\b/i,
       /\bci pipelines?\b/i,
@@ -115,7 +105,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "containers.orchestration",
-    minEvidenceLength: 6,
     patterns: [
       /\bdocker\b/i,
       /\bkubernetes\b/i,
@@ -127,7 +116,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "cloud.infra",
-    minEvidenceLength: 6,
     patterns: [
       /\bterraform\b/i,
       /\bcloudformation\b/i,
@@ -139,20 +127,19 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "docs.writing",
-    minEvidenceLength: 6,
     patterns: [
-      /\bdocumentation\b/i,
+      /\bwrit(e|es|ing) documentation\b/i,
       /\btechnical writing\b/i,
+      /\btechnical documentation\b/i,
+      /\bdocumentation (site|generator|tool|mcp)\b/i,
       /\bapi docs?\b/i,
       /\bdocs site\b/i,
-      /\bdocumentation site\b/i,
     ],
   },
   {
     id: "design.frontend",
-    minEvidenceLength: 8,
     patterns: [
-      /\bfront-?end\b/i,
+      /\bfront[\s-]?end\b/i,
       /\bui design\b/i,
       /\breact components?\b/i,
       /\btailwind\b/i,
@@ -162,7 +149,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "design.thumbnail",
-    minEvidenceLength: 9,
     patterns: [
       /\bthumbnails?\b/i,
       /\bcover images?\b/i,
@@ -171,7 +157,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "data.analysis",
-    minEvidenceLength: 6,
     patterns: [
       /\bdata analy(sis|tics)\b/i,
       /\bdataframes?\b/i,
@@ -182,7 +167,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "data.database",
-    minEvidenceLength: 5,
     patterns: [
       /\bdatabases?\b/i,
       /\bpostgres(ql)?\b/i,
@@ -194,7 +178,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "browser.automation",
-    minEvidenceLength: 8,
     patterns: [
       /\bbrowser automation\b/i,
       /\bheadless browsers?\b/i,
@@ -206,7 +189,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "search.web",
-    minEvidenceLength: 6,
     patterns: [
       /\bweb search\b/i,
       /\bsearch engines?\b/i,
@@ -218,7 +200,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "media.transcode",
-    minEvidenceLength: 5,
     patterns: [
       /\btranscod(e|es|ing)\b/i,
       /\bvideo conversions?\b/i,
@@ -229,7 +210,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "media.video",
-    minEvidenceLength: 10,
     patterns: [
       /\bvideo editing\b/i,
       /\bvideo editors?\b/i,
@@ -241,7 +221,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "media.image",
-    minEvidenceLength: 10,
     patterns: [
       /\bimage editing\b/i,
       /\bimage generation\b/i,
@@ -253,11 +232,10 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "speech.captions",
-    minEvidenceLength: 7,
     patterns: [
       /\bcaptions?\b/i,
       /\bsubtitles?\b/i,
-      /\bspeech-to-text\b/i,
+      /\bspeech[\s-]+to[\s-]+text\b/i,
       /\btranscription\b/i,
       /\bwhisper\b/i,
       /\bspeech recognition\b/i,
@@ -265,19 +243,17 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "collaboration.chat",
-    minEvidenceLength: 5,
     patterns: [
       /\bchat integrations?\b/i,
       /\bchat platforms?\b/i,
       /\bteam chats?\b/i,
-      /\bslack\b/i,
-      /\bdiscord\b/i,
       /\bmicrosoft teams\b/i,
+      /\bslack (integrations?|bots?|mcp|connectors?)\b/i,
+      /\bdiscord (bots?|integrations?)\b/i,
     ],
   },
   {
     id: "publishing.delivery",
-    minEvidenceLength: 11,
     patterns: [
       /\bcontent publishing\b/i,
       /\bpublishing pipelines?\b/i,
@@ -289,7 +265,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "security.dependencies",
-    minEvidenceLength: 4,
     patterns: [
       /\bdependency scanning\b/i,
       /\bdependency audits?\b/i,
@@ -301,7 +276,6 @@ const RULES: readonly CapabilityRule[] = [
   },
   {
     id: "harness.management",
-    minEvidenceLength: 13,
     patterns: [
       /\bharness management\b/i,
       /\bagent harness\b/i,
@@ -327,6 +301,14 @@ const INSTRUCTION_OVERRIDE =
 function sanitize(value: string): string {
   return value
     .normalize("NFC")
+    // Line breaks and tabs separate tokens; deleting them would glue
+    // "uses\nTerraform" into "usesTerraform".
+    .replace(/[\t\n\v\f\r\u0085\u2028\u2029]/gu, " ")
+    // `_` and `-` are word separators in artifact names (`postgres_helper`,
+    // `code-review-mcp`) but word characters/boundaries to \b. Treat both as
+    // spaces without loosening boundaries, so "databased" stays rejected.
+    .replace(/[_-]/gu, " ")
+    // Delete remaining controls and invisible format characters.
     .replace(/[\p{Cc}\p{Cf}\p{Cs}]/gu, "")
     .replace(/\s+/gu, " ")
     .trim();
@@ -376,7 +358,7 @@ export function inferCapabilities(
     let best: Hit | undefined;
     for (const pattern of rule.patterns) {
       const match = pattern.exec(haystack);
-      if (!match || match[0].length < rule.minEvidenceLength) continue;
+      if (!match) continue;
       if (best === undefined || match.index < best.index) {
         best = { id: rule.id, index: match.index, matched: match[0] };
       }

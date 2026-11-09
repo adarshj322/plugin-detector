@@ -88,7 +88,7 @@ test("output is deterministic, sorted, unique, canonical, and capped at 8", () =
     "continuous integration",
     "docker",
     "terraform",
-    "documentation",
+    "write documentation",
     "frontend",
     "thumbnail",
     "data analysis",
@@ -102,7 +102,7 @@ test("output is deterministic, sorted, unique, canonical, and capped at 8", () =
     "content publishing",
     "dependency scanning",
     "agent harness",
-    "slack",
+    "slack integration",
   ].join(" ");
   const first = inferCapabilities(text, "");
   const second = inferCapabilities(text, "");
@@ -151,4 +151,61 @@ test("matching uses word boundaries, not raw substrings", () => {
   assert.deepEqual(inferCapabilities("the database is ready", "").capabilities, [
     "data.database",
   ]);
+});
+
+test("underscored and zero-width-separated names still expose explicit words", () => {
+  assert.deepEqual(inferCapabilities("", "postgres_helper").capabilities, [
+    "data.database",
+  ]);
+  assert.deepEqual(inferCapabilities("", "playwright_mcp").capabilities, [
+    "browser.automation",
+  ]);
+  assert.deepEqual(inferCapabilities("", "slack-mcp").capabilities, [
+    "collaboration.chat",
+  ]);
+  // Zero-width format chars are deleted; the rule word stays intact.
+  assert.deepEqual(inferCapabilities("", "play\u200Bwright_mcp").capabilities, [
+    "browser.automation",
+  ]);
+});
+
+test("line-break and tab controls separate tokens instead of gluing them", () => {
+  const result = inferCapabilities(
+    "license: MIT\ndescription: uses\tTerraform",
+    "",
+  );
+  assert.deepEqual(result.capabilities, ["cloud.infra"]);
+  assert.ok(result.evidence[0]?.includes("license: MIT description:"));
+  assert.ok(!result.evidence[0]?.includes("MITdescription"));
+});
+
+test("generic chat and documentation prose does not infer", () => {
+  for (const text of [
+    "we have slack time today",
+    "resolve the discord before shipping",
+    "great documentation, by the way",
+  ]) {
+    assert.deepEqual(inferCapabilities(text, "").capabilities, [], text);
+  }
+});
+
+test("explicit chat and documentation phrases still map", () => {
+  assert.deepEqual(inferCapabilities("Slack integration", "").capabilities, [
+    "collaboration.chat",
+  ]);
+  assert.deepEqual(inferCapabilities("Discord bot", "").capabilities, [
+    "collaboration.chat",
+  ]);
+  assert.deepEqual(inferCapabilities("Write documentation", "").capabilities, [
+    "docs.writing",
+  ]);
+});
+
+test("evidence offsets point at the matched phrase in the haystack", () => {
+  const text = "the database is ready";
+  const result = inferCapabilities(text, "");
+  const match = /at offset (\d+)/.exec(result.evidence[0] ?? "");
+  assert.ok(match);
+  const offset = Number(match[1]);
+  assert.equal(text.slice(offset, offset + "database".length), "database");
 });

@@ -155,6 +155,19 @@ test("raw description and readme never influence capabilities", () => {
   assert.ok(candidate.rawUntrustedCopy?.includes("Playwright"));
 });
 
+test("legacy declared capabilities win over evidence inference", () => {
+  const candidate = normalizeCandidate(
+    probedCandidate({
+      artifact: {
+        kind: "mcp",
+        file: "server.json",
+        capabilities: ["testing.runner"],
+      },
+    }),
+  );
+  assert.deepEqual(candidate.capabilities, ["testing.runner"]);
+});
+
 test("probe is exposed for local artifact fixtures", () => {
   assert.equal(probeArtifact(rawCandidate()).found, true);
   assert.equal(probeArtifact(rawCandidate({ artifact: null })).found, false);
