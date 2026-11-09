@@ -19,7 +19,7 @@ function fixturePayload(): unknown {
 
 test("v0 MCP registry payload unwraps server entries and keeps latest version", () => {
   const raws = parseMcpRegistry(fixturePayload());
-  assert.equal(raws.length, 3);
+  assert.equal(raws.length, 4);
   const docs = raws.find((raw) => raw.id === "ac.tandem/docs-mcp");
   assert.ok(docs);
   assert.equal(docs.pinnedRef, "0.3.0", "isLatest must win over an older version");
@@ -34,7 +34,14 @@ test("v0 MCP registry payload unwraps server entries and keeps latest version", 
   const packaged = raws.find((raw) => raw.id === "agency.extremely/agency");
   assert.ok(packaged);
   assert.equal(packaged.packageName, "@extremely-agency/mcp");
+  assert.equal(packaged.packageRegistry, "npm");
   assert.equal(packaged.name, "EXTREMELY agency");
+
+  const pypiPackaged = raws.find((raw) => raw.id === "acme.docs/pypi-mcp");
+  assert.ok(pypiPackaged);
+  assert.equal(pypiPackaged.packageName, "acme-py-mcp");
+  assert.equal(pypiPackaged.packageRegistry, "pypi");
+  assert.equal(pypiPackaged.pinnedRef, "1.2.0");
 });
 
 test("MCP registry records normalize as unprobed, community, unknown maintenance", () => {

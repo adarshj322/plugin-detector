@@ -79,6 +79,27 @@
           "isLatest": true
         }
       }
+    },
+    {
+      "server": {
+        "name": "acme.docs/pypi-mcp",
+        "description": "PyPI-backed MCP server.",
+        "version": "1.2.0",
+        "packages": [
+          {
+            "registryType": "pypi",
+            "identifier": "acme-py-mcp",
+            "version": "1.2.0",
+            "transport": { "type": "stdio" }
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "isLatest": true
+        }
+      }
     }
   ],
   "metadata": { "nextCursor": "ac.inference.sh/mcp:1.0.1", "count": 4 }

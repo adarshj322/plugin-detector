@@ -50,7 +50,11 @@ function repositoryUrl(v: unknown): string | undefined {
   return str(record(v)?.["url"]);
 }
 
-function firstPackage(v: unknown): { identifier?: string; version?: string } {
+function firstPackage(v: unknown): {
+  identifier?: string;
+  version?: string;
+  registry?: "npm" | "pypi";
+} {
   const list = Array.isArray(v) ? v : [];
   for (const item of list) {
     const entry = record(item);
@@ -58,7 +62,14 @@ function firstPackage(v: unknown): { identifier?: string; version?: string } {
     const identifier = str(entry["identifier"]);
     const version = str(entry["version"]);
     if (identifier === undefined) continue;
-    return { identifier, ...(version === undefined ? {} : { version }) };
+    const type = str(entry["registryType"])?.toLowerCase();
+    const registry =
+      type === "npm" || type === "pypi" ? (type as "npm" | "pypi") : undefined;
+    return {
+      identifier,
+      ...(version === undefined ? {} : { version }),
+      ...(registry === undefined ? {} : { registry }),
+    };
   }
   return {};
 }
@@ -107,6 +118,7 @@ export function parseMcpRegistry(payload: unknown): RawCandidate[] {
       license: str(value.license) ?? "unknown",
       ...(url === undefined ? { registryUrl: MCP_REGISTRY_URL } : { repositoryUrl: url }),
       ...(pkg.identifier ? { packageName: pkg.identifier } : {}),
+      ...(pkg.registry ? { packageRegistry: pkg.registry } : {}),
       ...(str(server?.["description"]) ?? str(value.description)
         ? { description: str(server?.["description"]) ?? str(value.description) }
         : {}),

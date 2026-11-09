@@ -3,6 +3,7 @@ import { stableStringify, type ArtifactType } from "@plugin-detector/core";
 import type { ArtifactEvidence } from "./probe.js";
 import { MAX_EVIDENCE_SNIPPET_LENGTH } from "./probe-skills-sh.js";
 import {
+  MAX_PACKAGE_METADATA_BYTES,
   PACKAGE_REGISTRY_LIMITER,
   PackageProbeError,
   npmPackageUrl,
@@ -10,6 +11,7 @@ import {
   parseNpmRegistry,
   parsePypiRegistry,
   pypiPackageUrl,
+  repositoryUrlOf,
   type PackageJsonGetter,
   type PackageMetadata,
   type PackageRegistry,
@@ -42,6 +44,14 @@ export interface ProbePackageOptions {
   registry?: PackageRegistry | undefined;
   // Caller-owned classification; a package alone cannot prove it is an MCP server.
   artifactType?: PackageArtifactType | undefined;
+  // Optional repository pin (e.g. the MCP listing's repository); a different
+  // normalized registry repository is a typed mismatch.
+  expectedRepository?: string | undefined;
+}
+
+export interface PackageProbeResult {
+  evidence: ArtifactEvidence;
+  metadata: PackageMetadata;
 }
 
 const NPM_NAME = /^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/i;
@@ -111,11 +121,25 @@ export async function probePackage(
   packageName: string,
   version?: string,
   opts: ProbePackageOptions = {},
-): Promise<ArtifactEvidence> {
+): Promise<PackageProbeResult> {
   const registry = opts.registry ?? "npm";
   const name = validateName(registry, packageName);
   const requested = version?.trim() === "" ? undefined : version?.trim();
-  const url = registry === "npm" ? npmPackageUrl(name) : pypiPackageUrl(name);
+  const expectedRepository =
+    opts.expectedRepository === undefined
+      ? undefined
+      : repositoryUrlOf(opts.expectedRepository);
+  if (opts.expectedRepository !== undefined && expectedRepository === undefined) {
+    throw new PackageProbeError(
+      name,
+      "ARTIFACT_INVALID",
+      "expectedRepository is not a valid repository URL",
+    );
+  }
+  const url =
+    registry === "npm"
+      ? npmPackageUrl(name)
+      : pypiPackageUrl(name, requested);
   const get = opts.get ?? packageRegistryGet;
   const limiter = opts.limiter ?? PACKAGE_REGISTRY_LIMITER;
 
@@ -131,10 +155,29 @@ export async function probePackage(
           `not found in the ${registry} registry`,
         );
       }
+      // Fetch refuses redirects (the registry host is fixed); the transport
+      // returns a fixed message, so no redirect target can leak.
+      if (error.status === 0 && /redirect/i.test(error.message)) {
+        throw new PackageProbeError(
+          name,
+          "ARTIFACT_INVALID",
+          `fetching metadata was redirected; refusing to follow`,
+        );
+      }
+      if (
+        error.status === 0 &&
+        /response exceeded \d+ bytes/.test(error.message)
+      ) {
+        throw new PackageProbeError(
+          name,
+          "ARTIFACT_TOO_LARGE",
+          `metadata exceeds the ${MAX_PACKAGE_METADATA_BYTES}-byte limit`,
+        );
+      }
     }
     throw new PackageProbeError(
       name,
-      "ARTIFACT_MISSING",
+      "ARTIFACT_UNAVAILABLE",
       `fetching metadata failed: ${boundedReason(error)}`,
     );
   }
@@ -143,5 +186,18 @@ export async function probePackage(
     registry === "npm"
       ? parseNpmRegistry(payload, name, requested)
       : parsePypiRegistry(payload, name, requested);
-  return buildEvidence(metadata, url, opts.artifactType ?? "tool");
+  if (
+    expectedRepository !== undefined &&
+    metadata.repositoryUrl !== expectedRepository
+  ) {
+    throw new PackageProbeError(
+      name,
+      "ARTIFACT_MISMATCH",
+      "registry repository does not match expectedRepository",
+    );
+  }
+  return {
+    evidence: buildEvidence(metadata, url, opts.artifactType ?? "tool"),
+    metadata,
+  };
 }

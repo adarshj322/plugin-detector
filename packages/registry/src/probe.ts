@@ -58,6 +58,9 @@ export interface RawCandidate {
   repositoryUrl?: string | undefined;
   registryUrl?: string | undefined;
   packageName?: string | undefined;
+  // Registry the package came from when the listing declared it (MCP registry
+  // registryType). Callers pass it to package probes instead of guessing npm.
+  packageRegistry?: "npm" | "pypi" | undefined;
   // GitHub listing provenance: the branch artifact probes start from, when
   // the repository last received a push, and a flag for the HEAD fallback
   // used when the API omitted default_branch.

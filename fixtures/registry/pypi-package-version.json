@@ -1,0 +1,27 @@
+{
+  "info": {
+    "name": "acme-py-mcp",
+    "version": "1.2.0",
+    "license": "Apache-2.0",
+    "license_expression": null,
+    "home_page": "https://old.example.com/acme-py-mcp",
+    "project_urls": {
+      "Homepage": "https://old.example.com/acme-py-mcp",
+      "Repository": "https://github.com/acme/acme-py-mcp-old"
+    },
+    "author": "Acme Old Maintainers",
+    "author_email": "old-maintainers@example.com",
+    "maintainer": null,
+    "summary": "Older MCP server for Acme data",
+    "description": "BODY-MARKER versioned description is never evidence"
+  },
+  "last_serial": 12340000,
+  "urls": [
+    {
+      "filename": "acme_py_mcp-1.2.0-py3-none-any.whl",
+      "packagetype": "bdist_wheel",
+      "url": "https://files.pythonhosted.org/packages/aa/bb/acme_py_mcp-1.2.0-py3-none-any.whl",
+      "yanked": false
+    }
+  ]
+}

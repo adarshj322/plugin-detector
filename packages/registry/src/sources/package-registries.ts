@@ -18,7 +18,9 @@ export type PackageRegistry = "npm" | "pypi";
 export type PackageProbeCode =
   | "ARTIFACT_MISSING"
   | "ARTIFACT_INVALID"
-  | "ARTIFACT_MISMATCH";
+  | "ARTIFACT_MISMATCH"
+  | "ARTIFACT_UNAVAILABLE"
+  | "ARTIFACT_TOO_LARGE";
 
 // Parsed registry metadata is the evidence source: the tarball URL is carried
 // for provenance only and is never fetched or executed.
@@ -41,9 +43,15 @@ export type PackageJsonGetter = (url: string) => Promise<unknown>;
 
 // Unpaced transport only: probePackage applies the shared limiter around every
 // request, including injected getters, so a caller's getter cannot bypass it.
-export function packageRegistryGet(url: string): Promise<unknown> {
+export function packageRegistryGet(
+  url: string,
+  fetchImpl?: typeof fetch,
+): Promise<unknown> {
   return httpGetJson<unknown>(url, {
     maxBytes: MAX_PACKAGE_METADATA_BYTES,
+    // Metadata must come from the fixed registry host; a redirect is an error.
+    redirect: "error",
+    ...(fetchImpl === undefined ? {} : { fetchImpl }),
   }).then((res) => res.data);
 }
 
@@ -53,18 +61,25 @@ export function npmPackageUrl(name: string): string {
   return `${NPM_REGISTRY_URL}/${encodeURIComponent(name)}`;
 }
 
-export function pypiPackageUrl(name: string): string {
-  return `${PYPI_REGISTRY_URL}/${encodeURIComponent(name)}/json`;
+export function pypiPackageUrl(name: string, version?: string): string {
+  const base = `${PYPI_REGISTRY_URL}/${encodeURIComponent(name)}`;
+  return version === undefined
+    ? `${base}/json`
+    : `${base}/${encodeURIComponent(version)}/json`;
 }
 
 export class PackageProbeError extends Error {
+  readonly reason: string;
+
   constructor(
     readonly packageName: string,
     readonly code: PackageProbeCode,
-    readonly reason: string,
+    reason: string,
   ) {
-    super(`package ${quoted(packageName)} ${reason}`);
+    const safeReason = escapeControl(reason);
+    super(`package ${quoted(packageName)} ${safeReason}`);
     this.name = "PackageProbeError";
+    this.reason = safeReason;
   }
 }
 
@@ -83,6 +98,15 @@ function record(v: unknown): Record<string, unknown> | undefined {
 function quoted(value: string): string {
   const bounded = value.length <= 120 ? value : `${value.slice(0, 120)}...`;
   return JSON.stringify(bounded);
+}
+
+// Reasons can carry transport/parser text; escape control characters so they
+// cannot forge log lines either.
+function escapeControl(value: string): string {
+  return value.replace(/[\u0000-\u001f\u007f-\u009f]/g, (char) => {
+    const hex = char.charCodeAt(0).toString(16).padStart(4, "0");
+    return `\\u${hex}`;
+  });
 }
 
 function bounded(value: string, max: number): string {
@@ -140,8 +164,9 @@ function maintainerNames(value: unknown): string[] {
 }
 
 // npm repository fields are strings or { url }, and often use git+ / ssh /
-// github: shorthands. Normalize to a plain http(s) URL for evidence display.
-function repositoryUrlOf(value: unknown): string | undefined {
+// github: shorthands. Normalize to a plain http(s) URL for evidence display
+// and for expected-repository comparison.
+export function repositoryUrlOf(value: unknown): string | undefined {
   const raw =
     typeof value === "string" ? str(value) : str(record(value)?.["url"]);
   if (raw === undefined) return undefined;
@@ -235,7 +260,9 @@ export function parseNpmRegistry(
   if (resolved === undefined) {
     missing(packageName, "npm registry response has no latest dist-tag");
   }
-  const entry = record(versions[resolved]);
+  const entry = hasOwn(versions, resolved)
+    ? record(versions[resolved])
+    : undefined;
   if (entry === undefined) {
     if (requested !== undefined) {
       missing(packageName, `version ${quoted(requested)} is not published`);
@@ -320,22 +347,39 @@ export function parsePypiRegistry(
     );
   }
   const requested = str(version);
-  const resolved = requested ?? str(info["version"]);
+  const responseVersion = str(info["version"]);
+  const resolved = requested ?? responseVersion;
   if (resolved === undefined) {
     missing(packageName, "pypi response has no version");
   }
-  const releases = record(root["releases"]);
-  if (releases === undefined) {
-    invalid(packageName, "pypi response has no releases object");
-  }
-  if (!hasOwn(releases, resolved)) {
-    if (requested !== undefined) {
-      missing(packageName, `version ${quoted(requested)} is not published`);
-    }
+  if (
+    requested !== undefined &&
+    responseVersion !== undefined &&
+    responseVersion !== requested
+  ) {
     invalid(
       packageName,
-      `latest version ${quoted(resolved)} is not in the releases list`,
+      `response reports version ${quoted(responseVersion)} instead of ${quoted(requested)}`,
     );
+  }
+  if (requested !== undefined) {
+    // The versioned endpoint returns no releases map; its urls list is the
+    // release's files, and an empty list means the version is not published.
+    const files = Array.isArray(root["urls"]) ? root["urls"] : [];
+    if (files.length === 0) {
+      missing(packageName, `version ${quoted(requested)} has no release files`);
+    }
+  } else {
+    const releases = record(root["releases"]);
+    if (releases === undefined) {
+      invalid(packageName, "pypi response has no releases object");
+    }
+    if (!hasOwn(releases, resolved)) {
+      invalid(
+        packageName,
+        `latest version ${quoted(resolved)} is not in the releases list`,
+      );
+    }
   }
 
   const projectUrls = projectUrlsOf(info["project_urls"]);
