@@ -163,6 +163,8 @@ function defaultFetchers(
         ...(v?.lastModified ? { lastModified: v.lastModified } : {}),
       });
   };
+  // Optional and caller-supplied: read here, never inside the source module.
+  const githubToken = process.env.GITHUB_TOKEN?.trim();
   return [
     {
       id: SKILLS_SH_ID,
@@ -178,7 +180,12 @@ function defaultFetchers(
       id: GITHUB_ID,
       url: GITHUB_URL,
       fetch: () =>
-        fetchGithub(bound(GITHUB_ID, { accept: "application/vnd.github+json" })),
+        fetchGithub({
+          get: bound(GITHUB_ID, {
+            accept: "application/vnd.github+json",
+            ...(githubToken ? { authorization: `Bearer ${githubToken}` } : {}),
+          }),
+        }),
     },
     {
       id: AWESOME_LISTS_ID,

@@ -58,6 +58,12 @@ export interface RawCandidate {
   repositoryUrl?: string | undefined;
   registryUrl?: string | undefined;
   packageName?: string | undefined;
+  // GitHub listing provenance: the branch artifact probes start from, when
+  // the repository last received a push, and a flag for the HEAD fallback
+  // used when the API omitted default_branch.
+  defaultBranch?: string | undefined;
+  defaultBranchFallback?: boolean | undefined;
+  pushedAt?: string | undefined;
   lastVerified?: string | undefined;
   maintenance?: "active" | "stale" | "archived" | "unknown" | undefined;
   auditStatus?: "clean" | "warning" | "critical" | "unknown" | undefined;
