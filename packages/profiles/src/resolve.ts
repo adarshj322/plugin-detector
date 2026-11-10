@@ -31,7 +31,8 @@ export function resolveProfile(
   profiles: V1Profile[] = loadProfiles(),
 ): ProfileResolution {
   const declaration = normalize(input.declaration);
-  const declared = profiles.find((p) => p.id === declaration) ?? null;
+  const declared =
+    profiles.find((p) => normalize(p.id) === declaration) ?? null;
   const base = {
     declaration: input.declaration,
     profile: declared,
@@ -51,7 +52,7 @@ export function resolveProfile(
   }
   let otherBest = 0;
   for (const other of profiles) {
-    if (other.id === declared.id) continue;
+    if (normalize(other.id) === normalize(declared.id)) continue;
     const otherPositive = new Set(other.signalQueries.map(normalize));
     const hits = signals.filter((s) => otherPositive.has(s)).length;
     if (hits > otherBest) otherBest = hits;

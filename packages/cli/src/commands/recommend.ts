@@ -6,7 +6,12 @@ import {
   type HarnessId,
 } from "@plugin-detector/core";
 import { loadSnapshot } from "@plugin-detector/registry";
-import { loadProfiles, resolveProfile } from "@plugin-detector/profiles";
+import {
+  loadProfileFile,
+  loadProfiles,
+  resolveProfile,
+  type V1Profile,
+} from "@plugin-detector/profiles";
 import {
   CliErrorSchema,
   RecommendJsonSchema,
@@ -40,6 +45,7 @@ function usageError(
 
 export async function recommend(argv: string[]): Promise<RecommendResult> {
   let useCase: string | undefined;
+  let profilePath: string | undefined;
   const signals: string[] = [];
   let json = false;
   let cacheDir: string | undefined;
@@ -52,6 +58,9 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
     if (arg === "--json") json = true;
     else if (arg === "--use-case" && i + 1 < argv.length) {
       useCase = argv[i + 1];
+      i += 1;
+    } else if (arg === "--profile" && i + 1 < argv.length) {
+      profilePath = argv[i + 1];
       i += 1;
     } else if (arg === "--signal" && i + 1 < argv.length) {
       signals.push(argv[i + 1] as string);
@@ -77,20 +86,57 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
     }
   }
 
-  const profiles = loadProfiles();
-  const validIds = profiles.map((p) => p.id);
-  if (!useCase) {
+  let customProfile: V1Profile | undefined;
+  if (profilePath !== undefined) {
+    try {
+      customProfile = loadProfileFile(profilePath);
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      return { exitCode: 1 };
+    }
+  }
+  if (
+    customProfile !== undefined &&
+    useCase !== undefined &&
+    useCase.trim().toLowerCase() !== customProfile.id.trim().toLowerCase()
+  ) {
     return usageError(
       "recommend",
-      `missing required --use-case <id>. Valid ids: ${validIds.join(", ")}`,
+      `--use-case "${useCase}" conflicts with --profile "${customProfile.id}" (${profilePath}); pass matching values or omit --use-case`,
+      [customProfile.id],
+      json,
+    );
+  }
+  const builtins = loadProfiles();
+  // A custom profile wins on the same id so its threshold and signals apply.
+  const profiles =
+    customProfile === undefined
+      ? builtins
+      : [
+          ...builtins.filter(
+            (p) =>
+              p.id.trim().toLowerCase() !==
+              customProfile.id.trim().toLowerCase(),
+          ),
+          customProfile,
+        ];
+  const validIds = profiles.map((p) => p.id);
+  const declaration = customProfile?.id ?? useCase;
+  if (!declaration) {
+    return usageError(
+      "recommend",
+      `missing required --use-case <id> or --profile <file>. Valid ids: ${validIds.join(", ")}`,
       validIds,
       json,
     );
   }
-  if (!profiles.some((p) => p.id === useCase)) {
+  if (
+    customProfile === undefined &&
+    !profiles.some((p) => p.id === declaration)
+  ) {
     return usageError(
       "recommend",
-      `unknown --use-case "${useCase}". Valid ids: ${validIds.join(", ")}`,
+      `unknown --use-case "${declaration}". Valid ids: ${validIds.join(", ")}`,
       validIds,
       json,
     );
@@ -111,12 +157,15 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
 
   // Corroboration gate: contradiction exits needs-clarification with no
   // search and no candidate output; signals never override the declaration.
-  const resolution = resolveProfile({ declaration: useCase, projectSignals: signals });
+  const resolution = resolveProfile(
+    { declaration, projectSignals: signals },
+    profiles,
+  );
   if (resolution.status === "contradiction") {
     const payload: RecommendJson = {
       command: "recommend",
       facts: {
-        useCase,
+        useCase: declaration,
         profileStatus: "contradiction",
         verdict: "needs-clarification",
         recommendations: [],
@@ -131,7 +180,7 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
       printJson(payload, RecommendJsonSchema);
     } else {
       printSection("facts", [
-        `use-case: ${useCase}`,
+        `use-case: ${declaration}`,
         `profile-status: contradiction`,
         `verdict: needs-clarification`,
         `conflicting-signals: ${resolution.conflictingSignals.join(", ") || "(none)"}`,
@@ -146,7 +195,7 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
   const profile = resolution.profile;
   if (!profile || resolution.status === "unknown") {
     // Unreachable: unknown declarations exit 2 above; kept for exhaustiveness.
-    return usageError("recommend", `unknown --use-case "${useCase}"`, validIds, json);
+    return usageError("recommend", `unknown --use-case "${declaration}"`, validIds, json);
   }
   const effectiveThreshold =
     threshold ?? profile.requiredThreshold ?? DEFAULT_REQUIRED_THRESHOLD;
@@ -222,7 +271,7 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
   const payload: RecommendJson = {
     command: "recommend",
     facts: {
-      useCase,
+      useCase: declaration,
       profileStatus: resolution.status,
       verdict,
       ...(verdict === "no-good-candidates"
@@ -256,7 +305,7 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
     printJson(payload, RecommendJsonSchema);
   } else {
     printSection("facts", [
-      `use-case: ${useCase} (profile-status: ${resolution.status})`,
+      `use-case: ${declaration} (profile-status: ${resolution.status})`,
       `verdict: ${verdict}`,
       ...payload.facts.recommendations.map(
         (r) =>

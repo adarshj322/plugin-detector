@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadProfiles } from "@plugin-detector/profiles";
@@ -86,4 +86,71 @@ test("registry refresh reports when an empty snapshot was not written", async ()
   });
   assert.match(result.message, /no snapshot written/i);
   assert.match(result.message, /registry-manifest\.json/);
+});
+
+const CUSTOM_REFRESH_PROFILE = `id: refresh-custom
+version: 1
+displayName: Refresh Custom
+description: Custom profile for refresh tests.
+capabilities:
+  - docs.writing
+signalQueries:
+  - custom-query-one
+  - custom-query-two
+  - custom-query-three
+  - custom-query-four
+  - custom-query-five
+negativeSignals:
+  - media-editing-project
+defaultDomains:
+  - writing
+expectedValueTiers:
+  - time-saved
+requiredThreshold: 10
+`;
+
+test("registry refresh --profile sends the custom profile signal queries", async () => {
+  const dir = tmpCache();
+  const file = join(dir, "custom.yaml");
+  writeFileSync(file, CUSTOM_REFRESH_PROFILE);
+  let seen: RefreshOptions | undefined;
+  const result = await registryRefresh(["--cache-dir", dir, "--profile", file], {
+    refresh: async (opts) => {
+      seen = opts;
+      return emptyResult();
+    },
+  });
+  assert.equal(result.exitCode, 0);
+  assert.equal(seen?.cacheDir, dir);
+  assert.deepEqual(seen?.extraQueries, [
+    "custom-query-one",
+    "custom-query-two",
+    "custom-query-three",
+    "custom-query-four",
+    "custom-query-five",
+  ]);
+});
+
+test("registry refresh exits 1 for a missing or invalid --profile without fetching", async () => {
+  let called = 0;
+  const deps = {
+    refresh: async () => {
+      called += 1;
+      return emptyResult();
+    },
+  };
+  const missing = await registryRefresh(
+    ["--profile", join(tmpCache(), "absent.yaml")],
+    deps,
+  );
+  assert.equal(missing.exitCode, 1);
+  assert.match(missing.message, /cannot read profile/);
+
+  const dir = tmpCache();
+  const bad = join(dir, "bad.yaml");
+  writeFileSync(bad, "id: bad\nversion: nope\n");
+  const invalid = await registryRefresh(["--profile", bad], deps);
+  assert.equal(invalid.exitCode, 1);
+  assert.match(invalid.message, /invalid profile/);
+  assert.equal(called, 0);
 });

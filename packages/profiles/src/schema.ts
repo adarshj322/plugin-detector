@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -108,6 +108,33 @@ function parseYamlSubset(text: string, source: string): Record<string, YamlValue
 // Parse and validate one profile document; throws on bad YAML or schema.
 export function parseProfileText(text: string, source: string): V1Profile {
   return UseCaseProfileSchema.parse(parseYamlSubset(text, source));
+}
+
+// Load one user-supplied profile file. Built-in profiles stay in
+// loadProfiles(); this never caches, so an edited file is re-read.
+export function loadProfileFile(file: string): V1Profile {
+  let text: string;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch (error) {
+    throw new Error(
+      `cannot read profile ${file}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  try {
+    return parseProfileText(text, file);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      const issues = error.issues
+        .map(
+          (issue) =>
+            `${issue.path.map(String).join(".") || "(root)"}: ${issue.message}`,
+        )
+        .join("; ");
+      throw new Error(`invalid profile ${file}: ${issues}`);
+    }
+    throw error;
+  }
 }
 
 function defaultProfilesDir(): string {

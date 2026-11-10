@@ -3,7 +3,11 @@ import {
   type RefreshOptions,
   type RefreshResult,
 } from "@plugin-detector/registry";
-import { loadProfiles, type V1Profile } from "@plugin-detector/profiles";
+import {
+  loadProfileFile,
+  loadProfiles,
+  type V1Profile,
+} from "@plugin-detector/profiles";
 
 export interface RegistryRefreshResult {
   exitCode: number;
@@ -19,7 +23,8 @@ export interface RegistryRefreshDeps {
 // `plugin-detector registry refresh`: on-demand snapshot refresh with
 // graceful degradation. Total network failure exits 2 and mutates nothing;
 // partial failure exits 0 after writing the refreshed subset. `--use-case`
-// appends profile signal terms to discovery queries only (never evidence).
+// (built-in) or `--profile <file>` appends that profile's signal terms to
+// discovery queries only (never evidence).
 export async function registryRefresh(
   argv: string[] = [],
   deps: RegistryRefreshDeps = {},
@@ -27,6 +32,7 @@ export async function registryRefresh(
   let cacheDir: string | undefined;
   let limit: number | undefined;
   let useCase: string | undefined;
+  let profilePath: string | undefined;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if ((arg === "--cache-dir" || arg === "--cacheDir") && i + 1 < argv.length) {
@@ -42,11 +48,14 @@ export async function registryRefresh(
     } else if (arg === "--use-case" && i + 1 < argv.length) {
       useCase = argv[i + 1];
       i += 1;
+    } else if (arg === "--profile" && i + 1 < argv.length) {
+      profilePath = argv[i + 1];
+      i += 1;
     } else if (arg === "--help" || arg === "-h") {
       return {
         exitCode: 0,
         message:
-          "usage: plugin-detector registry refresh [--cache-dir <dir>] [--limit <n>] [--use-case <id>]",
+          "usage: plugin-detector registry refresh [--cache-dir <dir>] [--limit <n>] [--use-case <id> | --profile <file>]",
       };
     } else {
       return { exitCode: 1, message: `unknown argument: ${arg}` };
@@ -54,7 +63,25 @@ export async function registryRefresh(
   }
 
   let extraQueries: string[] | undefined;
-  if (useCase !== undefined) {
+  if (profilePath !== undefined) {
+    let profile: V1Profile;
+    try {
+      profile = loadProfileFile(profilePath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(message);
+      return { exitCode: 1, message };
+    }
+    if (
+      useCase !== undefined &&
+      useCase.trim().toLowerCase() !== profile.id.trim().toLowerCase()
+    ) {
+      const message = `--use-case "${useCase}" conflicts with --profile "${profile.id}" (${profilePath}); pass matching values or omit --use-case`;
+      console.error(message);
+      return { exitCode: 2, message };
+    }
+    extraQueries = [...profile.signalQueries];
+  } else if (useCase !== undefined) {
     const profiles = deps.profiles ?? loadProfiles();
     const profile = profiles.find((entry) => entry.id === useCase);
     if (profile === undefined) {

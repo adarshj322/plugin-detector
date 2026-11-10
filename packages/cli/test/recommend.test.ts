@@ -279,3 +279,143 @@ test("legacy verified snapshots without artifact evidence are not recommended", 
     parsed.facts.recommendations.every((r) => r.candidateId !== "cand-legacy"),
   );
 });
+
+function customProfileYaml(id: string, threshold: number): string {
+  return `id: ${id}
+version: 1
+displayName: Custom Profile
+description: Custom profile for CLI tests.
+capabilities:
+  - docs.writing
+signalQueries:
+  - package-manifest
+  - pytest
+  - project-readme
+  - docs-site
+  - style-guide
+negativeSignals:
+  - media-editing-project
+defaultDomains:
+  - writing
+expectedValueTiers:
+  - time-saved
+requiredThreshold: ${threshold}
+`;
+}
+
+test("recommend --profile selects the custom profile and applies its threshold", async () => {
+  const env = setup();
+  const file = join(env.home, "custom.yaml");
+  writeFileSync(file, customProfileYaml("custom-docs", 10));
+  writeSnapshot(env.cache, [candidate("cand-1")]);
+  let code = -1;
+  const { logs } = await capture(async () => {
+    code = (
+      await recommend([
+        "--profile",
+        file,
+        "--signal",
+        "package-manifest",
+        "--signal",
+        "pytest",
+        "--cache-dir",
+        env.cache,
+        "--home",
+        env.home,
+        "--root",
+        env.root,
+        "--json",
+      ])
+    ).exitCode;
+  });
+  assert.equal(code, 0);
+  const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
+  assert.equal(parsed.facts.useCase, "custom-docs");
+  assert.equal(parsed.facts.verdict, "required");
+  assert.equal(parsed.facts.recommendations.length, 1);
+  assert.ok(
+    (parsed.facts.recommendations[0]?.score ?? 100) < 55,
+    "required verdict must come from the custom threshold, not the default",
+  );
+});
+
+test("recommend custom profile wins over a built-in profile with the same id", async () => {
+  const env = setup();
+  const file = join(env.home, "override.yaml");
+  writeFileSync(file, customProfileYaml("software-development", 10));
+  writeSnapshot(env.cache, [candidate("cand-1")]);
+  let code = -1;
+  const { logs } = await capture(async () => {
+    code = (
+      await recommend([
+        "--profile",
+        file,
+        "--signal",
+        "package-manifest",
+        "--signal",
+        "pytest",
+        "--cache-dir",
+        env.cache,
+        "--home",
+        env.home,
+        "--root",
+        env.root,
+        "--json",
+      ])
+    ).exitCode;
+  });
+  assert.equal(code, 0);
+  const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
+  assert.equal(parsed.facts.useCase, "software-development");
+  assert.equal(parsed.facts.verdict, "required");
+  assert.ok((parsed.facts.recommendations[0]?.score ?? 100) < 55);
+});
+
+test("recommend rejects conflicting --use-case and --profile", async () => {
+  const env = setup();
+  const file = join(env.home, "custom.yaml");
+  writeFileSync(file, customProfileYaml("custom-docs", 10));
+  let code = -1;
+  const { errors } = await capture(async () => {
+    code = (
+      await recommend([
+        "--use-case",
+        "software-development",
+        "--profile",
+        file,
+        "--home",
+        env.home,
+      ])
+    ).exitCode;
+  });
+  assert.equal(code, 2);
+  assert.match(errors.join("\n"), /conflicts with --profile/);
+});
+
+test("recommend exits 1 for a missing or invalid profile", async () => {
+  const env = setup();
+  let missingCode = -1;
+  const missing = await capture(async () => {
+    missingCode = (
+      await recommend([
+        "--profile",
+        join(env.home, "absent.yaml"),
+        "--home",
+        env.home,
+      ])
+    ).exitCode;
+  });
+  assert.equal(missingCode, 1);
+  assert.match(missing.errors.join("\n"), /cannot read profile/);
+
+  const badFile = join(env.home, "bad.yaml");
+  writeFileSync(badFile, "id: bad\nversion: nope\n");
+  let invalidCode = -1;
+  const invalid = await capture(async () => {
+    invalidCode = (
+      await recommend(["--profile", badFile, "--home", env.home])
+    ).exitCode;
+  });
+  assert.equal(invalidCode, 1);
+  assert.match(invalid.errors.join("\n"), /invalid profile/);
+});

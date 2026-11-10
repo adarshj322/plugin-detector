@@ -1,8 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { CANONICAL_CAPABILITY_IDS } from "@plugin-detector/core";
 import {
   UseCaseProfileSchema,
+  loadProfileFile,
   loadProfiles,
   parseProfileText,
 } from "../src/index.js";
@@ -163,5 +167,54 @@ test("yaml subset parser rejects nested maps and non-canonical capabilities", ()
       "id: demo\nversion: 1\ndisplayName: Demo\ndescription: d\ncapabilities:\n  - banana.peeling\nsignalQueries:\n  - q1\n  - q2\n  - q3\n  - q4\n  - q5\ndefaultDomains:\n  - writing\nexpectedValueTiers:\n  - time-saved\n",
       "demo.yaml",
     ),
+  );
+});
+
+const CUSTOM = `id: custom-docs
+version: 1
+displayName: Custom Docs
+description: Docs-only custom profile.
+capabilities:
+  - docs.writing
+signalQueries:
+  - project-readme
+  - docs-site
+  - markdown-files
+  - changelog-updates
+  - style-guide
+negativeSignals:
+  - media-editing-project
+defaultDomains:
+  - writing
+expectedValueTiers:
+  - time-saved
+requiredThreshold: 10
+`;
+
+test("loadProfileFile reads and validates one custom profile", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pd-profile-file-"));
+  const file = join(dir, "custom-docs.yaml");
+  writeFileSync(file, CUSTOM);
+  const profile = loadProfileFile(file);
+  assert.equal(profile.id, "custom-docs");
+  assert.equal(profile.requiredThreshold, 10);
+  assert.deepEqual(UseCaseProfileSchema.parse(profile), profile);
+});
+
+test("loadProfileFile reports a missing file with the path", () => {
+  const file = join(tmpdir(), "pd-no-such-profile.yaml");
+  assert.throws(() => loadProfileFile(file), new RegExp(`cannot read profile ${file}`));
+});
+
+test("loadProfileFile reports schema issues with the path and field", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pd-profile-file-"));
+  const file = join(dir, "bad.yaml");
+  writeFileSync(file, CUSTOM.replace("  - docs.writing", "  - banana.peeling"));
+  assert.throws(
+    () => loadProfileFile(file),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.message.includes(`invalid profile ${file}`) &&
+      error.message.includes("capabilities.0"),
   );
 });
