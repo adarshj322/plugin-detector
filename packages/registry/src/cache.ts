@@ -537,6 +537,13 @@ export async function refreshSnapshot(
     opts.fetchers ??
     opts.fetcherFactory?.(extraQueries) ??
     defaultFetchers(validators, timeoutMs, extraQueries);
+  // Apply the requested cap before probing: a probe is an HTTP fetch and can
+  // be expensive. Split the total budget evenly so one source cannot consume
+  // every slot before the others are queried.
+  const perSourceLimit =
+    opts.limit === undefined
+      ? undefined
+      : Math.max(0, Math.floor(opts.limit / Math.max(1, fetchers.length)));
 
   const prevById = new Map(prev?.candidates.map((c) => [c.id, c]) ?? []);
   const prevProvenanceById = new Map(
@@ -643,7 +650,17 @@ export async function refreshSnapshot(
     }
     succeeded += 1;
     const handledIds = new Set<string>();
-    const outcomes = await mapLimit(fetched.raws, 4, async (raw) => {
+    const rawsToProbe =
+      perSourceLimit === undefined
+        ? fetched.raws
+        : [...fetched.raws]
+            .sort((a, b) => {
+              const ax = candidateIdOf(a);
+              const bx = candidateIdOf(b);
+              return ax < bx ? -1 : ax > bx ? 1 : 0;
+            })
+            .slice(0, perSourceLimit);
+    const outcomes = await mapLimit(rawsToProbe, 4, async (raw) => {
       const stamped: RawCandidate = {
         ...raw,
         lastVerified: raw.lastVerified ?? nowIso,

@@ -144,7 +144,10 @@ test("skill, registry data, and release docs are present in the repo", () => {
   }
 
   const registry = readJson<PackageJson>("packages/registry/package.json");
-  assert.ok(registry.files?.includes("data"), "registry files must include data");
+  assert.ok(
+    registry.files?.some((entry) => entry === "data" || entry.startsWith("data/")),
+    "registry files must include registry data",
+  );
 
   const snapshotPath = "packages/registry/data/registry-snapshot.json";
   assert.ok(existsSync(join(ROOT, snapshotPath)), "bundled snapshot must exist");
@@ -320,10 +323,11 @@ test("changelog documents v0.1.0 and the unresolved v1.0 gates", () => {
   assert.match(changelog, /## \[0\.1\.0\]/);
   assert.match(changelog, /Unresolved v1\.0 gates/i);
   for (const gate of [
-    "seed/placeholder",
+    "evidence-probed review seed",
     "registry:refresh",
     "recipe-only",
     "Live artifact probing",
+    "Capability and license coverage",
     "Claude plugin marketplace automation",
     "OpenCode JSONC comment-preserving writer",
     "Coverage gates",

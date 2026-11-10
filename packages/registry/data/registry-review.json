@@ -1,0 +1,879 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-10T10:41:48.746Z",
+  "snapshotGeneratedAt": "2026-11-10T10:35:19.149Z",
+  "manifestGeneratedAt": "2026-11-10T10:35:19.149Z",
+  "snapshotManifestMismatch": false,
+  "counts": {
+    "total": 47,
+    "probed": 11,
+    "preserved": 0,
+    "unprobed": 0,
+    "rejected": 36,
+    "rejectedAlsoPreserved": 0
+  },
+  "sources": [
+    {
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "probed": 1,
+      "unprobed": 0,
+      "rejected": 20
+    },
+    {
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "probed": 0,
+      "unprobed": 0,
+      "rejected": 15
+    },
+    {
+      "sourceUrl": "https://skills.sh/api/search",
+      "probed": 10,
+      "unprobed": 0,
+      "rejected": 1
+    }
+  ],
+  "sourceHealth": [
+    {
+      "id": "awesome-lists",
+      "ok": false,
+      "error": "GET https://raw.githubusercontent.com/anthropics/awesome-claude-plugins/main/README.md failed with status 404"
+    },
+    {
+      "id": "github",
+      "ok": true,
+      "count": 10
+    },
+    {
+      "id": "mcp-registry",
+      "ok": true,
+      "count": 3
+    },
+    {
+      "id": "skills-sh",
+      "ok": true,
+      "count": 29
+    }
+  ],
+  "candidates": [
+    {
+      "id": "101-skills/superpowers/agent-browser",
+      "name": "agent-browser",
+      "artifactType": "skill",
+      "sourceUrl": "https://skills.sh/api/search",
+      "provenance": "community",
+      "trust": "unverified",
+      "license": "unknown",
+      "pinnedRef": "skills.sh:88bdf43f2e2341a9b404d322b89939847edcd0bf55f759aa0abb9adf3a65a82d",
+      "risk": "medium",
+      "maintenance": "unknown",
+      "auditStatus": "unknown",
+      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:35:24.671Z",
+      "preserved": false,
+      "evidenceSource": "https://skills.sh/api/download/101-skills/superpowers/agent-browser",
+      "evidenceRef": "skills.sh:88bdf43f2e2341a9b404d322b89939847edcd0bf55f759aa0abb9adf3a65a82d",
+      "contentHash": "433ed471ceca49f696ba72856894860594a5dccbcac82da61797ae7a3a3ebfef",
+      "evidenceSnippets": [
+        "name: agent-browser",
+        "description: Browser automation for AI agents via inference.sh. Navigate web pages, interact with elements using @e refs, take screenshots, record video. Capabilities: web scraping, form filling, clicking, typing, drag-drop, file upload, JavaScript execution. Use for: web automation, data extraction"
+      ],
+      "capabilities": [
+        "browser.automation"
+      ]
+    },
+    {
+      "id": "101-skills/superpowers/agent-tools",
+      "name": "agent-tools",
+      "artifactType": "skill",
+      "sourceUrl": "https://skills.sh/api/search",
+      "provenance": "community",
+      "trust": "unverified",
+      "license": "unknown",
+      "pinnedRef": "skills.sh:31b676f5398768da5109365e77514d47c1d1c0b537aa3abad6c814ad23c8557a",
+      "risk": "medium",
+      "maintenance": "unknown",
+      "auditStatus": "unknown",
+      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:35:24.742Z",
+      "preserved": false,
+      "evidenceSource": "https://skills.sh/api/download/101-skills/superpowers/agent-tools",
+      "evidenceRef": "skills.sh:31b676f5398768da5109365e77514d47c1d1c0b537aa3abad6c814ad23c8557a",
+      "contentHash": "d8b08ea6590fc379fb686852c39ff06829f2a31a9c8b27333849bc41e152573d",
+      "evidenceSnippets": [
+        "name: agent-tools",
+        "description: Run AI apps via inference.sh CLI - image generation, video creation, LLMs, search, 3D, Twitter automation. Models: FLUX, Veo, Gemini, Grok, Claude, Seedance, OmniHuman, Tavily, Exa, OpenRouter, and many more. Use when running AI apps, generating images/videos, calling LLMs, web search, "
+      ],
+      "capabilities": [
+        "media.image",
+        "search.web"
+      ]
+    },
+    {
+      "id": "101-skills/superpowers/infsh-cli",
+      "name": "infsh-cli",
+      "artifactType": "skill",
+      "sourceUrl": "https://skills.sh/api/search",
+      "provenance": "community",
+      "trust": "unverified",
+      "license": "unknown",
+      "pinnedRef": "skills.sh:f9ec8528b8f70e61688aa51aa195e54b3860f8bd2077f239833f042631ebdde8",
+      "risk": "medium",
+      "maintenance": "unknown",
+      "auditStatus": "unknown",
+      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:35:24.756Z",
+      "preserved": false,
+      "evidenceSource": "https://skills.sh/api/download/101-skills/superpowers/infsh-cli",
+      "evidenceRef": "skills.sh:f9ec8528b8f70e61688aa51aa195e54b3860f8bd2077f239833f042631ebdde8",
+      "contentHash": "ff4055cc8c904f06098398690e3e356fda6cbe7d7ac97410c4afef0991cf1434",
+      "evidenceSnippets": [
+        "name: infsh-cli",
+        "description: Run AI apps via inference.sh CLI - image generation, video creation, LLMs, search, 3D, Twitter automation. Models: FLUX, Veo, Gemini, Grok, Claude, Seedance, OmniHuman, Tavily, Exa, OpenRouter, and many more. Use when running AI apps, generating images/videos, calling LLMs, web search, "
+      ],
+      "capabilities": [
+        "media.image",
+        "search.web"
+      ]
+    },
+    {
+      "id": "Astro-Han/karpathy-llm-wiki",
+      "name": "Astro-Han/karpathy-llm-wiki",
+      "artifactType": "skill",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "provenance": "community",
+      "trust": "unverified",
+      "license": "MIT",
+      "pinnedRef": "github:c154f62094738b65e91dbb1c706758137290c622e386b3204e87c60a78f75748",
+      "risk": "medium",
+      "maintenance": "unknown",
+      "auditStatus": "unknown",
+      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:37:51.657Z",
+      "preserved": false,
+      "evidenceSource": "https://raw.githubusercontent.com/Astro-Han/karpathy-llm-wiki/main/SKILL.md",
+      "evidenceRef": "main",
+      "contentHash": "c154f62094738b65e91dbb1c706758137290c622e386b3204e87c60a78f75748",
+      "evidenceSnippets": [
+        "name: karpathy-llm-wiki",
+        "description: Use when building or maintaining a personal LLM-powered knowledge base. Triggers: ingesting sources into a wiki, querying wiki knowledge, linting wiki quality, 'add to wiki', 'what do I know about', or any mention of 'LLM wiki' or 'Karpathy wiki'."
+      ],
+      "capabilities": [
+        "code-review.quality"
+      ]
+    },
+    {
+      "id": "addyosmani/agent-skills/browser-testing-with-devtools",
+      "name": "browser-testing-with-devtools",
+      "artifactType": "skill",
+      "sourceUrl": "https://skills.sh/api/search",
+      "provenance": "community",
+      "trust": "unverified",
+      "license": "unknown",
+      "pinnedRef": "skills.sh:29b1bfe6f1c301b1e9cb3e1cf14355a2f522d7da78a84f204eb27390d4666447",
+      "risk": "medium",
+      "maintenance": "unknown",
+      "auditStatus": "unknown",
+      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:35:25.028Z",
+      "preserved": false,
+      "evidenceSource": "https://skills.sh/api/download/addyosmani/agent-skills/browser-testing-with-devtools",
+      "evidenceRef": "skills.sh:29b1bfe6f1c301b1e9cb3e1cf14355a2f522d7da78a84f204eb27390d4666447",
+      "contentHash": "e28dd45416e6df93f0db6fffeb3aa2477a0e48a22f8e05fd5bb1892484115bb6",
+      "evidenceSnippets": [
+        "name: browser-testing-with-devtools",
+        "description: Tests in real browsers via Chrome DevTools MCP. Use when building or debugging anything that runs in a browser. Use when you need to inspect the DOM, capture console errors, analyze network requests, profile performance, or verify visual output with real runtime data. Requires the chrom"
+      ],
+      "capabilities": [
+        "browser.automation"
+      ]
+    },
+    {
+      "id": "addyosmani/agent-skills/code-review-and-quality",
+      "name": "code-review-and-quality",
+      "artifactType": "skill",
+      "sourceUrl": "https://skills.sh/api/search",
+      "provenance": "community",
+      "trust": "unverified",
+      "license": "unknown",
+      "pinnedRef": "skills.sh:0710a75dd5553d32f79e9d3a4304783d5014c6d1ac6335f8edbafd8a350f6965",
+      "risk": "medium",
+      "maintenance": "unknown",
+      "auditStatus": "unknown",
+      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:35:25.118Z",
+      "preserved": false,
+      "evidenceSource": "https://skills.sh/api/download/addyosmani/agent-skills/code-review-and-quality",
+      "evidenceRef": "skills.sh:0710a75dd5553d32f79e9d3a4304783d5014c6d1ac6335f8edbafd8a350f6965",
+      "contentHash": "a47551daf26e3cc5670f5286f9e4850c2fc662d5ba08b86eee895254f3851797",
+      "evidenceSnippets": [
+        "name: code-review-and-quality",
+        "description: Conducts multi-axis code review. Use before merging any change. Use when reviewing code written by yourself, another agent, or a human. Use when you need to assess code quality across multiple dimensions before it enters the main branch. Use when asked to review a diff or a pull request"
+      ],
+      "capabilities": [
+        "code-review.quality"
+      ]
+    },
+    {
+      "id": "affaan-m/ecc/browser-qa",
+      "name": "browser-qa",
+      "artifactType": "skill",
+      "sourceUrl": "https://skills.sh/api/search",
+      "provenance": "community",
+      "trust": "unverified",
+      "license": "unknown",
+      "pinnedRef": "skills.sh:84a03b4f8c3638b905d7f52aa0520d55d8c3eb38835c6601a60a0cd67408f0fc",
+      "risk": "medium",
+      "maintenance": "unknown",
+      "auditStatus": "unknown",
+      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:35:25.655Z",
+      "preserved": false,
+      "evidenceSource": "https://skills.sh/api/download/affaan-m/ecc/browser-qa",
+      "evidenceRef": "skills.sh:84a03b4f8c3638b905d7f52aa0520d55d8c3eb38835c6601a60a0cd67408f0fc",
+      "contentHash": "6eb78a2460adcde116e6b44fcdff7ae37aeec6208241a24417cb2db4b3b254cd",
+      "evidenceSnippets": [
+        "name: browser-qa",
+        "description: Run automated post-deploy UI verification with a browser automation MCP (claude-in-chrome, Playwright, or Puppeteer): console-error and Core Web Vitals smoke checks, form and auth-flow interaction tests, screenshot visual regression across three breakpoints, and axe-core accessibility a"
+      ],
+      "capabilities": [
+        "browser.automation"
+      ]
+    },
+    {
+      "id": "affaan-m/ecc/django-tdd",
+      "name": "django-tdd",
+      "artifactType": "skill",
+      "sourceUrl": "https://skills.sh/api/search",
+      "provenance": "community",
+      "trust": "unverified",
+      "license": "unknown",
+      "pinnedRef": "skills.sh:de00edc9cefbe063652b8ad2c90cca109901e4bf2f1d85c67ea11a8d1653426f",
+      "risk": "medium",
+      "maintenance": "unknown",
+      "auditStatus": "unknown",
+      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:35:25.993Z",
+      "preserved": false,
+      "evidenceSource": "https://skills.sh/api/download/affaan-m/ecc/django-tdd",
+      "evidenceRef": "skills.sh:de00edc9cefbe063652b8ad2c90cca109901e4bf2f1d85c67ea11a8d1653426f",
+      "contentHash": "20bd5378fb9b76b396916daa8781dd45eef6336e5d4b3a46edb0c3e4eefaf074",
+      "evidenceSnippets": [
+        "name: django-tdd",
+        "description: Django testing strategies with pytest-django, TDD methodology, factory_boy, mocking, coverage, and testing Django REST Framework APIs. Use when writing Django or DRF tests with pytest-django, or driving a Django feature test-first."
+      ],
+      "capabilities": [
+        "testing.runner"
+      ]
+    },
+    {
+      "id": "affaan-m/ecc/dmux-workflows",
+      "name": "dmux-workflows",
+      "artifactType": "skill",
+      "sourceUrl": "https://skills.sh/api/search",
+      "provenance": "community",
+      "trust": "unverified",
+      "license": "unknown",
+      "pinnedRef": "skills.sh:3528ab8f12c8ac846786cbe35f6a8b765a1566a5dc6a46aef863559064841ecc",
+      "risk": "medium",
+      "maintenance": "unknown",
+      "auditStatus": "unknown",
+      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:35:26.306Z",
+      "preserved": false,
+      "evidenceSource": "https://skills.sh/api/download/affaan-m/ecc/dmux-workflows",
+      "evidenceRef": "skills.sh:3528ab8f12c8ac846786cbe35f6a8b765a1566a5dc6a46aef863559064841ecc",
+      "contentHash": "921836c6a10e65516654974815ec5acd358ce093e8043932781ba43bdd0a64a5",
+      "evidenceSnippets": [
+        "name: dmux-workflows",
+        "description: Multi-agent orchestration using dmux (tmux pane manager for AI agents). Patterns for parallel agent workflows across Claude Code, Codex, OpenCode, and other harnesses. Use when running multiple agent sessions in parallel or coordinating multi-agent development workflows."
+      ],
+      "capabilities": [
+        "planning.orchestration"
+      ]
+    },
+    {
+      "id": "affaan-m/ecc/docker-patterns",
+      "name": "docker-patterns",
+      "artifactType": "skill",
+      "sourceUrl": "https://skills.sh/api/search",
+      "provenance": "community",
+      "trust": "unverified",
+      "license": "unknown",
+      "pinnedRef": "skills.sh:c3f0ca55fb9530e911bf4d4aac23ef651e49805593c9086fac6538b29eb9a1d4",
+      "risk": "medium",
+      "maintenance": "unknown",
+      "auditStatus": "unknown",
+      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:35:26.271Z",
+      "preserved": false,
+      "evidenceSource": "https://skills.sh/api/download/affaan-m/ecc/docker-patterns",
+      "evidenceRef": "skills.sh:c3f0ca55fb9530e911bf4d4aac23ef651e49805593c9086fac6538b29eb9a1d4",
+      "contentHash": "c0cedeb9b64d4468f5af3bb0a97659c654f0ceb916acbec867a29dc682dd633f",
+      "evidenceSnippets": [
+        "name: docker-patterns",
+        "description: Docker and Docker Compose patterns for local development, hardened CLI installer harnesses, container security, networking, volumes, and multi-service orchestration. Use when creating or reviewing Dockerfiles and Compose services, testing installers across Linux distributions, or planni"
+      ],
+      "capabilities": [
+        "containers.orchestration"
+      ]
+    },
+    {
+      "id": "affaan-m/ecc/e2e-testing",
+      "name": "e2e-testing",
+      "artifactType": "skill",
+      "sourceUrl": "https://skills.sh/api/search",
+      "provenance": "community",
+      "trust": "unverified",
+      "license": "unknown",
+      "pinnedRef": "skills.sh:26520fa5fc64b74a08d4568acd51261c97389502b7d893693e7b8d1a545c6fa1",
+      "risk": "medium",
+      "maintenance": "unknown",
+      "auditStatus": "unknown",
+      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:35:26.328Z",
+      "preserved": false,
+      "evidenceSource": "https://skills.sh/api/download/affaan-m/ecc/e2e-testing",
+      "evidenceRef": "skills.sh:26520fa5fc64b74a08d4568acd51261c97389502b7d893693e7b8d1a545c6fa1",
+      "contentHash": "b0e00e7e17cb259101139900816c5528aed18dd10bcf5f9cb42cfc35baf8a755",
+      "evidenceSnippets": [
+        "name: e2e-testing",
+        "description: Playwright E2E testing patterns, Page Object Model, configuration, CI/CD integration, artifact management, and flaky test strategies. Use when writing Playwright tests, structuring page objects, or fixing flaky E2E runs in CI."
+      ],
+      "capabilities": [
+        "browser.automation",
+        "testing.e2e"
+      ]
+    }
+  ],
+  "unprobed": [],
+  "rejected": [
+    {
+      "id": "aaron-he-zhu/seo-geo-claude-skills/backlink-analyzer",
+      "reason": "skills-sh: candidate \"aaron-he-zhu/seo-geo-claude-skills/backlink-analyzer\" SKILL.md has no name/description frontmatter",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "ac.inference.sh/mcp",
+      "reason": "github: candidate \"ac.inference.sh/mcp\" repositoryUrl host \"api.inference.sh\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "2.0.1"
+    },
+    {
+      "id": "ac.mizan/registry",
+      "reason": "github: candidate \"ac.mizan/registry\" repositoryUrl host \"mizan.ac\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "1.2.0"
+    },
+    {
+      "id": "ac.snag/snag",
+      "reason": "github: candidate \"ac.snag/snag\" repositoryUrl host \"mcp.snag.ac\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "1.0.0"
+    },
+    {
+      "id": "academy.ase/periodic-system",
+      "reason": "github: candidate \"academy.ase/periodic-system\" repositoryUrl host \"ase.academy\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "2026.4.1"
+    },
+    {
+      "id": "academy.serviceengineer/se-ai",
+      "reason": "github: candidate \"academy.serviceengineer/se-ai\" repositoryUrl host \"api.serviceengineer.academy\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "1.0.1"
+    },
+    {
+      "id": "ad.inside/inside-ads",
+      "reason": "github: candidate \"ad.inside/inside-ads\" repositoryUrl host \"app.inside.ad\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "1.0.0"
+    },
+    {
+      "id": "ad.pantheon/mcp",
+      "reason": "github: candidate \"ad.pantheon/mcp\" repositoryUrl host \"mcp.pantheon.ad\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "1.0.0"
+    },
+    {
+      "id": "ad.tide/mcp",
+      "reason": "github: candidate \"ad.tide/mcp\" repositoryUrl host \"api.tide.ad\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "2.0.0"
+    },
+    {
+      "id": "ae.alexeysound/alexey-sound",
+      "reason": "github: candidate \"ae.alexeysound/alexey-sound\" repositoryUrl host \"alexeysound.ae\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "1.0.0"
+    },
+    {
+      "id": "ae.beachclubs/mcp",
+      "reason": "github: candidate \"ae.beachclubs/mcp\" repositoryUrl host \"www.beachclubs.ae\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.3.0"
+    },
+    {
+      "id": "ae.brainy/grocery-prices",
+      "reason": "github: candidate \"ae.brainy/grocery-prices\" repositoryUrl host \"prices.brainy.ae\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "2.0.0"
+    },
+    {
+      "id": "ae.easyvoice/tts",
+      "reason": "github: candidate \"ae.easyvoice/tts\" repositoryUrl host \"easyvoice.ae\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "1.0.0"
+    },
+    {
+      "id": "ae.employerofrecord/moha",
+      "reason": "github: candidate \"ae.employerofrecord/moha\" repositoryUrl host \"employerofrecord.ae\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "1.0.0"
+    },
+    {
+      "id": "academy.apexai/apex-ai-academy",
+      "reason": "github: candidate \"academy.apexai/apex-ai-academy\" package.json name \"apex-sample-agents\" does not match listing repo \"sample-agents\"",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "1.0.2"
+    },
+    {
+      "id": "ae.datadubai/dubai-real-estate",
+      "reason": "github: candidate \"ae.datadubai/dubai-real-estate\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"HEAD\"",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "1.1.0"
+    },
+    {
+      "id": "0x4m4/hexstrike-ai",
+      "reason": "github: candidate \"0x4m4/hexstrike-ai\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"master\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "0xJacky/nginx-ui",
+      "reason": "github: candidate \"0xJacky/nginx-ui\" package.json has no version",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "1Panel-dev/MaxKB",
+      "reason": "github: candidate \"1Panel-dev/MaxKB\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"v2\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "0xNyk/council-of-high-intelligence",
+      "reason": "github: candidate \"0xNyk/council-of-high-intelligence\" SKILL.md name \"council\" does not match listing repo \"council-of-high-intelligence\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "AMAP-ML/LongHorizon-Harness",
+      "reason": "github: candidate \"AMAP-ML/LongHorizon-Harness\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "78/xiaozhi-esp32",
+      "reason": "github: candidate \"78/xiaozhi-esp32\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "Agents365-ai/drawio-skill",
+      "reason": "github: candidate \"Agents365-ai/drawio-skill\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "Agents365-ai/video-podcast-maker",
+      "reason": "github: candidate \"Agents365-ai/video-podcast-maker\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "Anil-matcha/vox-ai-motion-graphics-generator",
+      "reason": "github: candidate \"Anil-matcha/vox-ai-motion-graphics-generator\" SKILL.md name \"muapi-director\" does not match listing repo \"vox-ai-motion-graphics-generator\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "Arekejoker/qwen21-nsfw-pose-skill",
+      "reason": "github: candidate \"Arekejoker/qwen21-nsfw-pose-skill\" SKILL.md name \"qwen21-nsfw-pose\" does not match listing repo \"qwen21-nsfw-pose-skill\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "Ar9av/obsidian-wiki",
+      "reason": "github: candidate \"Ar9av/obsidian-wiki\" .claude-plugin/plugin.json has no version",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "Ark0N/Codeman",
+      "reason": "github: candidate \"Ark0N/Codeman\" package.json name \"aicodeman\" does not match listing repo \"Codeman\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "Ataraxy-Labs/sem",
+      "reason": "candidate rejected: install hooks (postinstall) run publisher code at install time; automatic handling refused",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "Arkya-AI/claude-context-os",
+      "reason": "github: candidate \"Arkya-AI/claude-context-os\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "Ataraxy-Labs/weave",
+      "reason": "candidate rejected: install hooks (postinstall) run publisher code at install time; automatic handling refused",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "AstrBotDevs/AstrBot",
+      "reason": "github: candidate \"AstrBotDevs/AstrBot\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"master\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "Avijit07x/claude-db",
+      "reason": "candidate rejected: install hooks (postinstall) run publisher code at install time; automatic handling refused",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "AvdLee/RocketSimApp",
+      "reason": "github: candidate \"AvdLee/RocketSimApp\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"master\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "BingHanOfUESTC/open_agent_team",
+      "reason": "github: candidate \"BingHanOfUESTC/open_agent_team\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "BitterSecurity/Vigilo",
+      "reason": "github: candidate \"BitterSecurity/Vigilo\" package.json has no name",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T10:35:19.149Z",
+      "pinnedRef": "0.0.0"
+    }
+  ],
+  "rejectedGroups": [
+    {
+      "reason": "candidate rejected: install hooks (postinstall) run publisher code at install time; automatic handling refused",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 3,
+      "ids": [
+        "Ataraxy-Labs/sem",
+        "Ataraxy-Labs/weave",
+        "Avijit07x/claude-db"
+      ]
+    },
+    {
+      "reason": "github: candidate \"0x4m4/hexstrike-ai\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"master\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "0x4m4/hexstrike-ai"
+      ]
+    },
+    {
+      "reason": "github: candidate \"0xJacky/nginx-ui\" package.json has no version",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "0xJacky/nginx-ui"
+      ]
+    },
+    {
+      "reason": "github: candidate \"0xNyk/council-of-high-intelligence\" SKILL.md name \"council\" does not match listing repo \"council-of-high-intelligence\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "0xNyk/council-of-high-intelligence"
+      ]
+    },
+    {
+      "reason": "github: candidate \"1Panel-dev/MaxKB\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"v2\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "1Panel-dev/MaxKB"
+      ]
+    },
+    {
+      "reason": "github: candidate \"78/xiaozhi-esp32\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "78/xiaozhi-esp32"
+      ]
+    },
+    {
+      "reason": "github: candidate \"AMAP-ML/LongHorizon-Harness\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "AMAP-ML/LongHorizon-Harness"
+      ]
+    },
+    {
+      "reason": "github: candidate \"Agents365-ai/drawio-skill\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "Agents365-ai/drawio-skill"
+      ]
+    },
+    {
+      "reason": "github: candidate \"Agents365-ai/video-podcast-maker\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "Agents365-ai/video-podcast-maker"
+      ]
+    },
+    {
+      "reason": "github: candidate \"Anil-matcha/vox-ai-motion-graphics-generator\" SKILL.md name \"muapi-director\" does not match listing repo \"vox-ai-motion-graphics-generator\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "Anil-matcha/vox-ai-motion-graphics-generator"
+      ]
+    },
+    {
+      "reason": "github: candidate \"Ar9av/obsidian-wiki\" .claude-plugin/plugin.json has no version",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "Ar9av/obsidian-wiki"
+      ]
+    },
+    {
+      "reason": "github: candidate \"Arekejoker/qwen21-nsfw-pose-skill\" SKILL.md name \"qwen21-nsfw-pose\" does not match listing repo \"qwen21-nsfw-pose-skill\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "Arekejoker/qwen21-nsfw-pose-skill"
+      ]
+    },
+    {
+      "reason": "github: candidate \"Ark0N/Codeman\" package.json name \"aicodeman\" does not match listing repo \"Codeman\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "Ark0N/Codeman"
+      ]
+    },
+    {
+      "reason": "github: candidate \"Arkya-AI/claude-context-os\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "Arkya-AI/claude-context-os"
+      ]
+    },
+    {
+      "reason": "github: candidate \"AstrBotDevs/AstrBot\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"master\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "AstrBotDevs/AstrBot"
+      ]
+    },
+    {
+      "reason": "github: candidate \"AvdLee/RocketSimApp\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"master\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "AvdLee/RocketSimApp"
+      ]
+    },
+    {
+      "reason": "github: candidate \"BingHanOfUESTC/open_agent_team\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "BingHanOfUESTC/open_agent_team"
+      ]
+    },
+    {
+      "reason": "github: candidate \"BitterSecurity/Vigilo\" package.json has no name",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "BitterSecurity/Vigilo"
+      ]
+    },
+    {
+      "reason": "github: candidate \"ac.inference.sh/mcp\" repositoryUrl host \"api.inference.sh\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "ac.inference.sh/mcp"
+      ]
+    },
+    {
+      "reason": "github: candidate \"ac.mizan/registry\" repositoryUrl host \"mizan.ac\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "ac.mizan/registry"
+      ]
+    },
+    {
+      "reason": "github: candidate \"ac.snag/snag\" repositoryUrl host \"mcp.snag.ac\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "ac.snag/snag"
+      ]
+    },
+    {
+      "reason": "github: candidate \"academy.apexai/apex-ai-academy\" package.json name \"apex-sample-agents\" does not match listing repo \"sample-agents\"",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "academy.apexai/apex-ai-academy"
+      ]
+    },
+    {
+      "reason": "github: candidate \"academy.ase/periodic-system\" repositoryUrl host \"ase.academy\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "academy.ase/periodic-system"
+      ]
+    },
+    {
+      "reason": "github: candidate \"academy.serviceengineer/se-ai\" repositoryUrl host \"api.serviceengineer.academy\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "academy.serviceengineer/se-ai"
+      ]
+    },
+    {
+      "reason": "github: candidate \"ad.inside/inside-ads\" repositoryUrl host \"app.inside.ad\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "ad.inside/inside-ads"
+      ]
+    },
+    {
+      "reason": "github: candidate \"ad.pantheon/mcp\" repositoryUrl host \"mcp.pantheon.ad\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "ad.pantheon/mcp"
+      ]
+    },
+    {
+      "reason": "github: candidate \"ad.tide/mcp\" repositoryUrl host \"api.tide.ad\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "ad.tide/mcp"
+      ]
+    },
+    {
+      "reason": "github: candidate \"ae.alexeysound/alexey-sound\" repositoryUrl host \"alexeysound.ae\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "ae.alexeysound/alexey-sound"
+      ]
+    },
+    {
+      "reason": "github: candidate \"ae.beachclubs/mcp\" repositoryUrl host \"www.beachclubs.ae\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "ae.beachclubs/mcp"
+      ]
+    },
+    {
+      "reason": "github: candidate \"ae.brainy/grocery-prices\" repositoryUrl host \"prices.brainy.ae\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "ae.brainy/grocery-prices"
+      ]
+    },
+    {
+      "reason": "github: candidate \"ae.datadubai/dubai-real-estate\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"HEAD\"",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "ae.datadubai/dubai-real-estate"
+      ]
+    },
+    {
+      "reason": "github: candidate \"ae.easyvoice/tts\" repositoryUrl host \"easyvoice.ae\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "ae.easyvoice/tts"
+      ]
+    },
+    {
+      "reason": "github: candidate \"ae.employerofrecord/moha\" repositoryUrl host \"employerofrecord.ae\" is not github.com",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "count": 1,
+      "ids": [
+        "ae.employerofrecord/moha"
+      ]
+    },
+    {
+      "reason": "skills-sh: candidate \"aaron-he-zhu/seo-geo-claude-skills/backlink-analyzer\" SKILL.md has no name/description frontmatter",
+      "sourceUrl": "https://skills.sh/api/search",
+      "count": 1,
+      "ids": [
+        "aaron-he-zhu/seo-geo-claude-skills/backlink-analyzer"
+      ]
+    }
+  ]
+}

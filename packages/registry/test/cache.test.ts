@@ -236,6 +236,26 @@ test("refresh honors limit", async () => {
   assert.equal(result.snapshot?.candidates[0]?.id, "a-id");
 });
 
+test("refresh limit bounds probe calls before probing", async () => {
+  const dir = tmpCache();
+  let probes = 0;
+  const raws = Array.from({ length: 10 }, (_, i) =>
+    rawCandidate({ id: `bounded-${i}` }),
+  );
+  const result = await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    limit: 2,
+    probe: async (raw) => {
+      probes += 1;
+      return raw;
+    },
+    fetchers: [fetcherOf(SOURCE_URL, raws)],
+  });
+  assert.equal(probes, 2);
+  assert.equal(result.snapshot?.candidates.length, 2);
+});
+
 test("refresh demotes trust for drifted and shell-exec candidates", async () => {
   const dir = tmpCache();
   const seed = buildSnapshot(

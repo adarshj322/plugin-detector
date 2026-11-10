@@ -130,10 +130,14 @@ production-verified.
 
 ### Registry snapshot
 
-- The bundled snapshot is a **seed/placeholder**:
-  `schemaVersion: 1`, `generatedAt: 2026-11-08T00:00:00.000Z`, zero candidates.
-  `recommend` therefore returns `no-good-candidates` until a live refresh is
-  reviewed and committed.
+- The bundled snapshot is an **evidence-probed review seed**, not a v1.0
+  recommendation corpus: `schemaVersion: 1`, `generatedAt: 2026-11-10T10:35:19.149Z`,
+  11 accepted skill candidates, 36 rejected intake records.
+- The first live refresh probed 42 candidates; 31 were excluded for empty or
+  misclassified capabilities. The snapshot is intentionally thin until capability
+  inference covers MCP/plugin manifests and license/maintenance evidence improves.
+- `recommend` still returns `no-good-candidates` for the checked use cases; see
+  `docs/registry-review-2026-11-10.md`. This remains a v1.0 gate.
 - `npm run registry:refresh` refreshes `packages/registry/data/registry-snapshot.json`
   from live public sources and writes a local, uncommitted `registry-manifest.json`
   for review.
@@ -142,21 +146,17 @@ production-verified.
 
 These are release blockers for a stable `1.0`, not for `0.1.0`:
 
-- [ ] **Reviewed registry snapshot.** Run `npm run registry:refresh` against live
-  public sources, review the generated snapshot (timestamps, pinned refs, trust,
-  provenance, rejected intake), explicitly approve the diff, and commit/pin it
-  with its `generatedAt`. The current committed file is the seed/placeholder.
-  v0.1 refresh records are unprobed and excluded from recommendations, so the
-  reviewed snapshot must also carry probed artifact evidence. The release
-  workflow rejects `v1.*` tags when the snapshot is empty, still has the seed
-  timestamp, or has incomplete provenance.
-- [ ] **Live artifact probing and publisher/official source policy.** v0.1 marks
-  every live-refresh record unprobed: it does not fetch `SKILL.md`, plugin/MCP
-  manifests, or `package.json`, so it cannot detect package install hooks or
-  reach `verified`. Implement per-candidate manifest/package probing (including
-  `installHooks` from package metadata) and an explicit allowlisted
-  publisher/official source policy that can earn `verified`; until then
-  auto-install requires a manually reviewed, probed snapshot.
+- [ ] **Reviewed registry snapshot.** Live refresh now probes artifacts and the
+  committed snapshot carries evidence, but the first reviewed seed is thin (11
+  skill candidates, no MCP/plugin coverage) and `recommend` returns
+  `no-good-candidates`. Improve capability/license/maintenance coverage, refresh,
+  review, and re-pin the snapshot before v1.0. The release workflow rejects
+  `v1.*` tags when the snapshot is empty, still has the seed timestamp, or has
+  incomplete provenance.
+- [x] **Live artifact probing and publisher/official source policy.** Live refresh
+  probes skills.sh blobs, GitHub manifests, and npm/PyPI metadata; unprobed
+  records cannot enter the snapshot; publisher trust is bound to probed evidence.
+  Capability and license coverage remain quality gates above.
 - [ ] **Live source health and breadth.** A live refresh from this commit
   returned partial results: `skills.sh/api/skills` and the awesome-list URL
   both returned HTTP 404, while the GitHub and MCP registry sources produced
