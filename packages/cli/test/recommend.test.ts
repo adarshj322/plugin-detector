@@ -342,7 +342,16 @@ test("recommend --profile selects the custom profile and applies its threshold",
 test("recommend custom profile wins over a built-in profile with the same id", async () => {
   const env = setup();
   const file = join(env.home, "override.yaml");
-  writeFileSync(file, customProfileYaml("software-development", 10));
+  // The custom profile has the same id and a matching capability, but omits
+  // the built-in's `tsconfig` signal. Passing only `tsconfig` therefore
+  // resolves `partial`; the built-in would resolve `match`.
+  writeFileSync(
+    file,
+    customProfileYaml("software-development", 10).replace(
+      "  - docs.writing",
+      "  - testing.e2e",
+    ),
+  );
   writeSnapshot(env.cache, [candidate("cand-1")]);
   let code = -1;
   const { logs } = await capture(async () => {
@@ -351,9 +360,7 @@ test("recommend custom profile wins over a built-in profile with the same id", a
         "--profile",
         file,
         "--signal",
-        "package-manifest",
-        "--signal",
-        "pytest",
+        "tsconfig",
         "--cache-dir",
         env.cache,
         "--home",
@@ -367,8 +374,7 @@ test("recommend custom profile wins over a built-in profile with the same id", a
   assert.equal(code, 0);
   const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
   assert.equal(parsed.facts.useCase, "software-development");
-  assert.equal(parsed.facts.verdict, "required");
-  assert.ok((parsed.facts.recommendations[0]?.score ?? 100) < 55);
+  assert.equal(parsed.facts.profileStatus, "partial");
 });
 
 test("recommend rejects conflicting --use-case and --profile", async () => {
@@ -418,4 +424,25 @@ test("recommend exits 1 for a missing or invalid profile", async () => {
   });
   assert.equal(invalidCode, 1);
   assert.match(invalid.errors.join("\n"), /invalid profile/);
+});
+
+test("recommend rejects a mistyped profile key instead of using the default threshold", async () => {
+  const env = setup();
+  const file = join(env.home, "typo.yaml");
+  writeFileSync(
+    file,
+    customProfileYaml("typo-profile", 10).replace(
+      "requiredThreshold: 10",
+      "requiredThreshhold: 10",
+    ),
+  );
+  let code = -1;
+  const { errors } = await capture(async () => {
+    code = (
+      await recommend(["--profile", file, "--home", env.home])
+    ).exitCode;
+  });
+  assert.equal(code, 1);
+  assert.match(errors.join("\n"), /invalid profile/);
+  assert.match(errors.join("\n"), /requiredThreshhold/);
 });

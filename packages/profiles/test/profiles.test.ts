@@ -218,3 +218,19 @@ test("loadProfileFile reports schema issues with the path and field", () => {
       error.message.includes("capabilities.0"),
   );
 });
+
+test("loadProfileFile rejects unknown keys such as a misspelled requiredThreshold", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pd-profile-file-"));
+  const file = join(dir, "typo.yaml");
+  writeFileSync(
+    file,
+    CUSTOM.replace("requiredThreshold: 10", "requiredThreshhold: 10"),
+  );
+  assert.throws(
+    () => loadProfileFile(file),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.message.includes(`invalid profile ${file}`) &&
+      error.message.includes("requiredThreshhold"),
+  );
+});

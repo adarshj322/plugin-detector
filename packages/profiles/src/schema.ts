@@ -17,20 +17,24 @@ const CanonicalCapability = z
     { message: "capability must be a canonical capability ID" },
   );
 
-export const UseCaseProfileSchema = z.object({
-  id: z.string().min(1),
-  version: z.number().int().positive(),
-  displayName: z.string().min(1),
-  description: z.string().min(1),
-  capabilities: z.array(CanonicalCapability).min(1),
-  signalQueries: z.array(z.string().min(1)).min(5).max(12),
-  negativeSignals: z.array(z.string().min(1)).min(1),
-  defaultDomains: z.array(z.string().min(1)).min(1),
-  expectedValueTiers: z.array(z.string().min(1)).min(1),
-  // Optional profile calibration: recommendation gate only, never trust or
-  // automatic-install policy. Defaults to DEFAULT_REQUIRED_THRESHOLD.
-  requiredThreshold: z.number().min(0).max(100).optional(),
-});
+// Unknown keys are rejected so a typo like `requiredThreshhold` fails
+// validation instead of silently falling back to the default.
+export const UseCaseProfileSchema = z
+  .object({
+    id: z.string().min(1),
+    version: z.number().int().positive(),
+    displayName: z.string().min(1),
+    description: z.string().min(1),
+    capabilities: z.array(CanonicalCapability).min(1),
+    signalQueries: z.array(z.string().min(1)).min(5).max(12),
+    negativeSignals: z.array(z.string().min(1)).min(1),
+    defaultDomains: z.array(z.string().min(1)).min(1),
+    expectedValueTiers: z.array(z.string().min(1)).min(1),
+    // Optional profile calibration: recommendation gate only, never trust or
+    // automatic-install policy. Defaults to DEFAULT_REQUIRED_THRESHOLD.
+    requiredThreshold: z.number().min(0).max(100).optional(),
+  })
+  .strict();
 export type V1Profile = z.infer<typeof UseCaseProfileSchema>;
 
 // Minimal YAML-subset parser for the profile shape only: top-level `key:
