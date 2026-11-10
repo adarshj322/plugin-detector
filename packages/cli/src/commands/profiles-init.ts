@@ -33,6 +33,10 @@ requiredThreshold: 10
 // `profiles init <file>`: write a starter profile, never overwrite an
 // existing file, and print the edit -> validate -> recommend next steps.
 export async function initProfile(argv: string[]): Promise<InitProfileResult> {
+  if (argv[0] === "--help" || argv[0] === "-h") {
+    console.log(`usage: plugin-detector profiles init <file>`);
+    return { exitCode: 0 };
+  }
   if (argv.length !== 1) {
     console.error(`usage: plugin-detector profiles init <file>`);
     return { exitCode: 2 };

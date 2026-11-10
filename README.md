@@ -31,7 +31,7 @@ npx plugin-detector recommend --use-case software-development --signal tsconfig
 npx plugin-detector profiles list
 npx plugin-detector profiles init my-workflow.yaml
 npx plugin-detector profiles validate my-workflow.yaml
-npx plugin-detector recommend --profile my-workflow.yaml --signal tsconfig
+npx plugin-detector recommend --profile my-workflow.yaml --signal project-readme
 
 # Why did a candidate receive that verdict?
 npx plugin-detector explain CANDIDATE_ID

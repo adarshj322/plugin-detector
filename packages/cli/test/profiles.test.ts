@@ -1,12 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadProfileFile } from "@plugin-detector/profiles";
 import { initProfile } from "../src/commands/profiles-init.js";
 import { listProfiles } from "../src/commands/profiles-list.js";
 import { main } from "../src/index.js";
+
+const ENTRY = fileURLToPath(new URL("../src/index.js", import.meta.url));
 
 async function capture(run: () => Promise<unknown>): Promise<{
   logs: string[];
@@ -78,4 +87,16 @@ test("main dispatches profiles list", async () => {
   });
   assert.equal(code, 0);
   assert.match(logs.join("\n"), /software-development/);
+});
+
+test("profiles init --help prints usage and creates no file", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pd-profiles-help-"));
+  const res = spawnSync(
+    process.execPath,
+    [ENTRY, "profiles", "init", "--help"],
+    { cwd: dir, encoding: "utf8" },
+  );
+  assert.equal(res.status, 0, `stderr: ${res.stderr}`);
+  assert.match(res.stdout, /usage: plugin-detector profiles init/);
+  assert.deepEqual(readdirSync(dir), []);
 });

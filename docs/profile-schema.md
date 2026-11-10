@@ -14,7 +14,7 @@ npx plugin-detector profiles init path/to/profile.yaml
 npx plugin-detector profiles validate path/to/profile.yaml
 
 # Recommend or boost discovery with a custom profile
-npx plugin-detector recommend --profile path/to/profile.yaml --signal tsconfig
+npx plugin-detector recommend --profile path/to/profile.yaml --signal project-readme
 npx plugin-detector registry refresh --profile path/to/profile.yaml
 ```
 
@@ -125,7 +125,9 @@ must ask which workflow is correct, then re-run with the resolved declaration.
 `loadProfileFile(file)` in `@plugin-detector/profiles` reads, parses, and
 validates one profile file. It is uncached, so editing a file and re-running
 picks up the change. A missing file or schema violation throws one error that
-names the file and the failing fields.
+names the file and the failing fields. Unknown fields are rejected, so a typo
+such as `requiredThreshhold` fails validation instead of silently using the
+default threshold.
 
 Create a starter with `profiles init <file>`. It writes a valid profile with
 `requiredThreshold: 10` and refuses to overwrite an existing file. Edit it,
