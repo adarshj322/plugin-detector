@@ -1,527 +1,196 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-10T10:35:19.149Z",
+  "generatedAt": "2026-11-10T10:59:07.918Z",
   "candidates": [
     {
-      "id": "101-skills/superpowers/agent-browser",
-      "name": "agent-browser",
-      "artifactType": "skill",
+      "id": "heygen-com/hyperframes",
+      "name": "heygen-com/hyperframes",
+      "artifactType": "plugin",
       "sources": [
         "community",
-        "https://github.com/101-skills/superpowers"
+        "https://github.com/heygen-com/hyperframes"
       ],
       "useCaseDomains": [],
       "capabilities": [
-        "browser.automation"
+        "speech.captions"
       ],
-      "license": "unknown",
-      "pinnedRef": "skills.sh:88bdf43f2e2341a9b404d322b89939847edcd0bf55f759aa0abb9adf3a65a82d",
-      "repositoryUrl": "https://github.com/101-skills/superpowers",
+      "license": "Apache-2.0",
+      "pinnedRef": "github:99f813a6cdfb03bf6607253960e956f6f8ff95adb5caf2a70f797f92d1d74e25",
+      "repositoryUrl": "https://github.com/heygen-com/hyperframes",
       "installMode": "manual",
-      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "lastVerified": "2026-11-10T10:59:07.918Z",
       "artifactProbed": true,
       "artifactEvidence": {
-        "kind": "skill",
-        "sourceUrl": "https://skills.sh/api/download/101-skills/superpowers/agent-browser",
-        "resolvedRef": "skills.sh:88bdf43f2e2341a9b404d322b89939847edcd0bf55f759aa0abb9adf3a65a82d",
-        "contentHash": "433ed471ceca49f696ba72856894860594a5dccbcac82da61797ae7a3a3ebfef",
-        "license": "unknown",
-        "name": "agent-browser",
-        "capabilities": [],
-        "evidenceSnippets": [
-          "name: agent-browser",
-          "description: Browser automation for AI agents via inference.sh. Navigate web pages, interact with elements using @e refs, take screenshots, record video. Capabilities: web scraping, form filling, clicking, typing, drag-drop, file upload, JavaScript execution. Use for: web automation, data extraction"
-        ],
-        "retrievedAt": "2026-11-10T10:35:24.671Z"
-      },
-      "provenance": "community",
-      "risk": "medium",
-      "maintenance": "unknown",
-      "auditStatus": "unknown",
-      "popularity": {
-        "installs": 189545
-      },
-      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Browser automation for AI agents via inference.sh. Navigate web pages, interact with elements using @e refs, take screenshots, record video. Capabilities: web scraping, form filling, clicking, typing, drag-drop, file upload, JavaScript execution. Use for: web automation, data extraction, testing, agent browsing, research. Triggers: browser, web automation, scrape, navigate, click, fill form, screenshot, browse web, playwright, headless browser, web agent, surf internet, record video"
-    },
-    {
-      "id": "101-skills/superpowers/agent-tools",
-      "name": "agent-tools",
-      "artifactType": "skill",
-      "sources": [
-        "community",
-        "https://github.com/101-skills/superpowers"
-      ],
-      "useCaseDomains": [],
-      "capabilities": [
-        "media.image",
-        "search.web"
-      ],
-      "license": "unknown",
-      "pinnedRef": "skills.sh:31b676f5398768da5109365e77514d47c1d1c0b537aa3abad6c814ad23c8557a",
-      "repositoryUrl": "https://github.com/101-skills/superpowers",
-      "installMode": "manual",
-      "lastVerified": "2026-11-10T10:35:19.149Z",
-      "artifactProbed": true,
-      "artifactEvidence": {
-        "kind": "skill",
-        "sourceUrl": "https://skills.sh/api/download/101-skills/superpowers/agent-tools",
-        "resolvedRef": "skills.sh:31b676f5398768da5109365e77514d47c1d1c0b537aa3abad6c814ad23c8557a",
-        "contentHash": "d8b08ea6590fc379fb686852c39ff06829f2a31a9c8b27333849bc41e152573d",
-        "license": "unknown",
-        "name": "agent-tools",
-        "capabilities": [],
-        "evidenceSnippets": [
-          "name: agent-tools",
-          "description: Run AI apps via inference.sh CLI - image generation, video creation, LLMs, search, 3D, Twitter automation. Models: FLUX, Veo, Gemini, Grok, Claude, Seedance, OmniHuman, Tavily, Exa, OpenRouter, and many more. Use when running AI apps, generating images/videos, calling LLMs, web search, "
-        ],
-        "retrievedAt": "2026-11-10T10:35:24.742Z"
-      },
-      "provenance": "community",
-      "risk": "medium",
-      "maintenance": "unknown",
-      "auditStatus": "unknown",
-      "popularity": {
-        "installs": 126414
-      },
-      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Run AI apps via inference.sh CLI - image generation, video creation, LLMs, search, 3D, Twitter automation. Models: FLUX, Veo, Gemini, Grok, Claude, Seedance, OmniHuman, Tavily, Exa, OpenRouter, and many more. Use when running AI apps, generating images/videos, calling LLMs, web search, or automating Twitter. Triggers: inference.sh, infsh, ai model, run ai, serverless ai, ai api, flux, veo, claude api, image generation, video generation, openrouter, tavily, exa search, twitter api, grok"
-    },
-    {
-      "id": "101-skills/superpowers/infsh-cli",
-      "name": "infsh-cli",
-      "artifactType": "skill",
-      "sources": [
-        "community",
-        "https://github.com/101-skills/superpowers"
-      ],
-      "useCaseDomains": [],
-      "capabilities": [
-        "media.image",
-        "search.web"
-      ],
-      "license": "unknown",
-      "pinnedRef": "skills.sh:f9ec8528b8f70e61688aa51aa195e54b3860f8bd2077f239833f042631ebdde8",
-      "repositoryUrl": "https://github.com/101-skills/superpowers",
-      "installMode": "manual",
-      "lastVerified": "2026-11-10T10:35:19.149Z",
-      "artifactProbed": true,
-      "artifactEvidence": {
-        "kind": "skill",
-        "sourceUrl": "https://skills.sh/api/download/101-skills/superpowers/infsh-cli",
-        "resolvedRef": "skills.sh:f9ec8528b8f70e61688aa51aa195e54b3860f8bd2077f239833f042631ebdde8",
-        "contentHash": "ff4055cc8c904f06098398690e3e356fda6cbe7d7ac97410c4afef0991cf1434",
-        "license": "unknown",
-        "name": "infsh-cli",
-        "capabilities": [],
-        "evidenceSnippets": [
-          "name: infsh-cli",
-          "description: Run AI apps via inference.sh CLI - image generation, video creation, LLMs, search, 3D, Twitter automation. Models: FLUX, Veo, Gemini, Grok, Claude, Seedance, OmniHuman, Tavily, Exa, OpenRouter, and many more. Use when running AI apps, generating images/videos, calling LLMs, web search, "
-        ],
-        "retrievedAt": "2026-11-10T10:35:24.756Z"
-      },
-      "provenance": "community",
-      "risk": "medium",
-      "maintenance": "unknown",
-      "auditStatus": "unknown",
-      "popularity": {
-        "installs": 126352
-      },
-      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Run AI apps via inference.sh CLI - image generation, video creation, LLMs, search, 3D, Twitter automation. Models: FLUX, Veo, Gemini, Grok, Claude, Seedance, OmniHuman, Tavily, Exa, OpenRouter, and many more. Use when running AI apps, generating images/videos, calling LLMs, web search, or automating Twitter. Triggers: inference.sh, infsh, ai model, run ai, serverless ai, ai api, flux, veo, claude api, image generation, video generation, openrouter, tavily, exa search, twitter api, grok"
-    },
-    {
-      "id": "Astro-Han/karpathy-llm-wiki",
-      "name": "Astro-Han/karpathy-llm-wiki",
-      "artifactType": "skill",
-      "sources": [
-        "community",
-        "https://github.com/Astro-Han/karpathy-llm-wiki"
-      ],
-      "useCaseDomains": [],
-      "capabilities": [
-        "code-review.quality"
-      ],
-      "license": "MIT",
-      "pinnedRef": "github:c154f62094738b65e91dbb1c706758137290c622e386b3204e87c60a78f75748",
-      "repositoryUrl": "https://github.com/Astro-Han/karpathy-llm-wiki",
-      "installMode": "manual",
-      "lastVerified": "2026-11-10T10:35:19.149Z",
-      "artifactProbed": true,
-      "artifactEvidence": {
-        "kind": "skill",
-        "sourceUrl": "https://raw.githubusercontent.com/Astro-Han/karpathy-llm-wiki/main/SKILL.md",
+        "kind": "plugin",
+        "sourceUrl": "https://raw.githubusercontent.com/heygen-com/hyperframes/main/.claude-plugin/plugin.json",
         "resolvedRef": "main",
-        "contentHash": "c154f62094738b65e91dbb1c706758137290c622e386b3204e87c60a78f75748",
-        "license": "MIT",
-        "name": "karpathy-llm-wiki",
+        "contentHash": "99f813a6cdfb03bf6607253960e956f6f8ff95adb5caf2a70f797f92d1d74e25",
+        "license": "Apache-2.0",
+        "name": "hyperframes",
+        "version": "0.9.29",
         "capabilities": [],
         "evidenceSnippets": [
-          "name: karpathy-llm-wiki",
-          "description: Use when building or maintaining a personal LLM-powered knowledge base. Triggers: ingesting sources into a wiki, querying wiki knowledge, linting wiki quality, 'add to wiki', 'what do I know about', or any mention of 'LLM wiki' or 'Karpathy wiki'."
+          "name: hyperframes",
+          "description: HyperFrames by HeyGen. Write HTML, render video. Compositions, GSAP and runtime adapter animations, captions, voiceovers, audio-reactive visuals, and website capture for HyperFrames."
         ],
-        "retrievedAt": "2026-11-10T10:37:51.657Z"
+        "retrievedAt": "2026-11-10T11:13:41.716Z"
       },
       "provenance": "community",
       "risk": "medium",
-      "maintenance": "unknown",
+      "maintenance": "active",
       "auditStatus": "unknown",
       "popularity": {
-        "stars": 2718
+        "stars": 81982
       },
-      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Use when building or maintaining a personal LLM-powered knowledge base. Triggers: ingesting sources into a wiki, querying wiki knowledge, linting wiki quality, 'add to wiki', 'what do I know about', or any mention of 'LLM wiki' or 'Karpathy wiki'."
+      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Write HTML. Render video. Built for agents."
     },
     {
-      "id": "addyosmani/agent-skills/browser-testing-with-devtools",
-      "name": "browser-testing-with-devtools",
+      "id": "ruvnet/ruflo",
+      "name": "ruvnet/ruflo",
       "artifactType": "skill",
       "sources": [
         "community",
-        "https://github.com/addyosmani/agent-skills"
-      ],
-      "useCaseDomains": [],
-      "capabilities": [
-        "browser.automation"
-      ],
-      "license": "unknown",
-      "pinnedRef": "skills.sh:29b1bfe6f1c301b1e9cb3e1cf14355a2f522d7da78a84f204eb27390d4666447",
-      "repositoryUrl": "https://github.com/addyosmani/agent-skills",
-      "installMode": "manual",
-      "lastVerified": "2026-11-10T10:35:19.149Z",
-      "artifactProbed": true,
-      "artifactEvidence": {
-        "kind": "skill",
-        "sourceUrl": "https://skills.sh/api/download/addyosmani/agent-skills/browser-testing-with-devtools",
-        "resolvedRef": "skills.sh:29b1bfe6f1c301b1e9cb3e1cf14355a2f522d7da78a84f204eb27390d4666447",
-        "contentHash": "e28dd45416e6df93f0db6fffeb3aa2477a0e48a22f8e05fd5bb1892484115bb6",
-        "license": "unknown",
-        "name": "browser-testing-with-devtools",
-        "capabilities": [],
-        "evidenceSnippets": [
-          "name: browser-testing-with-devtools",
-          "description: Tests in real browsers via Chrome DevTools MCP. Use when building or debugging anything that runs in a browser. Use when you need to inspect the DOM, capture console errors, analyze network requests, profile performance, or verify visual output with real runtime data. Requires the chrom"
-        ],
-        "retrievedAt": "2026-11-10T10:35:25.028Z"
-      },
-      "provenance": "community",
-      "risk": "medium",
-      "maintenance": "unknown",
-      "auditStatus": "unknown",
-      "popularity": {
-        "installs": 67792
-      },
-      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Tests in real browsers via Chrome DevTools MCP. Use when building or debugging anything that runs in a browser. Use when you need to inspect the DOM, capture console errors, analyze network requests, profile performance, or verify visual output with real runtime data. Requires the chrome-devtools MCP server to be configured."
-    },
-    {
-      "id": "addyosmani/agent-skills/code-review-and-quality",
-      "name": "code-review-and-quality",
-      "artifactType": "skill",
-      "sources": [
-        "community",
-        "https://github.com/addyosmani/agent-skills"
-      ],
-      "useCaseDomains": [],
-      "capabilities": [
-        "code-review.quality"
-      ],
-      "license": "unknown",
-      "pinnedRef": "skills.sh:0710a75dd5553d32f79e9d3a4304783d5014c6d1ac6335f8edbafd8a350f6965",
-      "repositoryUrl": "https://github.com/addyosmani/agent-skills",
-      "installMode": "manual",
-      "lastVerified": "2026-11-10T10:35:19.149Z",
-      "artifactProbed": true,
-      "artifactEvidence": {
-        "kind": "skill",
-        "sourceUrl": "https://skills.sh/api/download/addyosmani/agent-skills/code-review-and-quality",
-        "resolvedRef": "skills.sh:0710a75dd5553d32f79e9d3a4304783d5014c6d1ac6335f8edbafd8a350f6965",
-        "contentHash": "a47551daf26e3cc5670f5286f9e4850c2fc662d5ba08b86eee895254f3851797",
-        "license": "unknown",
-        "name": "code-review-and-quality",
-        "capabilities": [],
-        "evidenceSnippets": [
-          "name: code-review-and-quality",
-          "description: Conducts multi-axis code review. Use before merging any change. Use when reviewing code written by yourself, another agent, or a human. Use when you need to assess code quality across multiple dimensions before it enters the main branch. Use when asked to review a diff or a pull request"
-        ],
-        "retrievedAt": "2026-11-10T10:35:25.118Z"
-      },
-      "provenance": "community",
-      "risk": "medium",
-      "maintenance": "unknown",
-      "auditStatus": "unknown",
-      "popularity": {
-        "installs": 84148
-      },
-      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Conducts multi-axis code review. Use before merging any change. Use when reviewing code written by yourself, another agent, or a human. Use when you need to assess code quality across multiple dimensions before it enters the main branch. Use when asked to review a diff or a pull request, even when the diff is pasted inline."
-    },
-    {
-      "id": "affaan-m/ecc/browser-qa",
-      "name": "browser-qa",
-      "artifactType": "skill",
-      "sources": [
-        "community",
-        "https://github.com/affaan-m/ecc"
-      ],
-      "useCaseDomains": [],
-      "capabilities": [
-        "browser.automation"
-      ],
-      "license": "unknown",
-      "pinnedRef": "skills.sh:84a03b4f8c3638b905d7f52aa0520d55d8c3eb38835c6601a60a0cd67408f0fc",
-      "repositoryUrl": "https://github.com/affaan-m/ecc",
-      "installMode": "manual",
-      "lastVerified": "2026-11-10T10:35:19.149Z",
-      "artifactProbed": true,
-      "artifactEvidence": {
-        "kind": "skill",
-        "sourceUrl": "https://skills.sh/api/download/affaan-m/ecc/browser-qa",
-        "resolvedRef": "skills.sh:84a03b4f8c3638b905d7f52aa0520d55d8c3eb38835c6601a60a0cd67408f0fc",
-        "contentHash": "6eb78a2460adcde116e6b44fcdff7ae37aeec6208241a24417cb2db4b3b254cd",
-        "license": "unknown",
-        "name": "browser-qa",
-        "capabilities": [],
-        "evidenceSnippets": [
-          "name: browser-qa",
-          "description: Run automated post-deploy UI verification with a browser automation MCP (claude-in-chrome, Playwright, or Puppeteer): console-error and Core Web Vitals smoke checks, form and auth-flow interaction tests, screenshot visual regression across three breakpoints, and axe-core accessibility a"
-        ],
-        "retrievedAt": "2026-11-10T10:35:25.655Z"
-      },
-      "provenance": "community",
-      "risk": "medium",
-      "maintenance": "unknown",
-      "auditStatus": "unknown",
-      "popularity": {
-        "installs": 11026
-      },
-      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Run automated post-deploy UI verification with a browser automation MCP (claude-in-chrome, Playwright, or Puppeteer): console-error and Core Web Vitals smoke checks, form and auth-flow interaction tests, screenshot visual regression across three breakpoints, and axe-core accessibility audits ending in a SHIP / DO-NOT-SHIP verdict. Use when testing a deployed feature on staging or preview, before shipping frontend changes, reviewing a frontend PR, or checking responsive layout and accessibility."
-    },
-    {
-      "id": "affaan-m/ecc/django-tdd",
-      "name": "django-tdd",
-      "artifactType": "skill",
-      "sources": [
-        "community",
-        "https://github.com/affaan-m/ecc"
-      ],
-      "useCaseDomains": [],
-      "capabilities": [
-        "testing.runner"
-      ],
-      "license": "unknown",
-      "pinnedRef": "skills.sh:de00edc9cefbe063652b8ad2c90cca109901e4bf2f1d85c67ea11a8d1653426f",
-      "repositoryUrl": "https://github.com/affaan-m/ecc",
-      "installMode": "manual",
-      "lastVerified": "2026-11-10T10:35:19.149Z",
-      "artifactProbed": true,
-      "artifactEvidence": {
-        "kind": "skill",
-        "sourceUrl": "https://skills.sh/api/download/affaan-m/ecc/django-tdd",
-        "resolvedRef": "skills.sh:de00edc9cefbe063652b8ad2c90cca109901e4bf2f1d85c67ea11a8d1653426f",
-        "contentHash": "20bd5378fb9b76b396916daa8781dd45eef6336e5d4b3a46edb0c3e4eefaf074",
-        "license": "unknown",
-        "name": "django-tdd",
-        "capabilities": [],
-        "evidenceSnippets": [
-          "name: django-tdd",
-          "description: Django testing strategies with pytest-django, TDD methodology, factory_boy, mocking, coverage, and testing Django REST Framework APIs. Use when writing Django or DRF tests with pytest-django, or driving a Django feature test-first."
-        ],
-        "retrievedAt": "2026-11-10T10:35:25.993Z"
-      },
-      "provenance": "community",
-      "risk": "medium",
-      "maintenance": "unknown",
-      "auditStatus": "unknown",
-      "popularity": {
-        "installs": 12331
-      },
-      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Django testing strategies with pytest-django, TDD methodology, factory_boy, mocking, coverage, and testing Django REST Framework APIs. Use when writing Django or DRF tests with pytest-django, or driving a Django feature test-first."
-    },
-    {
-      "id": "affaan-m/ecc/dmux-workflows",
-      "name": "dmux-workflows",
-      "artifactType": "skill",
-      "sources": [
-        "community",
-        "https://github.com/affaan-m/ecc"
+        "https://github.com/ruvnet/ruflo"
       ],
       "useCaseDomains": [],
       "capabilities": [
         "planning.orchestration"
       ],
-      "license": "unknown",
-      "pinnedRef": "skills.sh:3528ab8f12c8ac846786cbe35f6a8b765a1566a5dc6a46aef863559064841ecc",
-      "repositoryUrl": "https://github.com/affaan-m/ecc",
+      "license": "MIT",
+      "pinnedRef": "github:e706dd7d057ebb4e456bdfc312d38fe07bf2419476d246164801571d4cd481da",
+      "repositoryUrl": "https://github.com/ruvnet/ruflo",
       "installMode": "manual",
-      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "lastVerified": "2026-11-10T10:59:07.918Z",
       "artifactProbed": true,
       "artifactEvidence": {
         "kind": "skill",
-        "sourceUrl": "https://skills.sh/api/download/affaan-m/ecc/dmux-workflows",
-        "resolvedRef": "skills.sh:3528ab8f12c8ac846786cbe35f6a8b765a1566a5dc6a46aef863559064841ecc",
-        "contentHash": "921836c6a10e65516654974815ec5acd358ce093e8043932781ba43bdd0a64a5",
-        "license": "unknown",
-        "name": "dmux-workflows",
+        "sourceUrl": "https://raw.githubusercontent.com/ruvnet/ruflo/main/SKILL.md",
+        "resolvedRef": "main",
+        "contentHash": "e706dd7d057ebb4e456bdfc312d38fe07bf2419476d246164801571d4cd481da",
+        "license": "MIT",
+        "name": "ruflo",
         "capabilities": [],
         "evidenceSnippets": [
-          "name: dmux-workflows",
-          "description: Multi-agent orchestration using dmux (tmux pane manager for AI agents). Patterns for parallel agent workflows across Claude Code, Codex, OpenCode, and other harnesses. Use when running multiple agent sessions in parallel or coordinating multi-agent development workflows."
+          "name: ruflo",
+          "description: Ruflo is a multi-agent orchestration platform for AI coding agents (Claude Code, Cursor, Codex, Copilot, Gemini, Amp, +12 more). Use this skill when the user wants to (1) install/init ruflo in a project, (2) run multi-agent swarms with hierarchical coordination, (3) use ruflo's 314+ MCP"
         ],
-        "retrievedAt": "2026-11-10T10:35:26.306Z"
+        "retrievedAt": "2026-11-10T11:13:41.723Z"
       },
       "provenance": "community",
       "risk": "medium",
-      "maintenance": "unknown",
+      "maintenance": "active",
       "auditStatus": "unknown",
       "popularity": {
-        "installs": 10554
+        "stars": 81397
       },
-      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Multi-agent orchestration using dmux (tmux pane manager for AI agents). Patterns for parallel agent workflows across Claude Code, Codex, OpenCode, and other harnesses. Use when running multiple agent sessions in parallel or coordinating multi-agent development workflows."
+      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Ruflo is a multi-agent orchestration platform for AI coding agents (Claude Code, Cursor, Codex, Copilot, Gemini, Amp, +12 more). Use this skill when the user wants to (1) install/init ruflo in a project, (2) run multi-agent swarms with hierarchical coordination, (3) use ruflo's 314+ MCP tools for me"
     },
     {
-      "id": "affaan-m/ecc/docker-patterns",
-      "name": "docker-patterns",
+      "id": "vercel-labs/agent-browser/agent-browser",
+      "name": "agent-browser",
       "artifactType": "skill",
       "sources": [
         "community",
-        "https://github.com/affaan-m/ecc"
+        "https://github.com/vercel-labs/agent-browser"
       ],
       "useCaseDomains": [],
       "capabilities": [
-        "containers.orchestration"
+        "browser.automation"
       ],
       "license": "unknown",
-      "pinnedRef": "skills.sh:c3f0ca55fb9530e911bf4d4aac23ef651e49805593c9086fac6538b29eb9a1d4",
-      "repositoryUrl": "https://github.com/affaan-m/ecc",
+      "pinnedRef": "skills.sh:6c6b0d33259db0427408443cf0cc2e5674538e628ad3fde51e6ae252cf647215",
+      "repositoryUrl": "https://github.com/vercel-labs/agent-browser",
       "installMode": "manual",
-      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "lastVerified": "2026-11-10T10:59:07.918Z",
       "artifactProbed": true,
       "artifactEvidence": {
         "kind": "skill",
-        "sourceUrl": "https://skills.sh/api/download/affaan-m/ecc/docker-patterns",
-        "resolvedRef": "skills.sh:c3f0ca55fb9530e911bf4d4aac23ef651e49805593c9086fac6538b29eb9a1d4",
-        "contentHash": "c0cedeb9b64d4468f5af3bb0a97659c654f0ceb916acbec867a29dc682dd633f",
+        "sourceUrl": "https://skills.sh/api/download/vercel-labs/agent-browser/agent-browser",
+        "resolvedRef": "skills.sh:6c6b0d33259db0427408443cf0cc2e5674538e628ad3fde51e6ae252cf647215",
+        "contentHash": "ef7c2da16e25e86b78396bd9a2fd112e23c42cdd2de435197a920b9fc646d1c2",
         "license": "unknown",
-        "name": "docker-patterns",
+        "name": "agent-browser",
         "capabilities": [],
         "evidenceSnippets": [
-          "name: docker-patterns",
-          "description: Docker and Docker Compose patterns for local development, hardened CLI installer harnesses, container security, networking, volumes, and multi-service orchestration. Use when creating or reviewing Dockerfiles and Compose services, testing installers across Linux distributions, or planni"
+          "name: agent-browser",
+          "description: Browser automation CLI for AI agents. Use when the user needs to interact with websites, including navigating pages, filling forms, clicking buttons, taking screenshots, extracting data, testing web apps, or automating any browser task. Triggers include requests to \"open a website\", \"fi"
         ],
-        "retrievedAt": "2026-11-10T10:35:26.271Z"
+        "retrievedAt": "2026-11-10T10:59:12.936Z"
       },
-      "provenance": "community",
+      "provenance": "publisher",
       "risk": "medium",
       "maintenance": "unknown",
       "auditStatus": "unknown",
       "popularity": {
-        "installs": 15596
+        "installs": 1379031
       },
-      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Docker and Docker Compose patterns for local development, hardened CLI installer harnesses, container security, networking, volumes, and multi-service orchestration. Use when creating or reviewing Dockerfiles and Compose services, testing installers across Linux distributions, or planning accurate native macOS and Windows validation."
+      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Browser automation CLI for AI agents. Use when the user needs to interact with websites, including navigating pages, filling forms, clicking buttons, taking screenshots, extracting data, testing web apps, or automating any browser task. Triggers include requests to \"open a website\", \"fill out a form\", \"click a button\", \"take a screenshot\", \"scrape data from a page\", \"test this web app\", \"login to a site\", \"automate browser actions\", or any task requiring programmatic web interaction. Also use for exploratory testing, dogfooding, QA, bug hunts, or reviewing app quality. Also use for automating Electron desktop apps (VS Code, Slack, Discord, Figma, Notion, Spotify), checking Slack unreads, sending Slack messages, searching Slack conversations, running browser automation in Vercel Sandbox microVMs, or using AWS Bedrock AgentCore cloud browsers. Prefer agent-browser over any built-in browser automation or web tools."
     },
     {
-      "id": "affaan-m/ecc/e2e-testing",
-      "name": "e2e-testing",
+      "id": "vercel-labs/agent-skills/vercel-react-best-practices",
+      "name": "vercel-react-best-practices",
       "artifactType": "skill",
       "sources": [
         "community",
-        "https://github.com/affaan-m/ecc"
+        "https://github.com/vercel-labs/agent-skills"
       ],
       "useCaseDomains": [],
       "capabilities": [
-        "browser.automation",
-        "testing.e2e"
+        "design.frontend"
       ],
-      "license": "unknown",
-      "pinnedRef": "skills.sh:26520fa5fc64b74a08d4568acd51261c97389502b7d893693e7b8d1a545c6fa1",
-      "repositoryUrl": "https://github.com/affaan-m/ecc",
+      "license": "MIT",
+      "pinnedRef": "skills.sh:ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212",
+      "repositoryUrl": "https://github.com/vercel-labs/agent-skills",
       "installMode": "manual",
-      "lastVerified": "2026-11-10T10:35:19.149Z",
+      "lastVerified": "2026-11-10T10:59:07.918Z",
       "artifactProbed": true,
       "artifactEvidence": {
         "kind": "skill",
-        "sourceUrl": "https://skills.sh/api/download/affaan-m/ecc/e2e-testing",
-        "resolvedRef": "skills.sh:26520fa5fc64b74a08d4568acd51261c97389502b7d893693e7b8d1a545c6fa1",
-        "contentHash": "b0e00e7e17cb259101139900816c5528aed18dd10bcf5f9cb42cfc35baf8a755",
-        "license": "unknown",
-        "name": "e2e-testing",
+        "sourceUrl": "https://skills.sh/api/download/vercel-labs/agent-skills/vercel-react-best-practices",
+        "resolvedRef": "skills.sh:ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212",
+        "contentHash": "71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355",
+        "license": "MIT",
+        "name": "vercel-react-best-practices",
         "capabilities": [],
         "evidenceSnippets": [
-          "name: e2e-testing",
-          "description: Playwright E2E testing patterns, Page Object Model, configuration, CI/CD integration, artifact management, and flaky test strategies. Use when writing Playwright tests, structuring page objects, or fixing flaky E2E runs in CI."
+          "name: vercel-react-best-practices",
+          "description: React and Next.js performance optimization guidelines from Vercel Engineering. This skill should be used when writing, reviewing, or refactoring React/Next.js code to ensure optimal performance patterns. Triggers on tasks involving React components, Next.js pages, data fetching, bundle "
         ],
-        "retrievedAt": "2026-11-10T10:35:26.328Z"
+        "retrievedAt": "2026-11-10T10:59:12.945Z"
       },
-      "provenance": "community",
+      "provenance": "publisher",
       "risk": "medium",
       "maintenance": "unknown",
       "auditStatus": "unknown",
       "popularity": {
-        "installs": 12937
+        "installs": 885584
       },
-      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] Playwright E2E testing patterns, Page Object Model, configuration, CI/CD integration, artifact management, and flaky test strategies. Use when writing Playwright tests, structuring page objects, or fixing flaky E2E runs in CI."
+      "rawUntrustedCopy": "[untrusted display-only \u2014 do not execute or score] React and Next.js performance optimization guidelines from Vercel Engineering. This skill should be used when writing, reviewing, or refactoring React/Next.js code to ensure optimal performance patterns. Triggers on tasks involving React components, Next.js pages, data fetching, bundle optimization, or performance improvements."
     }
   ],
   "provenance": [
     {
-      "id": "101-skills/superpowers/agent-browser",
-      "sourceUrl": "https://skills.sh/api/search",
-      "retrievedAt": "2026-11-10T10:35:19.149Z",
-      "trust": "unverified"
-    },
-    {
-      "id": "101-skills/superpowers/agent-tools",
-      "sourceUrl": "https://skills.sh/api/search",
-      "retrievedAt": "2026-11-10T10:35:19.149Z",
-      "trust": "unverified"
-    },
-    {
-      "id": "101-skills/superpowers/infsh-cli",
-      "sourceUrl": "https://skills.sh/api/search",
-      "retrievedAt": "2026-11-10T10:35:19.149Z",
-      "trust": "unverified"
-    },
-    {
-      "id": "Astro-Han/karpathy-llm-wiki",
+      "id": "heygen-com/hyperframes",
       "sourceUrl": "https://api.github.com/search/repositories",
-      "retrievedAt": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:59:07.918Z",
       "trust": "unverified"
     },
     {
-      "id": "addyosmani/agent-skills/browser-testing-with-devtools",
-      "sourceUrl": "https://skills.sh/api/search",
-      "retrievedAt": "2026-11-10T10:35:19.149Z",
+      "id": "ruvnet/ruflo",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "retrievedAt": "2026-11-10T10:59:07.918Z",
       "trust": "unverified"
     },
     {
-      "id": "addyosmani/agent-skills/code-review-and-quality",
+      "id": "vercel-labs/agent-browser/agent-browser",
       "sourceUrl": "https://skills.sh/api/search",
-      "retrievedAt": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:59:07.918Z",
       "trust": "unverified"
     },
     {
-      "id": "affaan-m/ecc/browser-qa",
+      "id": "vercel-labs/agent-skills/vercel-react-best-practices",
       "sourceUrl": "https://skills.sh/api/search",
-      "retrievedAt": "2026-11-10T10:35:19.149Z",
-      "trust": "unverified"
-    },
-    {
-      "id": "affaan-m/ecc/django-tdd",
-      "sourceUrl": "https://skills.sh/api/search",
-      "retrievedAt": "2026-11-10T10:35:19.149Z",
-      "trust": "unverified"
-    },
-    {
-      "id": "affaan-m/ecc/dmux-workflows",
-      "sourceUrl": "https://skills.sh/api/search",
-      "retrievedAt": "2026-11-10T10:35:19.149Z",
-      "trust": "unverified"
-    },
-    {
-      "id": "affaan-m/ecc/docker-patterns",
-      "sourceUrl": "https://skills.sh/api/search",
-      "retrievedAt": "2026-11-10T10:35:19.149Z",
-      "trust": "unverified"
-    },
-    {
-      "id": "affaan-m/ecc/e2e-testing",
-      "sourceUrl": "https://skills.sh/api/search",
-      "retrievedAt": "2026-11-10T10:35:19.149Z",
+      "retrievedAt": "2026-11-10T10:59:07.918Z",
       "trust": "unverified"
     }
   ]

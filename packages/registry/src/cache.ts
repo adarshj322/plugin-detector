@@ -655,6 +655,10 @@ export async function refreshSnapshot(
         ? fetched.raws
         : [...fetched.raws]
             .sort((a, b) => {
+              const popularity = (raw: RawCandidate): number =>
+                raw.popularity?.installs ?? raw.popularity?.stars ?? 0;
+              const byPopularity = popularity(b) - popularity(a);
+              if (byPopularity !== 0) return byPopularity;
               const ax = candidateIdOf(a);
               const bx = candidateIdOf(b);
               return ax < bx ? -1 : ax > bx ? 1 : 0;

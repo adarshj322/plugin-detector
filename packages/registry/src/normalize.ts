@@ -58,6 +58,19 @@ function packageNameMatchesEvidence(
     : declared.trim().toLowerCase() === probed.trim().toLowerCase();
 }
 
+function maintenanceFromPushedAt(
+  pushedAt: string | undefined,
+): Candidate["maintenance"] | undefined {
+  if (pushedAt === undefined) return undefined;
+  const timestamp = Date.parse(pushedAt);
+  if (Number.isNaN(timestamp)) return undefined;
+  const ageDays = (Date.now() - timestamp) / 86_400_000;
+  if (ageDays < 0) return undefined;
+  if (ageDays <= 180) return "active";
+  if (ageDays <= 730) return "stale";
+  return "stale";
+}
+
 // Evidence-only normalization: capabilities/domains come solely from the
 // probed artifact manifest data; tags/topics/keywords/description/README never
 // populate a scoring field. Throws when the evidence gate fails.
@@ -143,7 +156,9 @@ export function normalizeCandidate(input: RawCandidate): NormalizedCandidate {
     provenance,
     risk: input.risk ?? "medium",
     // Absent maintenance/audit evidence is unknown, never "active"/"clean".
-    maintenance: input.maintenance ?? "unknown",
+    // GitHub's pushedAt is evidence, so it may derive active/stale.
+    maintenance:
+      input.maintenance ?? maintenanceFromPushedAt(input.pushedAt) ?? "unknown",
     auditStatus: input.auditStatus ?? "unknown",
     popularity: input.popularity ?? {},
     ...(untrustedText

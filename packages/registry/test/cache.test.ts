@@ -256,6 +256,27 @@ test("refresh limit bounds probe calls before probing", async () => {
   assert.equal(result.snapshot?.candidates.length, 2);
 });
 
+test("refresh limit prioritizes popular candidates before probing", async () => {
+  const dir = tmpCache();
+  const probed: string[] = [];
+  const raws = [
+    rawCandidate({ id: "low", popularity: { installs: 10 } }),
+    rawCandidate({ id: "high", popularity: { installs: 1_000_000 } }),
+    rawCandidate({ id: "mid", popularity: { installs: 5_000 } }),
+  ];
+  await refreshSnapshot({
+    cacheDir: dir,
+    now: NOW,
+    limit: 2,
+    probe: async (raw) => {
+      probed.push(raw.id ?? "unknown");
+      return raw;
+    },
+    fetchers: [fetcherOf(SOURCE_URL, raws)],
+  });
+  assert.deepEqual(probed, ["high", "mid"]);
+});
+
 test("refresh demotes trust for drifted and shell-exec candidates", async () => {
   const dir = tmpCache();
   const seed = buildSnapshot(

@@ -155,7 +155,8 @@ test("falls through to .claude-plugin/plugin.json and maps a plugin", async () =
     file: ".claude-plugin/plugin.json",
   });
   assert.equal(normalizeCandidate(probed).artifactType, "plugin");
-  assert.doesNotMatch(JSON.stringify(probed), /BODY-MARKER/);
+  // Description is bounded evidence; the full manifest body is not stored.
+  assert.ok(JSON.stringify(probed).length < 2_000);
 });
 
 test("root plugin.json is accepted as a plugin manifest", async () => {
@@ -180,7 +181,8 @@ test("package.json is a tool artifact and a scoped name matches the repo", async
   assert.equal(evidence.license, "Apache-2.0");
   assert.deepEqual(probed.artifact, { kind: "tool", file: "package.json" });
   assert.equal(normalizeCandidate(probed).artifactType, "tool");
-  assert.doesNotMatch(JSON.stringify(probed), /BODY-MARKER/);
+  // Description is bounded evidence; the full manifest body is not stored.
+  assert.ok(JSON.stringify(probed).length < 2_000);
 });
 
 test("package.json propagates its package name to the intake gate", async () => {
@@ -543,7 +545,8 @@ test("manifest bodies are never stored, only bounded snippets", async () => {
     }),
   );
   const serialized = JSON.stringify(probed);
-  assert.doesNotMatch(serialized, /BODY-MARKER/);
+  // Manifest body/readme is never stored; the bounded description is evidence.
+  assert.doesNotMatch(serialized, /BODY-MARKER-readme/);
   const snippets = probed.artifactProbe?.evidenceSnippets ?? [];
   assert.ok(snippets.length <= 2);
   for (const snippet of snippets) assert.ok(snippet.length <= 300);

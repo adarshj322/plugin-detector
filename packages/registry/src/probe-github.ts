@@ -275,6 +275,8 @@ function parseManifest(
         ? "tool"
         : "plugin";
   const out: ManifestData = { kind, name, version };
+  const description = str(root["description"]);
+  if (description !== undefined) out.description = description;
   const license = licenseOf(root["license"]);
   if (license !== undefined) out.license = license;
   if (path === "package.json") {
@@ -454,7 +456,7 @@ function buildResult(
   const license = manifest.license ?? str(raw.license) ?? "unknown";
   const contentHash = createHash("sha256").update(text, "utf8").digest("hex");
   const snippets: string[] = [boundedSnippet(`name: ${manifest.name}`)];
-  if (manifest.kind === "skill" && manifest.description !== undefined) {
+  if (manifest.description !== undefined) {
     snippets.push(boundedSnippet(`description: ${manifest.description}`));
   } else if (manifest.version !== undefined) {
     snippets.push(boundedSnippet(`version: ${manifest.version}`));

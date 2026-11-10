@@ -5,69 +5,63 @@
 First live evidence refresh after v1.0 probing integration.
 
 - Command: `registry refresh --limit 120 --cache-dir packages/registry/data`
-- Source cap: 30 candidates per source (120 total budget)
-- Snapshot generatedAt: `2026-11-10T10:35:19.149Z`
+- Source cap: 30 candidates per source, ordered by installs/stars
+- Snapshot generatedAt: `2026-11-10T10:54:18.106Z`
 - Review artifact: `packages/registry/data/registry-review.json`
 
 ## Source health
 
 | Source | Status | Count |
 |---|---|---|
-| skills.sh | ok | 29 |
+| skills.sh | ok | 4 |
 | MCP registry | ok | 3 |
-| GitHub | ok | 10 |
+| GitHub | ok | 14 |
 | awesome-lists | failed | 404 for the configured raw URL |
-
-The awesome-list endpoint remains broken and is tracked as a source-health issue, not hidden.
 
 ## Outcome
 
-- Probed candidates written to the snapshot: **42**
-- Rejected at intake/probe/normalize: **36**
-- Kept after review: **11**
-- Excluded from the reviewed snapshot for empty capabilities or misclassified inference: **31**
+- Candidates probed: **21**
+- Kept after review: **4**
+- Excluded for empty capabilities: **17**
+- Rejected at intake/probe/normalize: **57**
 
-The 11 accepted records are the capability-classified, evidence-backed candidates. They are all `skill` artifacts. No MCP or plugin candidates survived the capability threshold yet, so the snapshot is **thin** and not yet a v1.0 recommendation corpus.
+The current review artifact reports 4 probed + 57 rejected = 61 rows because
+the 17 probed-but-unclassified candidates are not yet retained in the manifest.
+That visibility gap is a follow-up for the review report.
 
 Accepted records:
 
 | Candidate | Type | License | Capabilities |
 |---|---|---|---|
-| 101-skills/superpowers/agent-browser | skill | unknown | browser.automation |
-| 101-skills/superpowers/agent-tools | skill | unknown | media.image, search.web |
-| 101-skills/superpowers/infsh-cli | skill | unknown | media.image, search.web |
-| Astro-Han/karpathy-llm-wiki | skill | MIT | code-review.quality |
-| addyosmani/agent-skills/browser-testing-with-devtools | skill | unknown | browser.automation |
-| addyosmani/agent-skills/code-review-and-quality | skill | unknown | code-review.quality |
-| affaan-m/ecc/browser-qa | skill | unknown | browser.automation |
-| affaan-m/ecc/django-tdd | skill | unknown | testing.runner |
-| affaan-m/ecc/dmux-workflows | skill | unknown | planning.orchestration |
-| affaan-m/ecc/docker-patterns | skill | unknown | containers.orchestration |
-| affaan-m/ecc/e2e-testing | skill | unknown | browser.automation, testing.e2e |
+| heygen-com/hyperframes | plugin | Apache-2.0 | speech.captions |
+| ruvnet/ruflo | skill | MIT | planning.orchestration |
+| vercel-labs/agent-browser/agent-browser | skill | unknown | browser.automation |
+| vercel-labs/agent-skills/vercel-react-best-practices | skill | MIT | design.frontend |
 
 ## Recommendation smoke test
 
-`recommend --use-case software-development --cache-dir packages/registry/data` returns
-`no-good-candidates`; the top five are `useful-optional` with scores from 0 to 4.4.
-`video-editing` and `data-analysis` also return `no-good-candidates`.
+`recommend` returns `no-good-candidates` for software-development and
+data-analysis. `video-editing` scores hyperframes at 11.2 but still returns
+`no-good-candidates`; `design-frontend` scores the Vercel skill at 5.5.
 
-This is a quality failure for the product promise, not a reason to relabel the snapshot.
-The main causes are:
-
-- The current capability table does not classify most MCP/plugin records (they have empty
-  capabilities and are excluded).
-- Most accepted skill records have unknown licenses and unknown maintenance, so their
-  credibility score is low.
-- The snapshot has no high-value non-skill candidates yet.
+The scoring threshold and profile capability mappings are too strict for
+community-probed tools: a legitimate MIT/Apache, active, evidence-backed
+candidate cannot reach the `required` threshold unless it is official or
+publisher-verified. This is the next v1.0 quality gate, not a reason to relabel
+the snapshot.
 
 ## Decision
 
-The snapshot is committed as an **evidence-probed review seed**, not as a v1.0
-recommendation corpus. v1.0 is blocked until:
+The snapshot is committed as an **evidence-probed review seed**, not a v1.0
+recommendation corpus. v1.0 remains blocked until:
 
-1. capability inference covers MCP/plugin manifests without false positives;
-2. licenses and maintenance evidence are populated where the source provides them;
-3. a reviewed snapshot produces at least one justified `required` recommendation for
-   software-development and one non-development use case.
+1. review reports retain probed-but-excluded candidates;
+2. capability inference covers more MCP/plugin descriptions without false
+   positives;
+3. the profile mappings and/or required threshold make genuinely high-value
+   community tools recommendable;
+4. at least one justified `required` recommendation appears for a dev and a
+   non-dev use case.
 
-No installation is enabled from unprobed records. The release remains `0.1.0-alpha`.
+No installation is enabled from unprobed records. The release remains
+`0.1.0-alpha`.

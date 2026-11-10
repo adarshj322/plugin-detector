@@ -152,7 +152,7 @@ test("npm scoped package probes latest metadata without fetching the tarball", a
   assert.equal(evidence.evidenceSnippets[0], "license: Apache-2.0");
   assert.equal(
     evidence.evidenceSnippets[1],
-    "repository: https://github.com/modelcontextprotocol/servers",
+    "description: MCP server for filesystem access",
   );
   for (const snippet of evidence.evidenceSnippets) {
     assert.ok(snippet.length <= 300);
@@ -409,7 +409,7 @@ test("pypi project probes latest info and repository project url", async () => {
   assert.equal(evidence.license, "MIT");
   assert.deepEqual(evidence.evidenceSnippets, [
     "license: MIT",
-    "repository: https://github.com/acme/acme-py-mcp",
+    "description: MCP server for Acme data",
   ]);
   assert.doesNotMatch(JSON.stringify(evidence), /BODY-MARKER/);
   assert.equal(pypiPackageUrl("acme-py-mcp"), "https://pypi.org/pypi/acme-py-mcp/json");

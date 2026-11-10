@@ -93,10 +93,10 @@ function buildEvidence(
   const license = metadata.license.length > 0 ? metadata.license : "unknown";
   const snippets = [boundedSnippet(`license: ${license}`)];
   const detail =
-    metadata.repositoryUrl !== undefined
-      ? `repository: ${metadata.repositoryUrl}`
-      : metadata.description !== undefined
-        ? `description: ${metadata.description}`
+    metadata.description !== undefined
+      ? `description: ${metadata.description}`
+      : metadata.repositoryUrl !== undefined
+        ? `repository: ${metadata.repositoryUrl}`
         : undefined;
   if (detail !== undefined) snippets.push(boundedSnippet(detail));
   return {
