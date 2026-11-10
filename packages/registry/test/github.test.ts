@@ -90,8 +90,14 @@ test("requests all seven public topic queries with per_page=100 page 1", async (
     "opencode-plugin",
     "agent-skill",
     "llm-tools",
+    "developer-tools",
+    "code-review",
+    "testing",
+    "devops",
+    "ai-coding",
+    "software-engineering",
   ]);
-  assert.equal(calls.length, 7, "every default topic must be requested");
+  assert.equal(calls.length, GITHUB_TOPIC_QUERIES.length, "every default topic must be requested");
   const urls = calls.map((url) => new URL(url));
   assert.deepEqual(
     urls.map((url) => url.searchParams.get("q")),
@@ -104,7 +110,8 @@ test("requests all seven public topic queries with per_page=100 page 1", async (
   }
   assert.equal(
     result.raws.length,
-    GITHUB_TOPIC_QUERIES.length * GITHUB_MAX_PER_QUERY,
+    GITHUB_TOPIC_QUERIES.length *
+      Math.floor(GITHUB_MAX_CANDIDATES / GITHUB_TOPIC_QUERIES.length),
   );
   assert.ok(result.raws.length <= GITHUB_MAX_CANDIDATES);
   assert.equal(result.partial, undefined);
@@ -155,14 +162,15 @@ test("spreads the global cap across the plan; appended terms share the remainder
     limiter: fastLimiter(),
   });
 
-  assert.equal(calls.length, 8, "the ninth query is never requested");
-  assert.equal(queryOf(calls[7] as string), "topic:extra-one is:public");
-  assert.equal(result.raws.length, GITHUB_MAX_CANDIDATES);
+  const perQuery = Math.floor(GITHUB_MAX_CANDIDATES / queries.length);
+  assert.equal(calls.length, queries.length, "every query gets a fair share");
+  assert.equal(queryOf(calls[7] as string), "topic:developer-tools is:public");
+  assert.equal(result.raws.length, queries.length * perQuery);
   const extraOne = slug("topic:extra-one is:public");
   assert.equal(
     result.raws.filter((raw) => raw.id?.startsWith(`acme/${extraOne}-`)).length,
-    10,
-    "the eighth query gets only the remaining 10 slots",
+    perQuery,
+    "appended terms receive the same per-query budget",
   );
   assert.equal(result.partial, undefined);
 });

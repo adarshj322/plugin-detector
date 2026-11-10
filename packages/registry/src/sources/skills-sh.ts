@@ -19,11 +19,20 @@ export const DEFAULT_SKILL_QUERIES = [
   "mcp",
   "claude",
   "testing",
-  "review",
+  "code-review",
+  "debugging",
+  "refactoring",
+  "architecture",
+  "security",
+  "git",
+  "documentation",
+  "typescript",
+  "python",
+  "docker",
+  "playwright",
   "video",
   "design",
   "data",
-  "docs",
 ] as const;
 
 // skills.sh rate limit: search and download share one 60/min budget. Exported

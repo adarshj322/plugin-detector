@@ -27,6 +27,12 @@ export const GITHUB_TOPIC_QUERIES = [
   "opencode-plugin",
   "agent-skill",
   "llm-tools",
+  "developer-tools",
+  "code-review",
+  "testing",
+  "devops",
+  "ai-coding",
+  "software-engineering",
 ] as const;
 
 // GitHub search allows 10 requests/min unauthenticated. Exported so callers
@@ -168,6 +174,10 @@ export async function fetchGithub(
   const get = opts.get ?? githubGet(opts.token);
   const limiter = opts.limiter ?? GITHUB_LIMITER;
   const queries = normalizeQueries(opts.queries ?? GITHUB_TOPIC_QUERIES);
+  const perQuery = Math.max(
+    1,
+    Math.floor(GITHUB_MAX_CANDIDATES / Math.max(1, queries.length)),
+  );
   const byId = new Map<string, RawCandidate>();
   const failures: SourceFetchFailure[] = [];
   let succeeded = 0;
@@ -197,12 +207,12 @@ export async function fetchGithub(
         for (const id of found.keys()) {
           if (!byId.has(id)) newUnique += 1;
         }
-        if (newUnique >= GITHUB_MAX_PER_QUERY) break;
+        if (newUnique >= perQuery) break;
         if (items.length < GITHUB_PER_PAGE) break;
       }
       let added = 0;
       for (const [id, raw] of found) {
-        if (byId.size >= GITHUB_MAX_CANDIDATES || added >= GITHUB_MAX_PER_QUERY) {
+        if (byId.size >= GITHUB_MAX_CANDIDATES || added >= perQuery) {
           break;
         }
         if (byId.has(id)) continue;

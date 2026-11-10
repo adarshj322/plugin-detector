@@ -109,11 +109,20 @@ test("skills.sh search uses the captured default query set and endpoint", async 
     "mcp",
     "claude",
     "testing",
-    "review",
+    "code-review",
+    "debugging",
+    "refactoring",
+    "architecture",
+    "security",
+    "git",
+    "documentation",
+    "typescript",
+    "python",
+    "docker",
+    "playwright",
     "video",
     "design",
     "data",
-    "docs",
   ]);
   assert.equal(SKILLS_SH_URL, "https://skills.sh/api/search");
   const calls: string[] = [];

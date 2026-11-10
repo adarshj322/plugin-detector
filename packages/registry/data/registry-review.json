@@ -1,35 +1,35 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-10T11:14:36.313Z",
-  "snapshotGeneratedAt": "2026-11-10T10:59:07.918Z",
-  "manifestGeneratedAt": "2026-11-10T10:59:07.918Z",
+  "generatedAt": "2026-11-10T14:37:36.512Z",
+  "snapshotGeneratedAt": "2026-11-10T14:32:27.330Z",
+  "manifestGeneratedAt": "2026-11-10T14:32:27.330Z",
   "snapshotManifestMismatch": false,
   "counts": {
-    "total": 61,
-    "probed": 4,
-    "preserved": 0,
-    "unprobed": 0,
-    "rejected": 57,
+    "total": 80,
+    "probed": 6,
+    "preserved": 2,
+    "unprobed": 36,
+    "rejected": 38,
     "rejectedAlsoPreserved": 0
   },
   "sources": [
     {
       "sourceUrl": "https://api.github.com/search/repositories",
       "probed": 2,
-      "unprobed": 0,
-      "rejected": 16
+      "unprobed": 11,
+      "rejected": 19
     },
     {
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
       "probed": 0,
-      "unprobed": 0,
+      "unprobed": 3,
       "rejected": 15
     },
     {
       "sourceUrl": "https://skills.sh/api/search",
-      "probed": 2,
-      "unprobed": 0,
-      "rejected": 26
+      "probed": 4,
+      "unprobed": 22,
+      "rejected": 4
     }
   ],
   "sourceHealth": [
@@ -41,12 +41,19 @@
     {
       "id": "github",
       "ok": true,
-      "count": 14
+      "count": 0,
+      "partial": true,
+      "failures": [
+        {
+          "query": "devops",
+          "error": "GET https://api.github.com/search/repositories?q=topic%3Adevops+is%3Apublic&per_page=100&page=1 failed with status 403"
+        }
+      ]
     },
     {
       "id": "mcp-registry",
       "ok": true,
-      "count": 3
+      "count": 0
     },
     {
       "id": "skills-sh",
@@ -69,7 +76,7 @@
       "auditStatus": "unknown",
       "lastVerified": "2026-11-10T10:59:07.918Z",
       "retrievedAt": "2026-11-10T11:13:41.716Z",
-      "preserved": false,
+      "preserved": true,
       "evidenceSource": "https://raw.githubusercontent.com/heygen-com/hyperframes/main/.claude-plugin/plugin.json",
       "evidenceRef": "main",
       "contentHash": "99f813a6cdfb03bf6607253960e956f6f8ff95adb5caf2a70f797f92d1d74e25",
@@ -79,6 +86,32 @@
       ],
       "capabilities": [
         "speech.captions"
+      ]
+    },
+    {
+      "id": "mattpocock/skills/code-review",
+      "name": "code-review",
+      "artifactType": "skill",
+      "sourceUrl": "https://skills.sh/api/search",
+      "provenance": "community",
+      "trust": "unverified",
+      "license": "unknown",
+      "pinnedRef": "skills.sh:03503c0416f951e0ad88a8e69e41176a73abe96bcf671d94d877fb08305c4363",
+      "risk": "medium",
+      "maintenance": "unknown",
+      "auditStatus": "unknown",
+      "lastVerified": "2026-11-10T14:32:27.330Z",
+      "retrievedAt": "2026-11-10T14:32:31.917Z",
+      "preserved": false,
+      "evidenceSource": "https://skills.sh/api/download/mattpocock/skills/code-review",
+      "evidenceRef": "skills.sh:03503c0416f951e0ad88a8e69e41176a73abe96bcf671d94d877fb08305c4363",
+      "contentHash": "9c921a8d88138a41401d8897ca1bb852088ab1b7b605cdd04edc13e3e8aab6dd",
+      "evidenceSnippets": [
+        "name: code-review",
+        "description: Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and r"
+      ],
+      "capabilities": [
+        "code-review.quality"
       ]
     },
     {
@@ -95,7 +128,7 @@
       "auditStatus": "unknown",
       "lastVerified": "2026-11-10T10:59:07.918Z",
       "retrievedAt": "2026-11-10T11:13:41.723Z",
-      "preserved": false,
+      "preserved": true,
       "evidenceSource": "https://raw.githubusercontent.com/ruvnet/ruflo/main/SKILL.md",
       "evidenceRef": "main",
       "contentHash": "e706dd7d057ebb4e456bdfc312d38fe07bf2419476d246164801571d4cd481da",
@@ -105,6 +138,32 @@
       ],
       "capabilities": [
         "planning.orchestration"
+      ]
+    },
+    {
+      "id": "supabase/agent-skills/supabase-postgres-best-practices",
+      "name": "supabase-postgres-best-practices",
+      "artifactType": "skill",
+      "sourceUrl": "https://skills.sh/api/search",
+      "provenance": "publisher",
+      "trust": "unverified",
+      "license": "MIT",
+      "pinnedRef": "skills.sh:382ac24032a5e7a18215bef0aef6d65fe88054ad467474bae329956422dcf80f",
+      "risk": "medium",
+      "maintenance": "unknown",
+      "auditStatus": "unknown",
+      "lastVerified": "2026-11-10T14:32:27.330Z",
+      "retrievedAt": "2026-11-10T14:32:34.765Z",
+      "preserved": false,
+      "evidenceSource": "https://skills.sh/api/download/supabase/agent-skills/supabase-postgres-best-practices",
+      "evidenceRef": "skills.sh:382ac24032a5e7a18215bef0aef6d65fe88054ad467474bae329956422dcf80f",
+      "contentHash": "ad65e776f45e761bafc609d3f506c77c1032225aa65e0c4c02f241b8071e5855",
+      "evidenceSnippets": [
+        "name: supabase-postgres-best-practices",
+        "description: Postgres best practices maintained by Supabase, for Postgres running anywhere. Load this skill BEFORE writing or changing anything that lives in a Postgres database: creating or altering tables and columns (including choosing column types), schema design, migrations and declarative sche"
+      ],
+      "capabilities": [
+        "data.database"
       ]
     },
     {
@@ -119,8 +178,8 @@
       "risk": "medium",
       "maintenance": "unknown",
       "auditStatus": "unknown",
-      "lastVerified": "2026-11-10T10:59:07.918Z",
-      "retrievedAt": "2026-11-10T10:59:12.936Z",
+      "lastVerified": "2026-11-10T14:32:27.330Z",
+      "retrievedAt": "2026-11-10T14:32:31.560Z",
       "preserved": false,
       "evidenceSource": "https://skills.sh/api/download/vercel-labs/agent-browser/agent-browser",
       "evidenceRef": "skills.sh:6c6b0d33259db0427408443cf0cc2e5674538e628ad3fde51e6ae252cf647215",
@@ -145,8 +204,8 @@
       "risk": "medium",
       "maintenance": "unknown",
       "auditStatus": "unknown",
-      "lastVerified": "2026-11-10T10:59:07.918Z",
-      "retrievedAt": "2026-11-10T10:59:12.945Z",
+      "lastVerified": "2026-11-10T14:32:27.330Z",
+      "retrievedAt": "2026-11-10T14:32:31.551Z",
       "preserved": false,
       "evidenceSource": "https://skills.sh/api/download/vercel-labs/agent-skills/vercel-react-best-practices",
       "evidenceRef": "skills.sh:ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212",
@@ -160,405 +219,525 @@
       ]
     }
   ],
-  "unprobed": [],
+  "unprobed": [
+    {
+      "id": "vercel-labs/skills/find-skills",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:b146008599c31057cef1c145774cea5d5afb30e8f43fa802e47a4b461419aaaf"
+    },
+    {
+      "id": "vercel-labs/agent-skills/web-design-guidelines",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:f3bc47f890f42a44db1007ab390709ec368e4b8c089baee6b0007182236ac474"
+    },
+    {
+      "id": "mattpocock/skills/handoff",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:4f617ccf1f815c05bec26b782c69e46ee84e3d47c06532041e95e742c78d102c"
+    },
+    {
+      "id": "mattpocock/skills/wayfinder",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:87b6daa3b8428b01d16a2939f9364d06ce1901c12325507f66e8363c74efe02f"
+    },
+    {
+      "id": "mattpocock/skills/triage",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:1ec33672b2ac2ca02c906f204b3bfb819c7f37bfe1df033871bffaaf222fb1f6"
+    },
+    {
+      "id": "microsoft/azure-skills/azure-aigateway",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:71989ad28fb1d0087f5eed1c1bb67aedb19ac92d879d43770b0124e7d32ea397"
+    },
+    {
+      "id": "mattpocock/skills/wizard",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:d5467ba49ab8e4b88be2932eb0343fc2f33e9dd916f6832038574a6a8922b660"
+    },
+    {
+      "id": "mattpocock/skills/research",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:df131984eac7a34957991e521cadaf314c63fa9a87656997df44d49b635d0526"
+    },
+    {
+      "id": "microsoft/azure-skills/azure-compute",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:37ddc8f23015d381f9a09dfd2b34c4686a96b33146d37020244cdded03a86bda"
+    },
+    {
+      "id": "google/agents-cli/google-agents-cli-deploy",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:101f460a9ba13469ecadb3fbad17ce7f17d3e7d911e8393af811bd730850b94f"
+    },
+    {
+      "id": "google/agents-cli/google-agents-cli-publish",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:2227ce0ea2ac171631eee2c1cf12acfaa32f21bbea08bec72021a4fa080c6373"
+    },
+    {
+      "id": "google/agents-cli/google-agents-cli-workflow",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:91ec8635807ccb26e030275e7342ef1cae55b458ee4db98e5d8fe81dd0d0830c"
+    },
+    {
+      "id": "microsoft/azure-skills/microsoft-foundry",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:2bb163d84c78c00cf9bf527b4b2e35d59a501b5f8613eb95adcb6a078bb1a5e5"
+    },
+    {
+      "id": "google/agents-cli/google-agents-cli-eval",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:0bf85540aa408524e2ead57f4777627a8a2746c2d12affab2c0cac03822e6d90"
+    },
+    {
+      "id": "google/agents-cli/google-agents-cli-adk-code",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:38719b6fa7220cab4992a697bd902d1e546dbde1527d48cb7574d9e81841b6d4"
+    },
+    {
+      "id": "google/agents-cli/google-agents-cli-scaffold",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:9733dbac0418158933bde0e9cefdca08936c53b0ec03ce541923b76287e76d66"
+    },
+    {
+      "id": "mattpocock/skills/git-guardrails-claude-code",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:aca7bba953f95596412477fe84b7d4937754f1ad00268f4608599df3ffcce3a5"
+    },
+    {
+      "id": "google/agents-cli/google-agents-cli-observability",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:e58665a62c51e1e4e71669fc8d51a828d05cdc63e696aababce14b903724efbb"
+    },
+    {
+      "id": "mattpocock/skills/writing-for-agents",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:0071124a923559493bc8924a90fb87bceb048d31ad2ce785fa4281d7c506bfa7"
+    },
+    {
+      "id": "mattpocock/skills/setup-pre-commit",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:89aaa5ee01b7ffdee592f2ab7a6853cebe20d7bf2479871698aeadf4d000204c"
+    },
+    {
+      "id": "larksuite/cli/lark-contact",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:a3b8de4cf767ecf74a4bae4a1aaeccf724856661719c9354f8dbfd897c686476"
+    },
+    {
+      "id": "larksuite/cli/lark-event",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://skills.sh/api/search",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "skills.sh:e5a1858528bbdabc51a060d70993371cbab7977590400a466b0c787fd2760bbb"
+    },
+    {
+      "id": "ac.tandem/docs-mcp",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:ceee6c77b821a0c8805431b82869c95067003421664a80c4c79012983b084000"
+    },
+    {
+      "id": "ad.getle/leads",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:ca18508f6ae1f32ad2e496bd586ecca89b12e29c8f8be28725e21253ebd6a8a3"
+    },
+    {
+      "id": "ad.apogee/apogee",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:211002dc4666a54b6b949723e86f5a02daf66e89b66c16e346d63e015ec00285"
+    },
+    {
+      "id": "affaan-m/ECC",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:ee70642e74e4489c4f36387c6fc627188cb542a9d3ab8a604c85fed9ea6ea63f"
+    },
+    {
+      "id": "morluto/rea",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:df4b0cbfeeec993f95b057780597bb2375cb99b2de061bd7c50741406ad79611"
+    },
+    {
+      "id": "DietrichGebert/ponytail",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:82f8b30ea6d2cfe195a90aba5763c615828d794cc3111d1623717bd8b4a5fd45"
+    },
+    {
+      "id": "open-webui/open-webui",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:3af18ac9fe767afb207be46b9cc65cf8753900a65511cb9c31469f4d422cf537"
+    },
+    {
+      "id": "farion1231/cc-switch",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:ce64ab44ffb39674cb8e6a70f0dd584202a93e0ae1075b4265b409b34714c427"
+    },
+    {
+      "id": "thedotmack/claude-mem",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:beae93cb8f5fe994c0677060cc7c0e3e265010275cd5b26c4efb773dd47bd3da"
+    },
+    {
+      "id": "browser-use/browser-use",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:aaee43153e541c1068e11dae2b8503837d15b9969283a26aa24c176280661e5f"
+    },
+    {
+      "id": "D4Vinci/Scrapling",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:e0b31c10540e3b2c550bb9ae95209cceb685c649f7ecf670b81c76229ab88ad7"
+    },
+    {
+      "id": "goldbergyoni/nodebestpractices",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:686e12fda0a71bfa0cb89ae89a1edbd81324e995b1667aa37ce408757c959cdc"
+    },
+    {
+      "id": "koala73/worldmonitor",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:9638cad7b8bd8a7e16d6716362715d17ac894675a3d03b36cd827c80767a97f4"
+    },
+    {
+      "id": "ByteByteGoHq/system-design-101",
+      "reason": "artifact probed but no explicit capability evidence; excluded from snapshot",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "github:aecbe21831976217b5e3be20373f6cbd72db417e81662494a15638e2fef21fd6"
+    }
+  ],
   "rejected": [
     {
       "id": "uizze.sh/ui-taste",
       "reason": "skills-sh: candidate \"uizze.sh/ui-taste\" listing has no GitHub owner/repo and skill slug",
       "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.0.0"
     },
     {
       "id": "open.feishu.cn/lark-contact",
       "reason": "skills-sh: candidate \"open.feishu.cn/lark-contact\" listing has no GitHub owner/repo and skill slug",
       "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.0.0"
     },
     {
       "id": "open.feishu.cn/lark-event",
       "reason": "skills-sh: candidate \"open.feishu.cn/lark-event\" listing has no GitHub owner/repo and skill slug",
       "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.0.0"
     },
     {
       "id": "open.feishu.cn/lark-vc-agent",
       "reason": "skills-sh: candidate \"open.feishu.cn/lark-vc-agent\" listing has no GitHub owner/repo and skill slug",
       "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "mattpocock/skills/triage",
-      "reason": "skills-sh: candidate \"mattpocock/skills/triage\" download failed: GET https://skills.sh/api/download/mattpocock/skills/triage failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "mattpocock/skills/code-review",
-      "reason": "skills-sh: candidate \"mattpocock/skills/code-review\" download failed: GET https://skills.sh/api/download/mattpocock/skills/code-review failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "mattpocock/skills/handoff",
-      "reason": "skills-sh: candidate \"mattpocock/skills/handoff\" download failed: GET https://skills.sh/api/download/mattpocock/skills/handoff failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "mattpocock/skills/wayfinder",
-      "reason": "skills-sh: candidate \"mattpocock/skills/wayfinder\" download failed: GET https://skills.sh/api/download/mattpocock/skills/wayfinder failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "mattpocock/skills/research",
-      "reason": "skills-sh: candidate \"mattpocock/skills/research\" download failed: GET https://skills.sh/api/download/mattpocock/skills/research failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "microsoft/azure-skills/azure-validate",
-      "reason": "skills-sh: candidate \"microsoft/azure-skills/azure-validate\" download failed: GET https://skills.sh/api/download/microsoft/azure-skills/azure-validate failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "microsoft/azure-skills/microsoft-foundry",
-      "reason": "skills-sh: candidate \"microsoft/azure-skills/microsoft-foundry\" download failed: GET https://skills.sh/api/download/microsoft/azure-skills/microsoft-foundry failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "microsoft/azure-skills/azure-compliance",
-      "reason": "skills-sh: candidate \"microsoft/azure-skills/azure-compliance\" download failed: GET https://skills.sh/api/download/microsoft/azure-skills/azure-compliance failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "microsoft/azure-skills/azure-aigateway",
-      "reason": "skills-sh: candidate \"microsoft/azure-skills/azure-aigateway\" download failed: GET https://skills.sh/api/download/microsoft/azure-skills/azure-aigateway failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "microsoft/azure-skills/azure-compute",
-      "reason": "skills-sh: candidate \"microsoft/azure-skills/azure-compute\" download failed: GET https://skills.sh/api/download/microsoft/azure-skills/azure-compute failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "mattpocock/skills/wizard",
-      "reason": "skills-sh: candidate \"mattpocock/skills/wizard\" download failed: GET https://skills.sh/api/download/mattpocock/skills/wizard failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "google/agents-cli/google-agents-cli-adk-code",
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-adk-code\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-adk-code failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "google/agents-cli/google-agents-cli-publish",
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-publish\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-publish failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "google/agents-cli/google-agents-cli-deploy",
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-deploy\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-deploy failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "google/agents-cli/google-agents-cli-workflow",
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-workflow\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-workflow failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "google/agents-cli/google-agents-cli-eval",
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-eval\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-eval failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "google/agents-cli/google-agents-cli-scaffold",
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-scaffold\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-scaffold failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "google/agents-cli/google-agents-cli-observability",
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-observability\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-observability failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "mattpocock/skills/git-guardrails-claude-code",
-      "reason": "skills-sh: candidate \"mattpocock/skills/git-guardrails-claude-code\" download failed: GET https://skills.sh/api/download/mattpocock/skills/git-guardrails-claude-code failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "mattpocock/skills/writing-for-agents",
-      "reason": "skills-sh: candidate \"mattpocock/skills/writing-for-agents\" download failed: GET https://skills.sh/api/download/mattpocock/skills/writing-for-agents failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "supabase/agent-skills/supabase-postgres-best-practices",
-      "reason": "skills-sh: candidate \"supabase/agent-skills/supabase-postgres-best-practices\" download failed: GET https://skills.sh/api/download/supabase/agent-skills/supabase-postgres-best-practices failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "mattpocock/skills/setup-pre-commit",
-      "reason": "skills-sh: candidate \"mattpocock/skills/setup-pre-commit\" download failed: GET https://skills.sh/api/download/mattpocock/skills/setup-pre-commit failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.0.0"
     },
     {
       "id": "ac.inference.sh/mcp",
       "reason": "github: candidate \"ac.inference.sh/mcp\" repositoryUrl host \"api.inference.sh\" is not github.com",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "2.0.1"
     },
     {
       "id": "ac.mizan/registry",
       "reason": "github: candidate \"ac.mizan/registry\" repositoryUrl host \"mizan.ac\" is not github.com",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "1.2.0"
     },
     {
       "id": "ac.snag/snag",
       "reason": "github: candidate \"ac.snag/snag\" repositoryUrl host \"mcp.snag.ac\" is not github.com",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "1.0.0"
     },
     {
       "id": "academy.ase/periodic-system",
       "reason": "github: candidate \"academy.ase/periodic-system\" repositoryUrl host \"ase.academy\" is not github.com",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "2026.4.1"
     },
     {
       "id": "academy.serviceengineer/se-ai",
       "reason": "github: candidate \"academy.serviceengineer/se-ai\" repositoryUrl host \"api.serviceengineer.academy\" is not github.com",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "1.0.1"
     },
     {
       "id": "ad.inside/inside-ads",
       "reason": "github: candidate \"ad.inside/inside-ads\" repositoryUrl host \"app.inside.ad\" is not github.com",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "1.0.0"
     },
     {
       "id": "ad.pantheon/mcp",
       "reason": "github: candidate \"ad.pantheon/mcp\" repositoryUrl host \"mcp.pantheon.ad\" is not github.com",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "1.0.0"
     },
     {
       "id": "ad.tide/mcp",
       "reason": "github: candidate \"ad.tide/mcp\" repositoryUrl host \"api.tide.ad\" is not github.com",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "2.0.0"
     },
     {
       "id": "ae.alexeysound/alexey-sound",
       "reason": "github: candidate \"ae.alexeysound/alexey-sound\" repositoryUrl host \"alexeysound.ae\" is not github.com",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "1.0.0"
     },
     {
       "id": "ae.beachclubs/mcp",
       "reason": "github: candidate \"ae.beachclubs/mcp\" repositoryUrl host \"www.beachclubs.ae\" is not github.com",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.3.0"
     },
     {
       "id": "ae.brainy/grocery-prices",
       "reason": "github: candidate \"ae.brainy/grocery-prices\" repositoryUrl host \"prices.brainy.ae\" is not github.com",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "2.0.0"
     },
     {
       "id": "ae.easyvoice/tts",
       "reason": "github: candidate \"ae.easyvoice/tts\" repositoryUrl host \"easyvoice.ae\" is not github.com",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "1.0.0"
     },
     {
       "id": "ae.employerofrecord/moha",
       "reason": "github: candidate \"ae.employerofrecord/moha\" repositoryUrl host \"employerofrecord.ae\" is not github.com",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "1.0.0"
     },
     {
       "id": "academy.apexai/apex-ai-academy",
       "reason": "github: candidate \"academy.apexai/apex-ai-academy\" package.json name \"apex-sample-agents\" does not match listing repo \"sample-agents\"",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "1.0.2"
     },
     {
       "id": "ae.datadubai/dubai-real-estate",
       "reason": "github: candidate \"ae.datadubai/dubai-real-estate\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"HEAD\"",
       "sourceUrl": "https://registry.modelcontextprotocol.io/v0/servers",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "1.1.0"
     },
     {
       "id": "Snailclimb/JavaGuide",
       "reason": "candidate rejected: install hooks (prepare) run publisher code at install time; automatic handling refused",
       "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.0.0"
     },
     {
-      "id": "n8n-io/n8n",
-      "reason": "github: candidate \"n8n-io/n8n\" package.json name \"n8n-monorepo\" does not match listing repo \"n8n\"",
+      "id": "jwasham/coding-interview-university",
+      "reason": "github: candidate \"jwasham/coding-interview-university\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
       "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.0.0"
     },
     {
       "id": "langgenius/dify",
       "reason": "github: candidate \"langgenius/dify\" package.json has no version",
       "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "n8n-io/n8n",
+      "reason": "github: candidate \"n8n-io/n8n\" package.json name \"n8n-monorepo\" does not match listing repo \"n8n\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.0.0"
     },
     {
       "id": "Graphify-Labs/graphify",
       "reason": "github: candidate \"Graphify-Labs/graphify\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"v8\" or \"HEAD\"",
       "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "Panniantong/Agent-Reach",
-      "reason": "github: candidate \"Panniantong/Agent-Reach\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
-      "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "paperclipai/paperclip",
-      "reason": "github: candidate \"paperclipai/paperclip\" package.json has no version",
-      "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.0.0"
     },
     {
       "id": "google-gemini/gemini-cli",
       "reason": "candidate rejected: install hooks (prepare) run publisher code at install time; automatic handling refused",
       "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "Panniantong/Agent-Reach",
+      "reason": "github: candidate \"Panniantong/Agent-Reach\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "paperclipai/paperclip",
+      "reason": "github: candidate \"paperclipai/paperclip\" package.json has no version",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.0.0"
     },
     {
       "id": "ruvnet/RuView",
       "reason": "github: candidate \"ruvnet/RuView\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
       "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.0.0"
     },
     {
-      "id": "cheaper-inference/OmniRoute",
-      "reason": "candidate rejected: install hooks (postinstall, prepare) run publisher code at install time; automatic handling refused",
+      "id": "microsoft/playwright",
+      "reason": "github: candidate \"microsoft/playwright\" package.json name \"playwright-internal\" does not match listing repo \"playwright\"",
       "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "lobehub/lobehub",
-      "reason": "candidate rejected: install hooks (prepare) run publisher code at install time; automatic handling refused",
-      "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.0.0"
     },
     {
       "id": "punkpeye/awesome-mcp-servers",
       "reason": "github: candidate \"punkpeye/awesome-mcp-servers\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
       "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "tt-a1i/archify",
+      "reason": "github: candidate \"tt-a1i/archify\" package.json has no version",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "puppeteer/puppeteer",
+      "reason": "github: candidate \"puppeteer/puppeteer\" package.json has no version",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "OpenHands/OpenHands",
+      "reason": "github: candidate \"OpenHands/OpenHands\" package.json name \"@openhands/agent-canvas\" does not match listing repo \"OpenHands\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "storybookjs/storybook",
+      "reason": "github: candidate \"storybookjs/storybook\" package.json has no version",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "cheaper-inference/OmniRoute",
+      "reason": "candidate rejected: install hooks (postinstall, prepare) run publisher code at install time; automatic handling refused",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "lobehub/lobehub",
+      "reason": "candidate rejected: install hooks (prepare) run publisher code at install time; automatic handling refused",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
+      "pinnedRef": "0.0.0"
+    },
+    {
+      "id": "rtk-ai/rtk",
+      "reason": "github: candidate \"rtk-ai/rtk\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"develop\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.0.0"
     },
     {
       "id": "unclecode/crawl4ai",
       "reason": "github: candidate \"unclecode/crawl4ai\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
       "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "ComposioHQ/awesome-claude-skills",
-      "reason": "github: candidate \"ComposioHQ/awesome-claude-skills\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"master\" or \"HEAD\"",
-      "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "netdata/netdata",
-      "reason": "github: candidate \"netdata/netdata\" server.json name \"io.github.netdata/mcp-server\" does not match listing repo \"netdata\"",
-      "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "rohitg00/ai-engineering-from-scratch",
-      "reason": "github: candidate \"rohitg00/ai-engineering-from-scratch\" package.json has no version",
-      "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
-      "pinnedRef": "0.0.0"
-    },
-    {
-      "id": "sansan0/TrendRadar",
-      "reason": "github: candidate \"sansan0/TrendRadar\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"master\" or \"HEAD\"",
-      "sourceUrl": "https://api.github.com/search/repositories",
-      "at": "2026-11-10T10:59:07.918Z",
+      "at": "2026-11-10T14:32:27.330Z",
       "pinnedRef": "0.0.0"
     }
   ],
@@ -582,19 +761,19 @@
       ]
     },
     {
-      "reason": "github: candidate \"ComposioHQ/awesome-claude-skills\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"master\" or \"HEAD\"",
-      "sourceUrl": "https://api.github.com/search/repositories",
-      "count": 1,
-      "ids": [
-        "ComposioHQ/awesome-claude-skills"
-      ]
-    },
-    {
       "reason": "github: candidate \"Graphify-Labs/graphify\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"v8\" or \"HEAD\"",
       "sourceUrl": "https://api.github.com/search/repositories",
       "count": 1,
       "ids": [
         "Graphify-Labs/graphify"
+      ]
+    },
+    {
+      "reason": "github: candidate \"OpenHands/OpenHands\" package.json name \"@openhands/agent-canvas\" does not match listing repo \"OpenHands\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "OpenHands/OpenHands"
       ]
     },
     {
@@ -726,6 +905,14 @@
       ]
     },
     {
+      "reason": "github: candidate \"jwasham/coding-interview-university\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"main\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "jwasham/coding-interview-university"
+      ]
+    },
+    {
       "reason": "github: candidate \"langgenius/dify\" package.json has no version",
       "sourceUrl": "https://api.github.com/search/repositories",
       "count": 1,
@@ -734,19 +921,19 @@
       ]
     },
     {
+      "reason": "github: candidate \"microsoft/playwright\" package.json name \"playwright-internal\" does not match listing repo \"playwright\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "microsoft/playwright"
+      ]
+    },
+    {
       "reason": "github: candidate \"n8n-io/n8n\" package.json name \"n8n-monorepo\" does not match listing repo \"n8n\"",
       "sourceUrl": "https://api.github.com/search/repositories",
       "count": 1,
       "ids": [
         "n8n-io/n8n"
-      ]
-    },
-    {
-      "reason": "github: candidate \"netdata/netdata\" server.json name \"io.github.netdata/mcp-server\" does not match listing repo \"netdata\"",
-      "sourceUrl": "https://api.github.com/search/repositories",
-      "count": 1,
-      "ids": [
-        "netdata/netdata"
       ]
     },
     {
@@ -766,11 +953,19 @@
       ]
     },
     {
-      "reason": "github: candidate \"rohitg00/ai-engineering-from-scratch\" package.json has no version",
+      "reason": "github: candidate \"puppeteer/puppeteer\" package.json has no version",
       "sourceUrl": "https://api.github.com/search/repositories",
       "count": 1,
       "ids": [
-        "rohitg00/ai-engineering-from-scratch"
+        "puppeteer/puppeteer"
+      ]
+    },
+    {
+      "reason": "github: candidate \"rtk-ai/rtk\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"develop\" or \"HEAD\"",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "rtk-ai/rtk"
       ]
     },
     {
@@ -782,11 +977,19 @@
       ]
     },
     {
-      "reason": "github: candidate \"sansan0/TrendRadar\" no supported artifact (SKILL.md, .claude-plugin/plugin.json, plugin.json, package.json, server.json) found on \"master\" or \"HEAD\"",
+      "reason": "github: candidate \"storybookjs/storybook\" package.json has no version",
       "sourceUrl": "https://api.github.com/search/repositories",
       "count": 1,
       "ids": [
-        "sansan0/TrendRadar"
+        "storybookjs/storybook"
+      ]
+    },
+    {
+      "reason": "github: candidate \"tt-a1i/archify\" package.json has no version",
+      "sourceUrl": "https://api.github.com/search/repositories",
+      "count": 1,
+      "ids": [
+        "tt-a1i/archify"
       ]
     },
     {
@@ -795,174 +998,6 @@
       "count": 1,
       "ids": [
         "unclecode/crawl4ai"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-adk-code\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-adk-code failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "google/agents-cli/google-agents-cli-adk-code"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-deploy\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-deploy failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "google/agents-cli/google-agents-cli-deploy"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-eval\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-eval failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "google/agents-cli/google-agents-cli-eval"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-observability\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-observability failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "google/agents-cli/google-agents-cli-observability"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-publish\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-publish failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "google/agents-cli/google-agents-cli-publish"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-scaffold\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-scaffold failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "google/agents-cli/google-agents-cli-scaffold"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"google/agents-cli/google-agents-cli-workflow\" download failed: GET https://skills.sh/api/download/google/agents-cli/google-agents-cli-workflow failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "google/agents-cli/google-agents-cli-workflow"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"mattpocock/skills/code-review\" download failed: GET https://skills.sh/api/download/mattpocock/skills/code-review failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "mattpocock/skills/code-review"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"mattpocock/skills/git-guardrails-claude-code\" download failed: GET https://skills.sh/api/download/mattpocock/skills/git-guardrails-claude-code failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "mattpocock/skills/git-guardrails-claude-code"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"mattpocock/skills/handoff\" download failed: GET https://skills.sh/api/download/mattpocock/skills/handoff failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "mattpocock/skills/handoff"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"mattpocock/skills/research\" download failed: GET https://skills.sh/api/download/mattpocock/skills/research failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "mattpocock/skills/research"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"mattpocock/skills/setup-pre-commit\" download failed: GET https://skills.sh/api/download/mattpocock/skills/setup-pre-commit failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "mattpocock/skills/setup-pre-commit"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"mattpocock/skills/triage\" download failed: GET https://skills.sh/api/download/mattpocock/skills/triage failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "mattpocock/skills/triage"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"mattpocock/skills/wayfinder\" download failed: GET https://skills.sh/api/download/mattpocock/skills/wayfinder failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "mattpocock/skills/wayfinder"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"mattpocock/skills/wizard\" download failed: GET https://skills.sh/api/download/mattpocock/skills/wizard failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "mattpocock/skills/wizard"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"mattpocock/skills/writing-for-agents\" download failed: GET https://skills.sh/api/download/mattpocock/skills/writing-for-agents failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "mattpocock/skills/writing-for-agents"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"microsoft/azure-skills/azure-aigateway\" download failed: GET https://skills.sh/api/download/microsoft/azure-skills/azure-aigateway failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "microsoft/azure-skills/azure-aigateway"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"microsoft/azure-skills/azure-compliance\" download failed: GET https://skills.sh/api/download/microsoft/azure-skills/azure-compliance failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "microsoft/azure-skills/azure-compliance"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"microsoft/azure-skills/azure-compute\" download failed: GET https://skills.sh/api/download/microsoft/azure-skills/azure-compute failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "microsoft/azure-skills/azure-compute"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"microsoft/azure-skills/azure-validate\" download failed: GET https://skills.sh/api/download/microsoft/azure-skills/azure-validate failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "microsoft/azure-skills/azure-validate"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"microsoft/azure-skills/microsoft-foundry\" download failed: GET https://skills.sh/api/download/microsoft/azure-skills/microsoft-foundry failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "microsoft/azure-skills/microsoft-foundry"
       ]
     },
     {
@@ -987,14 +1022,6 @@
       "count": 1,
       "ids": [
         "open.feishu.cn/lark-vc-agent"
-      ]
-    },
-    {
-      "reason": "skills-sh: candidate \"supabase/agent-skills/supabase-postgres-best-practices\" download failed: GET https://skills.sh/api/download/supabase/agent-skills/supabase-postgres-best-practices failed with status 429",
-      "sourceUrl": "https://skills.sh/api/search",
-      "count": 1,
-      "ids": [
-        "supabase/agent-skills/supabase-postgres-best-practices"
       ]
     },
     {

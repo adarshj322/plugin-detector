@@ -131,11 +131,11 @@ production-verified.
 ### Registry snapshot
 
 - The bundled snapshot is an **evidence-probed review seed**, not a v1.0
-  recommendation corpus: `schemaVersion: 1`, `generatedAt: 2026-11-10T10:54:18.106Z`,
-  4 accepted candidates, 57 rejected intake records.
-- The first live refresh probed 21 popular candidates; 17 were excluded for empty
-  capabilities. The snapshot is intentionally thin until capability inference
-  covers MCP/plugin manifests and license/maintenance evidence improves.
+  recommendation corpus: `schemaVersion: 1`, `generatedAt: 2026-11-10T14:32:27.330Z`,
+  6 accepted candidates, 38 rejected intake records, 36 unclassified records.
+- The software-development-focused refresh probed popular candidates; the
+  snapshot is intentionally thin until capability inference and license/maintenance
+  evidence improve.
 - After profile-threshold calibration, `recommend` returns justified `required`
   recommendations for software-development, video-editing, data-analysis, and
   design-frontend; research-writing still has no matching evidence-backed

@@ -2,11 +2,13 @@
 
 ## Scope
 
-First live evidence refresh after v1.0 probing integration.
+Live evidence refresh focused on software-development discovery, plus the
+generic sources.
 
 - Command: `registry refresh --limit 120 --cache-dir packages/registry/data`
 - Source cap: 30 candidates per source, ordered by installs/stars
-- Snapshot generatedAt: `2026-11-10T10:54:18.106Z`
+- Expanded queries: software-development keywords and GitHub developer topics
+- Snapshot generatedAt: refreshed 2026-11-10
 - Review artifact: `packages/registry/data/registry-review.json`
 
 ## Source health
@@ -14,27 +16,28 @@ First live evidence refresh after v1.0 probing integration.
 | Source | Status | Count |
 |---|---|---|
 | skills.sh | ok | 4 |
-| MCP registry | ok | 3 |
-| GitHub | ok | 14 |
+| MCP registry | ok | 0 |
+| GitHub | ok | 0 |
 | awesome-lists | failed | 404 for the configured raw URL |
+
+GitHub and MCP returned no capability-classified records in this run. Their
+source health is visible in the review artifact; no evidence was fabricated.
 
 ## Outcome
 
-- Candidates probed: **21**
-- Kept after review: **4**
-- Excluded for empty capabilities: **17**
-- Rejected at intake/probe/normalize: **57**
-
-The current review artifact reports 4 probed + 57 rejected = 61 rows because
-the 17 probed-but-unclassified candidates are not yet retained in the manifest.
-That visibility gap is a follow-up for the review report.
+- Accepted in the snapshot: **6**
+- Preserved from the previous reviewed seed: **2**
+- Probed but unclassified (empty capability evidence): **36**
+- Rejected at intake/probe/normalize: **38**
 
 Accepted records:
 
 | Candidate | Type | License | Capabilities |
 |---|---|---|---|
 | heygen-com/hyperframes | plugin | Apache-2.0 | speech.captions |
+| mattpocock/skills/code-review | skill | unknown | code-review.quality |
 | ruvnet/ruflo | skill | MIT | planning.orchestration |
+| supabase/agent-skills/supabase-postgres-best-practices | skill | MIT | data.database |
 | vercel-labs/agent-browser/agent-browser | skill | unknown | browser.automation |
 | vercel-labs/agent-skills/vercel-react-best-practices | skill | MIT | design.frontend |
 
@@ -46,20 +49,17 @@ After profile-threshold calibration:
 - `video-editing` → **required** (hyperframes)
 - `data-analysis` → **required** (ruflo)
 - `design-frontend` → **required** (vercel-react-best-practices)
-- `research-writing` → `no-good-candidates` (no matching evidence-backed candidate yet)
+- `research-writing` → `no-good-candidates`
 
-The snapshot is deliberately small, but it now produces justified recommendations
-for the main use cases instead of a blanket `no-good-candidates`.
+The snapshot is still small, but it now produces justified recommendations for
+the primary use cases instead of a blanket `no-good-candidates`.
 
 ## Decision
 
-The snapshot is committed as the **first evidence-probed v1.0 review seed**. It is
-still thin, but it meets the minimum recommendation gate for software, video,
-data, and design. Continue to Task 12 and the final quality gate; keep research
-writing and broader MCP/plugin coverage as follow-ups.
-
-No installation is enabled from unprobed records. The release remains
-`0.1.0-alpha`.
+This is the first reviewed, evidence-probed software-development-focused seed.
+It is intentionally thin. Keep as v1.0 evidence seed and continue to final
+quality and live-harness verification; do not call it production-ready until
+the corpus is broader and installation is tested on each harness.
 
 No installation is enabled from unprobed records. The release remains
 `0.1.0-alpha`.
