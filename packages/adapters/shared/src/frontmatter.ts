@@ -15,6 +15,22 @@ export function skillNameFromFrontmatter(text: string): string | null {
   return null;
 }
 
+// `description:` from a SKILL.md frontmatter block. Bounded line scalar only;
+// block scalars are not interpreted here (callers use this as inference text,
+// never install policy).
+export function skillDescriptionFromFrontmatter(text: string): string | null {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
+  if (!match?.[1]) return null;
+  const body = match[1];
+  for (const line of body.split("\n")) {
+    const description = /^\s*description\s*:\s*(.+?)\s*$/.exec(line)?.[1];
+    if (description && !/[[{\]]/.test(description)) {
+      return description.replace(/^["']|["']$/g, "");
+    }
+  }
+  return null;
+}
+
 // `capabilities:` from a SKILL.md frontmatter block, in any of the three
 // shapes authors actually use: comma-separated, flow list `[a, b]`, or a
 // block list (`- a` on following indented lines). Null means malformed;

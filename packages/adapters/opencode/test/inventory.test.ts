@@ -79,6 +79,14 @@ test("malformed skill frontmatter warns but keeps records", async () => {
   assert.equal(good?.contextCostClass, "per-use");
 });
 
+test("installed skill descriptions infer capabilities for overlap", async () => {
+  const adapter = new OpenCodeAdapter({ home: fixture("inferred-capability") });
+  const inventory = await adapter.inventory();
+  const skill = inventory.records.find((entry) => entry.name === "e2e-browser");
+  assert.ok(skill);
+  assert.ok(skill?.capabilities.includes("testing.e2e"));
+});
+
 test("mcp servers inventory per-query without secret values", async () => {
   const adapter = new OpenCodeAdapter({ home: fixture("mcp") });
   const inventory = await adapter.inventory();

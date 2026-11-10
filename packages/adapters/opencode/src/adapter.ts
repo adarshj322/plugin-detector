@@ -22,9 +22,11 @@ import {
 } from "@plugin-detector/core";
 import {
   skillCapabilitiesFromFrontmatter,
+  skillDescriptionFromFrontmatter,
   skillNameFromFrontmatter,
   stripJsonc,
 } from "@plugin-detector/adapter-shared";
+import { inferCapabilities } from "@plugin-detector/registry";
 
 export interface OpenCodeAdapterOptions {
   // Project root holding opencode.json(c) and .opencode/. Defaults to cwd,
@@ -636,18 +638,24 @@ export class OpenCodeAdapter implements HarnessAdapter {
         continue;
       }
       const name = skillNameFromFrontmatter(text);
+      const description = skillDescriptionFromFrontmatter(text);
       const capabilities = skillCapabilitiesFromFrontmatter(text);
       if (name === null || capabilities === null) {
         warnings.push(`Malformed frontmatter in ${skillFile}; kept by directory name.`);
       }
       const mapped = capabilities ?? [];
       const fromName = capabilityId(entry);
+      const inferred = inferCapabilities(
+        [name ?? entry, description ?? ""].join("\n"),
+        name ?? entry,
+      ).capabilities;
+      const combined = [...new Set([...mapped, ...(fromName ? [fromName] : []), ...inferred])];
       records.push({
         id: `opencode:skill:${scope}:${entry}`,
         name: name ?? entry,
         harness: "opencode",
         kind: "skill",
-        capabilities: fromName && !mapped.includes(fromName) ? [...mapped, fromName] : mapped,
+        capabilities: combined,
         enabled: true,
         configRefs: [skillFile],
         contextCostClass: COST_BY_KIND["skill"] as ContextCostClass,
