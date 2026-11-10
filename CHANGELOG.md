@@ -136,8 +136,10 @@ production-verified.
 - The first live refresh probed 21 popular candidates; 17 were excluded for empty
   capabilities. The snapshot is intentionally thin until capability inference
   covers MCP/plugin manifests and license/maintenance evidence improves.
-- `recommend` still returns `no-good-candidates` for the checked use cases; see
-  `docs/registry-review-2026-11-10.md`. This remains a v1.0 gate.
+- After profile-threshold calibration, `recommend` returns justified `required`
+  recommendations for software-development, video-editing, data-analysis, and
+  design-frontend; research-writing still has no matching evidence-backed
+  candidate. See `docs/registry-review-2026-11-10.md`.
 - `npm run registry:refresh` refreshes `packages/registry/data/registry-snapshot.json`
   from live public sources and writes a local, uncommitted `registry-manifest.json`
   for review.

@@ -27,6 +27,9 @@ export const UseCaseProfileSchema = z.object({
   negativeSignals: z.array(z.string().min(1)).min(1),
   defaultDomains: z.array(z.string().min(1)).min(1),
   expectedValueTiers: z.array(z.string().min(1)).min(1),
+  // Optional profile calibration: recommendation gate only, never trust or
+  // automatic-install policy. Defaults to DEFAULT_REQUIRED_THRESHOLD.
+  requiredThreshold: z.number().min(0).max(100).optional(),
 });
 export type V1Profile = z.infer<typeof UseCaseProfileSchema>;
 

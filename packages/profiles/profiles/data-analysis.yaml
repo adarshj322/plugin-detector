@@ -24,6 +24,7 @@ negativeSignals:
 defaultDomains:
   - analysis
   - reporting
+requiredThreshold: 10
 expectedValueTiers:
   - time-saved
   - quality-uplift

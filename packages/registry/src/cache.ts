@@ -744,6 +744,23 @@ export async function refreshSnapshot(
         return { probed: false };
       }
 
+      if (candidate.capabilities.length === 0) {
+        // Probed but no explicit capability evidence: keep it reviewable, but
+        // do not recommend or preserve it as if it fit a profile.
+        unprobed.push({
+          id: candidate.id,
+          reason:
+            "artifact probed but no explicit capability evidence; excluded from snapshot",
+          sourceUrl: fetcher.url,
+          observedAt: nowIso,
+          ...(candidate.pinnedRef === undefined
+            ? {}
+            : { pinnedRef: candidate.pinnedRef }),
+        });
+        hardRejectedIds.add(candidate.id);
+        return { probed: false };
+      }
+
       const prevCandidate = prevById.get(candidate.id);
       const drift =
         prevCandidate === undefined

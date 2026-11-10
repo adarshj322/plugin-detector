@@ -25,6 +25,7 @@ negativeSignals:
 defaultDomains:
   - delivery
   - operations
+requiredThreshold: 10
 expectedValueTiers:
   - time-saved
   - cost-reduction

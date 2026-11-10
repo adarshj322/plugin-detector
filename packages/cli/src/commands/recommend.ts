@@ -46,7 +46,7 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
   let home: string | undefined;
   let root: string | undefined;
   let harness = "auto";
-  let threshold = DEFAULT_REQUIRED_THRESHOLD;
+  let threshold: number | undefined;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--json") json = true;
@@ -101,7 +101,10 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
     );
     return { exitCode: 2 };
   }
-  if (!Number.isFinite(threshold) || threshold < 0 || threshold > 100) {
+  if (
+    threshold !== undefined &&
+    (!Number.isFinite(threshold) || threshold < 0 || threshold > 100)
+  ) {
     console.error(`--threshold must be a number between 0 and 100`);
     return { exitCode: 2 };
   }
@@ -145,6 +148,8 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
     // Unreachable: unknown declarations exit 2 above; kept for exhaustiveness.
     return usageError("recommend", `unknown --use-case "${useCase}"`, validIds, json);
   }
+  const effectiveThreshold =
+    threshold ?? profile.requiredThreshold ?? DEFAULT_REQUIRED_THRESHOLD;
 
   let snapshot;
   try {
@@ -196,6 +201,7 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
         : candidate.capabilities.filter((c) => profileCaps.has(c)).length /
           candidate.capabilities.length,
     compatibilityFor,
+    requiredThreshold: effectiveThreshold,
   }).map((rec) => ({
     rec,
     compatibility: compatAdapter ? compatibilityFor(rec.candidate) : null,
@@ -210,7 +216,7 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
   const top = scored.filter((s) => s.rec.verdict !== "risky").slice(0, 5);
   const verdict = decideVerdict({
     recommendations: scored.map((s) => s.rec),
-    requiredThreshold: threshold,
+    requiredThreshold: effectiveThreshold,
   });
 
   const payload: RecommendJson = {

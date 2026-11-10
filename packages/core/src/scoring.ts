@@ -4,6 +4,10 @@ import type { Recommendation, Verdict } from "./schema.js";
 
 // Score floor for a `required` verdict. Profiles (Task 10) may override it
 // per use case; the threshold always applies to `score` (0-100).
+// Calibrated for v1 evidence: community-probed, open-license, active tools
+// currently top out around the low teens because unknown audit/maintenance and
+// manual setup are penalized. The threshold gates recommendation, not
+// automatic installation; verified trust is still required to write.
 export const DEFAULT_REQUIRED_THRESHOLD = 55;
 
 export interface ScoreInput {
@@ -16,6 +20,9 @@ export interface ScoreInput {
   // Adapter-provided 0-1 compatibility. Omitted means 1 (no harness-specific
   // constraint, e.g. an unknown harness or a fixture corpus).
   compatibility?: number;
+  // Per-profile recommendation threshold; defaults to
+  // DEFAULT_REQUIRED_THRESHOLD. This gates the verdict, not trust.
+  requiredThreshold?: number;
 }
 
 export interface ScoreBreakdown {
@@ -215,6 +222,7 @@ export interface ScoreSetContext {
   projectSignalMatch: number;
   useCaseMatchFor: (candidate: Candidate) => number;
   compatibilityFor?: (candidate: Candidate) => number;
+  requiredThreshold?: number;
 }
 
 // Shared by `recommend` and the benchmark so both exercise identical
@@ -232,6 +240,9 @@ export function scoreCandidateSet(
       useCaseMatch: context.useCaseMatchFor(candidate),
       projectSignalMatch: context.projectSignalMatch,
       compatibility: context.compatibilityFor?.(candidate) ?? 1,
+      ...(context.requiredThreshold === undefined
+        ? {}
+        : { requiredThreshold: context.requiredThreshold }),
     }),
   );
 }
@@ -248,7 +259,10 @@ export function scoreCandidate(input: ScoreInput): Recommendation {
   } else if (redundant !== null) {
     verdict = "redundant";
     why = redundant;
-  } else if (breakdown.score >= DEFAULT_REQUIRED_THRESHOLD) {
+  } else if (
+    breakdown.score >=
+    (input.requiredThreshold ?? DEFAULT_REQUIRED_THRESHOLD)
+  ) {
     verdict = "required";
     why = "fills a profile-domain gap with acceptable risk";
   } else {

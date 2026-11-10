@@ -27,6 +27,7 @@ negativeSignals:
 defaultDomains:
   - publishing
   - cleanup
+requiredThreshold: 10
 expectedValueTiers:
   - time-saved
   - quality-uplift

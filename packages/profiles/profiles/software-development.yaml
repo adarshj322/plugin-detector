@@ -11,6 +11,11 @@ capabilities:
   - debugging.systematic
   - vcs.workflow
   - docs.writing
+  - browser.automation
+  - design.frontend
+  - containers.orchestration
+  - ci.release
+  - security.dependencies
 signalQueries:
   - package-manifest
   - tsconfig
@@ -30,6 +35,7 @@ negativeSignals:
 defaultDomains:
   - coding
   - testing
+requiredThreshold: 5
 expectedValueTiers:
   - time-saved
   - quality-uplift

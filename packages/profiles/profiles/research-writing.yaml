@@ -25,6 +25,7 @@ defaultDomains:
   - writing
   - publishing
   - research
+requiredThreshold: 10
 expectedValueTiers:
   - time-saved
   - quality-uplift
