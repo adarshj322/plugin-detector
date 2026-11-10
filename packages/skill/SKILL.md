@@ -13,14 +13,16 @@ background work the user did not ask for.
 
 ## No-write gate
 
-`inventory`, `recommend`, `explain`, `plan`, and `registry review` are
-read-only unless you pass `plan --out <file>` or `registry review --out
-<file>`. The commands that write are `registry refresh` (explicit cache
-refresh), `registry review --out` (the review report file you asked for; it
-never writes the snapshot or manifest), `plan --out` (the plan file you asked
-for), `approve` (the one-shot token store), and `install`, and `install` runs
-only after the approval-token flow below completes. Never bypass the CLI:
-do not edit harness config files by hand when a CLI command owns that write.
+`inventory`, `recommend`, `explain`, `plan`, `profiles list`, `profiles
+validate`, and `registry review` are read-only unless you pass `plan --out
+<file>` or `registry review --out <file>`. The commands that write are
+`profiles init` (the starter profile file you asked for), `registry refresh`
+(explicit cache refresh), `registry review --out` (the review report file you
+asked for; it never writes the snapshot or manifest), `plan --out` (the plan
+file you asked for), `approve` (the one-shot token store), and `install`, and
+`install` runs only after the approval-token flow below completes. Never bypass
+the CLI: do not edit harness config files by hand when a CLI command owns that
+write.
 
 ## Procedure
 
@@ -37,7 +39,7 @@ do not edit harness config files by hand when a CLI command owns that write.
    (`needs-clarification`) or signals are thin, ask exactly one question,
    wait for the answer, then re-run. Never batch interrogations.
 4. **Call `recommend`.** Run
-   `plugin-detector recommend --use-case <id> [--signal S ...] [--harness H]`
+   `plugin-detector recommend (--use-case <id> | --profile <file>) [--signal S ...] [--harness H]`
    and present at most the short candidate set it returns — never a dump.
 5. **Show evidence and reasoning.** Per candidate show verdict
    (`required` / `useful-optional` / `redundant` / `risky` /
@@ -70,6 +72,39 @@ do not edit harness config files by hand when a CLI command owns that write.
 9. **Keep rollback available.** After a successful install, tell the user
    they can restore every backed-up preimage with
    `plugin-detector rollback --plan-file plan.json`.
+
+## Custom use-case profiles
+
+When the built-in profiles do not describe the user's workflow, build a custom
+profile with them instead of stretching a built-in id:
+
+1. **Interview the user.** Ask what they actually do, which artifacts signal
+   that work (manifests, project files, docs), and what outcome they want. One
+   question at a time; do not infer a whole workflow from a single phrase.
+2. **Derive canonical capabilities.** Map the workflow to exact canonical
+   capability IDs from the taxonomy in `docs/profile-schema.md`. If a needed
+   capability has no canonical ID, say so and ask the user how to proceed.
+   Never invent, alias, or silently approximate a canonical capability ID.
+3. **Scaffold the profile.** Run
+   `plugin-detector profiles init <file>`. Never overwrite an existing file;
+   edit the one you created.
+4. **Edit and validate.** Fill in `id`, `displayName`, `description`,
+   `capabilities`, positive `signalQueries`, `negativeSignals`, and the optional
+   `requiredThreshold`. Run `plugin-detector profiles validate <file>` and fix
+   every reported field before proceeding.
+5. **Show the profile for approval.** Present the edited id, capabilities,
+   signal queries, negative signals, and threshold. Wait for the user to
+   approve it; the profile changes what gets recommended.
+6. **Recommend or refresh with it.**
+   `plugin-detector recommend --profile <file> [--signal S ...]` and, when a
+   discovery boost is wanted,
+   `plugin-detector registry refresh --profile <file>`. `--use-case` may be
+   omitted; if both are passed they must agree, or the command exits `2`.
+   A custom profile wins over a built-in profile with the same id, and its
+   `requiredThreshold` applies.
+
+Custom profiles are local data, not trust evidence: they never make a candidate
+verified, and they never bypass the approval flow.
 
 ## Safety rules
 

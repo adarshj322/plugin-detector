@@ -5,6 +5,8 @@ import { inventory } from "./commands/inventory.js";
 import { recommend } from "./commands/recommend.js";
 import { explain } from "./commands/explain.js";
 import { validateProfile } from "./commands/profiles-validate.js";
+import { initProfile } from "./commands/profiles-init.js";
+import { listProfiles } from "./commands/profiles-list.js";
 import { registryRefresh } from "./commands/registry-refresh.js";
 import { registryReview } from "./commands/registry-review.js";
 import { plan } from "./commands/plan.js";
@@ -20,10 +22,12 @@ function usage(): number {
     [
       "usage: plugin-detector <command> [options]",
       "  inventory [--json] [--home DIR] [--root DIR]",
-      "  recommend --use-case <id> [--signal S ...] [--json] [--cache-dir DIR] [--home DIR] [--root DIR] [--harness H] [--threshold N]",
+      "  recommend (--use-case <id> | --profile <file>) [--signal S ...] [--json] [--cache-dir DIR] [--home DIR] [--root DIR] [--harness H] [--threshold N]",
       "  explain <candidate-id> [--show-untrusted] [--json] [--cache-dir DIR] [--home DIR] [--root DIR]",
+      "  profiles list",
+      "  profiles init <file>",
       "  profiles validate <file>",
-      "  registry refresh [--cache-dir <dir>] [--limit <n>] [--use-case <id>]",
+      "  registry refresh [--cache-dir <dir>] [--limit <n>] [--use-case <id> | --profile <file>]",
       "  registry review [--cache-dir <dir>] [--json] [--out <file>]",
       "  plan --candidate <id> --harness <name> [--json] [--out <file>] [--cache-dir DIR] [--home DIR] [--root DIR]",
       "  approve --candidate <id> --plan <sha256> [--plan-file <file>] [--ttl-minutes N] [--json]",
@@ -38,10 +42,11 @@ function usage(): number {
 }
 
 // Exit codes: 0 ok, 1 error, 2 usage, 3 needs-clarification, 4 blocked.
-// Only `registry refresh` (explicit cache refresh), `registry review --out`
-// (explicit report file), `plan --out` (explicit plan file), `approve` (token
-// store), consented `install` (verified writers), and `rollback` (restores
-// recorded preimages) touch the filesystem.
+// Only `profiles init` (the requested starter file), `registry refresh`
+// (explicit cache refresh), `registry review --out` (explicit report file),
+// `plan --out` (explicit plan file), `approve` (token store), consented
+// `install` (verified writers), and `rollback` (restores recorded preimages)
+// touch the filesystem.
 export async function main(argv: string[] = process.argv.slice(2)): Promise<number> {
   const [command, sub, ...rest] = argv;
   if (command === "inventory") return (await inventory(sub ? [sub, ...rest] : [])).exitCode;
@@ -53,6 +58,8 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<numb
   if (command === "rollback") return (await rollback(sub ? [sub, ...rest] : [])).exitCode;
   if (command === "benchmark") return (await benchmark(sub ? [sub, ...rest] : [])).exitCode;
   if (command === "profiles" && sub === "validate") return (await validateProfile(rest)).exitCode;
+  if (command === "profiles" && sub === "init") return (await initProfile(rest)).exitCode;
+  if (command === "profiles" && sub === "list") return (await listProfiles(rest)).exitCode;
   if (command === "registry" && sub === "refresh") {
     return (await registryRefresh(rest)).exitCode;
   }

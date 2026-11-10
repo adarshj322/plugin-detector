@@ -27,6 +27,12 @@ npx plugin-detector inventory
 # What should I add for a workflow?
 npx plugin-detector recommend --use-case software-development --signal tsconfig
 
+# Custom workflow not covered by a built-in profile?
+npx plugin-detector profiles list
+npx plugin-detector profiles init my-workflow.yaml
+npx plugin-detector profiles validate my-workflow.yaml
+npx plugin-detector recommend --profile my-workflow.yaml --signal tsconfig
+
 # Why did a candidate receive that verdict?
 npx plugin-detector explain CANDIDATE_ID
 
@@ -54,6 +60,13 @@ evidence pointers, confidence, score, overlap, compatibility, pinned ref,
 license, and reasoning. Risk, audit status, and maintenance are candidate
 fields (shown by `explain`), not top-level recommendation fields. A
 `no-good-candidates` answer is a valid, expected result.
+
+`profiles list` shows the built-in use cases. For anything else, `profiles init`
+scaffolds a custom profile; edit its canonical capabilities and signals, then
+pass the file to `recommend --profile <file>` or `registry refresh --profile
+<file>`. A custom profile uses its own `id` and `requiredThreshold`, wins over a
+built-in profile with the same id, and never changes trust or install policy.
+See [docs/profile-schema.md](docs/profile-schema.md#custom-profiles).
 
 The bundled snapshot is still a seed/placeholder, so a fresh install can
 legitimately return `no-good-candidates` until a reviewed refresh is committed
@@ -84,15 +97,16 @@ npx plugin-detector recommend --use-case design-frontend --harness cursor
 
 ## Safety model: read first, install only on explicit consent
 
-- `inventory`, `recommend`, `explain`, `plan`, `registry review`, and
-  `profiles validate` are **read-only** by default. They never write harness
-  config or install anything. `plan --out <file>` writes only the plan file you
-  explicitly request; `registry review --out <file>` writes only the review
-  report.
-- The commands that write are `registry refresh` (cache/snapshot update),
-  `registry review --out` (explicit report file), `approve` (the one-shot token
-  store), a consented `install`, and `rollback` (restores the exact preimages a
-  plan recorded). `install` refuses unless the
+- `inventory`, `recommend`, `explain`, `plan`, `registry review`,
+  `profiles list`, and `profiles validate` are **read-only** by default. They
+  never write harness config or install anything. `plan --out <file>` writes
+  only the plan file you explicitly request; `registry review --out <file>`
+  writes only the review report.
+- The commands that write are `profiles init` (the starter profile file you
+  requested), `registry refresh` (cache/snapshot update), `registry review
+  --out` (explicit report file), `approve` (the one-shot token store), a
+  consented `install`, and `rollback` (restores the exact preimages a plan
+  recorded). `install` refuses unless the
   plan re-derives exactly from the registry snapshot, the candidate's artifact
   was actually probed, and a valid one-shot token or interactive TTY
   confirmation is present.

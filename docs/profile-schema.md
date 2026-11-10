@@ -2,11 +2,20 @@
 
 A profile maps one declared use case to capability domains, corroborating project
 signals, contradictory signals, and expected value tiers. Profiles are versioned
-with the schema and loaded from `packages/profiles/profiles/*.yaml`.
+with the schema and loaded from `packages/profiles/profiles/*.yaml` as built-ins;
+a custom profile can be loaded from any path with `--profile <file>`.
 
 ```bash
-# Validate one profile without network access or writes
+# List built-in ids and display names
+npx plugin-detector profiles list
+
+# Scaffold a custom profile, then edit and validate it
+npx plugin-detector profiles init path/to/profile.yaml
 npx plugin-detector profiles validate path/to/profile.yaml
+
+# Recommend or boost discovery with a custom profile
+npx plugin-detector recommend --profile path/to/profile.yaml --signal tsconfig
+npx plugin-detector registry refresh --profile path/to/profile.yaml
 ```
 
 ## Fields
@@ -22,6 +31,7 @@ npx plugin-detector profiles validate path/to/profile.yaml
 | `negativeSignals` | string[] | at least 1 item | Signals that contradict the declaration and force a clarifying question. |
 | `defaultDomains` | string[] | at least 1 item | Declarative defaults for profile authors; **not consumed by `recommend` in v0.1**. |
 | `expectedValueTiers` | string[] | at least 1 item | Declarative value statement; **not consumed by scoring in v0.1**. |
+| `requiredThreshold` | number | 0–100, optional | Score a candidate must reach for a `required` verdict. Defaults to `55`. Applies only to recommendations, never trust or install policy. |
 
 Capability IDs must be exact values from the shared taxonomy. The complete v1
 set is:
@@ -109,6 +119,37 @@ expectedValueTiers:
 
 Project signals never replace the declared use case. On contradiction the skill
 must ask which workflow is correct, then re-run with the resolved declaration.
+
+## Custom profiles
+
+`loadProfileFile(file)` in `@plugin-detector/profiles` reads, parses, and
+validates one profile file. It is uncached, so editing a file and re-running
+picks up the change. A missing file or schema violation throws one error that
+names the file and the failing fields.
+
+Create a starter with `profiles init <file>`. It writes a valid profile with
+`requiredThreshold: 10` and refuses to overwrite an existing file. Edit it,
+then run `profiles validate <file>`.
+
+`recommend --profile <file>`:
+
+- uses the custom profile's `id` as the declaration, so `--use-case` may be
+  omitted;
+- resolves corroboration against the built-ins plus the custom profile, with
+  the custom profile winning on the same id;
+- applies the custom profile's `requiredThreshold` (unless `--threshold N`
+  overrides it for that run);
+- exits `1` with the parse/validation error when the profile file is missing or
+  invalid;
+- exits `2` when `--use-case` and `--profile` are both supplied with different
+  ids.
+
+`registry refresh --profile <file>` adds the custom profile's `signalQueries`
+to discovery queries only, never to evidence. Missing or invalid files exit `1`
+with the same error. `--use-case` remains supported for built-ins.
+
+Custom profiles never change trust, consent, or install behavior. They are
+local recommendation input.
 
 ## Adding a profile
 
