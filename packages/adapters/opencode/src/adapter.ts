@@ -83,12 +83,15 @@ const COST_BY_KIND: Record<string, ContextCostClass> = {
 };
 
 const PROJECT_SKILL_ROOTS = [".opencode/skills", ".skills"];
+const PROJECT_PLUGIN_ROOT = path.join(".opencode", "plugins");
+const GLOBAL_PLUGIN_ROOT = path.join(".config", "opencode", "plugins");
 const GLOBAL_SKILL_ROOTS = [
   ".config/opencode/skills",
   ".opencode/skills",
   ".skills",
 ];
 const PLUGIN_EXTENSIONS = new Set([".ts", ".js", ".mjs"]);
+const PLUGIN_INDEX_FILES = [...PLUGIN_EXTENSIONS].map((ext) => `index${ext}`);
 
 // Explicit capability hints for installed plugins whose package names do not
 // contain taxonomy terms. This is still evidence at the inventory layer: it
@@ -144,6 +147,8 @@ function pluginIdentity(entry: string): string {
 function pluginCapabilities(name: string): string[] {
   const hinted = PLUGIN_CAPABILITY_HINTS.find((entry) => entry.match.test(name));
   if (hinted) return [...hinted.capabilities];
+  // Unknown plugins fall back to taxonomy-phrase inference over the name only;
+  // a name with no taxonomy phrase yields no capabilities, never a guess.
   return inferCapabilities(name, name).capabilities;
 }
 
@@ -158,6 +163,42 @@ function recordArtifactKey(record: CapabilityRecord): string | null {
   if (record.kind !== "plugin" && record.kind !== "skill") return null;
   if (recordScope(record) === null) return null;
   return `${record.kind}:${record.id.split(":").slice(3).join(":")}`;
+}
+
+// A directory is a plugin only when it has a manifest or an entry module;
+// unrelated folders under the plugin root are not artifacts.
+function isPluginDirectory(dir: string): boolean {
+  return (
+    existsSync(path.join(dir, "package.json")) ||
+    PLUGIN_INDEX_FILES.some((file) => existsSync(path.join(dir, file)))
+  );
+}
+
+function isConfigRef(ref: string): boolean {
+  const base = path.basename(ref);
+  return base === "opencode.json" || base === "opencode.jsonc";
+}
+
+// Same plugin declared in config and discovered on disk: keep the declared
+// identity/name, but put the disk path first so Task 3 can use it as the
+// install path.
+function mergePluginRecords(
+  a: CapabilityRecord,
+  b: CapabilityRecord,
+): CapabilityRecord {
+  const declared = a.configRefs.some(isConfigRef)
+    ? a
+    : b.configRefs.some(isConfigRef)
+      ? b
+      : a;
+  const disk = declared === a ? b : a;
+  return {
+    ...declared,
+    capabilities: [
+      ...new Set([...declared.capabilities, ...disk.capabilities]),
+    ],
+    configRefs: [...new Set([...disk.configRefs, ...declared.configRefs])],
+  };
 }
 
 // Manifest name only; version/source evidence is collected separately.
@@ -238,12 +279,12 @@ export class OpenCodeAdapter implements HarnessAdapter {
     this.inventorySkills(records, warnings);
     this.inventoryLocalPlugins(
       records,
-      path.join(this.root, ".opencode", "plugins"),
+      path.join(this.root, PROJECT_PLUGIN_ROOT),
       "project",
     );
     this.inventoryLocalPlugins(
       records,
-      path.join(this.home, ".config", "opencode", "plugins"),
+      path.join(this.home, GLOBAL_PLUGIN_ROOT),
       "global",
     );
     this.inventoryCommands(records, warnings);
@@ -261,17 +302,17 @@ export class OpenCodeAdapter implements HarnessAdapter {
     const ids = new Set<string>();
     const artifacts = new Map<string, number>();
     for (const record of records) {
-      if (ids.has(record.id)) continue;
       const key = recordArtifactKey(record);
       if (key !== null) {
         const existingIndex = artifacts.get(key);
         if (existingIndex !== undefined) {
           const existing = output[existingIndex];
-          if (
-            existing !== undefined &&
-            recordScope(existing) === "global" &&
-            recordScope(record) === "project"
-          ) {
+          if (existing === undefined) continue;
+          const existingScope = recordScope(existing);
+          const scope = recordScope(record);
+          if (existingScope === scope && record.kind === "plugin") {
+            output[existingIndex] = mergePluginRecords(existing, record);
+          } else if (existingScope === "global" && scope === "project") {
             ids.delete(existing.id);
             output[existingIndex] = record;
             ids.add(record.id);
@@ -279,6 +320,7 @@ export class OpenCodeAdapter implements HarnessAdapter {
           continue;
         }
       }
+      if (ids.has(record.id)) continue;
       if (key !== null) artifacts.set(key, output.length);
       ids.add(record.id);
       output.push(record);
@@ -520,8 +562,10 @@ export class OpenCodeAdapter implements HarnessAdapter {
       path.join(this.root, "opencode.json"),
       path.join(this.root, "opencode.jsonc"),
       path.join(this.root, ".opencode"),
+      path.join(this.root, PROJECT_PLUGIN_ROOT),
       path.join(this.home, ".config", "opencode", "opencode.json"),
       path.join(this.home, ".config", "opencode", "opencode.jsonc"),
+      path.join(this.home, GLOBAL_PLUGIN_ROOT),
       ...PROJECT_SKILL_ROOTS.map((dir) => path.join(this.root, dir)),
       ...GLOBAL_SKILL_ROOTS.map((dir) => path.join(this.home, dir)),
     ];
@@ -816,6 +860,7 @@ export class OpenCodeAdapter implements HarnessAdapter {
       }
       let name: string;
       if (stat.isDirectory()) {
+        if (!isPluginDirectory(full)) continue;
         name = pluginDirectoryName(full);
       } else {
         if (!stat.isFile() || !PLUGIN_EXTENSIONS.has(path.extname(entry))) {

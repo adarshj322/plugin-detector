@@ -45,7 +45,7 @@ design.frontend           design.thumbnail         data.analysis
 data.database             browser.automation       search.web
 media.transcode           media.video              media.image
 speech.captions           collaboration.chat       publishing.delivery
-security.dependencies     harness.management
+security.dependencies     harness.management       memory.context
 ```
 
 Aliases are accepted only for the explicit table in

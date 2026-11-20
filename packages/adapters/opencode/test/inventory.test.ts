@@ -83,11 +83,19 @@ test("global auto-discovered plugins are inventoried without duplicates", async 
   assert.deepEqual(rtk?.capabilities, ["harness.management"]);
   const adhd = inventory.records.find((r) => r.name === "i-have-adhd");
   assert.deepEqual(adhd?.capabilities, ["planning.orchestration"]);
-  const manifest = inventory.records.find((r) => r.name === "manifest-plugin");
-  assert.equal(manifest?.id, "opencode:plugin:global:manifest-plugin");
+  const manifest = inventory.records.find(
+    (r) => r.name === "manifest-from-package",
+  );
+  assert.equal(manifest?.id, "opencode:plugin:global:manifest-from-package");
   assert.equal(
-    manifest?.configRefs[0]?.endsWith("plugins/manifest-plugin"),
+    manifest?.configRefs[0]?.endsWith("plugins/manifest-dir"),
     true,
+  );
+  const indexOnly = inventory.records.find((r) => r.name === "index-only");
+  assert.equal(indexOnly?.id, "opencode:plugin:global:index-only");
+  assert.equal(
+    inventory.records.some((r) => r.name === "stray-folder"),
+    false,
   );
   const superpowers = inventory.records.filter((r) =>
     r.name.includes("superpowers"),
@@ -96,6 +104,64 @@ test("global auto-discovered plugins are inventoried without duplicates", async 
   assert.equal(
     new Set(inventory.records.map((r) => r.id)).size,
     inventory.records.length,
+  );
+});
+
+test("config and disk plugin records merge the install path", async () => {
+  const adapter = new OpenCodeAdapter({ home: fixture("known-plugins") });
+  const inventory = await adapter.inventory();
+  const records = inventory.records.filter((r) =>
+    r.name.includes("superpowers"),
+  );
+  assert.equal(records.length, 1);
+  const [record] = records;
+  assert.ok(record?.name.startsWith("superpowers@git+"));
+  assert.equal(
+    record?.configRefs[0]?.endsWith(".config/opencode/plugins/superpowers.ts"),
+    true,
+  );
+  assert.ok(
+    record?.configRefs.some((ref) => ref.endsWith("opencode.json")),
+  );
+});
+
+test("unknown plugins fall back to name inference", async () => {
+  const adapter = new OpenCodeAdapter({ home: fixture("known-plugins") });
+  const inventory = await adapter.inventory();
+  const postgres = inventory.records.find((r) => r.name === "postgres-helper");
+  assert.deepEqual(postgres?.capabilities, ["data.database"]);
+  const misc = inventory.records.find((r) => r.name === "misc-helper");
+  assert.deepEqual(misc?.capabilities, []);
+});
+
+test("project plugin shadows the same global plugin", async () => {
+  const base = fixture("plugin-precedence");
+  const adapter = new OpenCodeAdapter({ root: base, home: base });
+  const inventory = await adapter.inventory();
+  const records = inventory.records.filter((r) => r.name === "foo");
+  assert.equal(records.length, 1);
+  assert.equal(records[0]?.id, "opencode:plugin:project:foo");
+  assert.equal(
+    records[0]?.configRefs[0]?.endsWith(".opencode/plugins/foo.ts"),
+    true,
+  );
+  assert.equal(
+    records[0]?.configRefs.some((ref) =>
+      ref.includes(".config/opencode/plugins"),
+    ),
+    false,
+  );
+});
+
+test("plugin-only harness is detected from the global plugin root", async () => {
+  const base = fixture("plugin-only");
+  const adapter = new OpenCodeAdapter({ root: base, home: base });
+  const result = await adapter.detect();
+  assert.equal(result.detected, true);
+  assert.ok(
+    result.evidence.some((entry) =>
+      entry.endsWith(".config/opencode/plugins"),
+    ),
   );
 });
 
