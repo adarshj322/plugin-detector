@@ -54,6 +54,37 @@ test("npm plugin entry normalizes to a capability record", async () => {
   assert.ok(record?.configRefs.some((ref) => ref.endsWith("opencode.json")));
 });
 
+test("config-only plugin keeps its declared spec and no installed version", async () => {
+  const adapter = new OpenCodeAdapter({ home: fixture("npm-plugin") });
+  const inventory = await adapter.inventory();
+  const [record] = inventory.records;
+  assert.ok(record);
+  assert.equal(record?.sourceRef, "my-opencode-plugin@1.2.3");
+  assert.equal(record?.version, undefined);
+  assert.equal(record?.installPath, undefined);
+  assert.equal(record?.lastUpdated, undefined);
+  assert.equal(record?.modified, "unknown");
+  assert.equal(record?.updateStatus, "unknown");
+});
+
+test("disk plugin lifecycle records package version and local mtime", async () => {
+  const adapter = new OpenCodeAdapter({ home: fixture("known-plugins") });
+  const inventory = await adapter.inventory();
+  const manifest = inventory.records.find(
+    (r) => r.name === "manifest-from-package",
+  );
+  assert.ok(manifest);
+  assert.equal(manifest?.version, "1.0.0");
+  assert.ok(manifest?.installPath?.endsWith("plugins/manifest-dir"));
+  assert.equal(manifest?.sourceRef, manifest?.installPath);
+  assert.equal(manifest?.lastUpdatedSource, "local");
+  const lastUpdated = manifest?.lastUpdated;
+  assert.ok(lastUpdated);
+  assert.equal(Number.isNaN(Date.parse(lastUpdated)), false);
+  assert.equal(manifest?.modified, "unknown");
+  assert.equal(manifest?.updateStatus, "unknown");
+});
+
 test("known config plugins receive capability hints", async () => {
   const adapter = new OpenCodeAdapter({ home: fixture("known-plugins") });
   const inventory = await adapter.inventory();
@@ -123,6 +154,12 @@ test("config and disk plugin records merge the install path", async () => {
   assert.ok(
     record?.configRefs.some((ref) => ref.endsWith("opencode.json")),
   );
+  assert.ok(record?.sourceRef?.startsWith("superpowers@git+"));
+  assert.ok(record?.installPath?.endsWith("plugins/superpowers.ts"));
+  assert.equal(record?.version, undefined);
+  assert.equal(record?.lastUpdatedSource, "local");
+  assert.equal(record?.modified, "unknown");
+  assert.equal(record?.updateStatus, "unknown");
 });
 
 test("unknown plugins fall back to name inference", async () => {
@@ -191,6 +228,22 @@ test("malformed skill frontmatter warns but keeps records", async () => {
   assert.equal(good?.contextCostClass, "per-use");
 });
 
+test("installed skill lifecycle uses optional version and local mtime", async () => {
+  const adapter = new OpenCodeAdapter({ home: fixture("skills-malformed") });
+  const inventory = await adapter.inventory();
+  const good = inventory.records.find((entry) => entry.name === "good-skill");
+  assert.ok(good);
+  assert.equal(good?.version, "4.2.0");
+  assert.ok(good?.installPath?.endsWith(".opencode/skills/good-skill"));
+  assert.equal(good?.sourceRef, good?.installPath);
+  assert.equal(good?.lastUpdatedSource, "local");
+  const lastUpdated = good?.lastUpdated;
+  assert.ok(lastUpdated);
+  assert.equal(Number.isNaN(Date.parse(lastUpdated)), false);
+  assert.equal(good?.modified, "unknown");
+  assert.equal(good?.updateStatus, "unknown");
+});
+
 test("installed skill descriptions infer capabilities and project wins", async () => {
   const adapter = new OpenCodeAdapter({ home: fixture("inferred-capability") });
   const inventory = await adapter.inventory();
@@ -200,6 +253,7 @@ test("installed skill descriptions infer capabilities and project wins", async (
   assert.equal(skills.length, 1);
   const [skill] = skills;
   assert.ok(skill?.capabilities.includes("testing.e2e"));
+  assert.equal(skill?.version, undefined);
   assert.equal(skill?.id, "opencode:skill:project:e2e-browser");
   assert.equal(
     skill?.configRefs[0]?.endsWith(".opencode/skills/e2e-browser/SKILL.md"),

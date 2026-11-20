@@ -21,6 +21,9 @@ import {
   type RunCommand,
 } from "@plugin-detector/core";
 import {
+  fileMtime,
+  readPackageVersion,
+  readSkillVersion,
   skillCapabilitiesFromFrontmatter,
   skillDescriptionFromFrontmatter,
   skillNameFromFrontmatter,
@@ -291,9 +294,45 @@ export class OpenCodeAdapter implements HarnessAdapter {
     return {
       harness: "opencode",
       status: warnings.length > 0 ? "partial" : "ok",
-      records: this.dedupeRecords(records),
+      records: this.dedupeRecords(records).map((record) =>
+        record.kind === "plugin" ? this.pluginLifecycle(record) : record,
+      ),
       warnings,
     };
+  }
+
+  // Lifecycle evidence for plugins: install path only when a non-config ref
+  // resolves on disk, package.json version for directories, and local mtime.
+  // A declared spec pin (`pkg@1.2.3`) is a request, never the installed version.
+  private pluginLifecycle(record: CapabilityRecord): CapabilityRecord {
+    const lifecycle: Partial<CapabilityRecord> = {
+      modified: "unknown",
+      updateStatus: "unknown",
+    };
+    const installPath = record.configRefs.find(
+      (ref) => !isConfigRef(ref) && existsSync(ref),
+    );
+    if (installPath !== undefined) {
+      lifecycle.installPath = installPath;
+      const mtime = fileMtime(installPath);
+      if (mtime !== undefined) {
+        lifecycle.lastUpdated = mtime;
+        lifecycle.lastUpdatedSource = "local";
+      }
+      try {
+        if (statSync(installPath).isDirectory()) {
+          const version = readPackageVersion(installPath);
+          if (version !== undefined) lifecycle.version = version;
+        }
+      } catch {
+        // Vanished between existsSync and stat; keep the path evidence only.
+      }
+    }
+    const sourceRef = record.configRefs.some(isConfigRef)
+      ? record.name
+      : installPath;
+    if (sourceRef !== undefined) lifecycle.sourceRef = sourceRef;
+    return { ...record, ...lifecycle };
   }
 
   // Project records shadow global ones; exact duplicate IDs never ship twice.
@@ -824,6 +863,9 @@ export class OpenCodeAdapter implements HarnessAdapter {
         name ?? entry,
       ).capabilities;
       const combined = [...new Set([...mapped, ...(fromName ? [fromName] : []), ...inferred])];
+      const version = readSkillVersion(text);
+      const skillDir = path.join(skillRoot, entry);
+      const mtime = fileMtime(skillFile);
       records.push({
         id: `opencode:skill:${scope}:${entry}`,
         name: name ?? entry,
@@ -833,6 +875,14 @@ export class OpenCodeAdapter implements HarnessAdapter {
         enabled: true,
         configRefs: [skillFile],
         contextCostClass: COST_BY_KIND["skill"] as ContextCostClass,
+        ...(version === undefined ? {} : { version }),
+        sourceRef: skillDir,
+        installPath: skillDir,
+        ...(mtime === undefined
+          ? {}
+          : { lastUpdated: mtime, lastUpdatedSource: "local" as const }),
+        modified: "unknown",
+        updateStatus: "unknown",
       });
     }
   }

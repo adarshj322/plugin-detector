@@ -62,6 +62,24 @@ test("user project and local plugins normalize with marketplace and version", as
   assert.ok(scopes.get("scratchpad")?.includes(":local:"));
 });
 
+test("plugin lifecycle uses installed version and never guesses modification", async () => {
+  const inventory = await adapterFor("plugins-scopes").inventory();
+  const reviewer = inventory.records.find(
+    (entry) => entry.kind === "plugin" && entry.name === "reviewer",
+  );
+  assert.ok(reviewer);
+  assert.equal(reviewer?.version, "1.4.0");
+  assert.equal(reviewer?.sourceRef, "reviewer@official");
+  assert.equal(reviewer?.modified, "unknown");
+  assert.equal(reviewer?.updateStatus, "unknown");
+  assert.equal(reviewer?.lastUpdated, undefined);
+
+  const noversion = inventory.records.find(
+    (entry) => entry.kind === "plugin" && entry.name === "noversion",
+  );
+  assert.equal(noversion?.version, undefined);
+});
+
 test("disabled-but-installed plugin is kept with enabled false", async () => {
   const inventory = await adapterFor("plugins-scopes").inventory();
   const disabled = inventory.records.find(
@@ -101,8 +119,18 @@ test("skills and agents inventory as separate kinds with distinct costs", async 
   assert.ok(good);
   assert.deepEqual(good?.capabilities, ["code-review.quality"]);
   assert.ok(good?.id.includes(":project:"));
+  assert.equal(good?.version, "3.2.1");
+  assert.ok(good?.installPath?.endsWith("skills/good-skill"));
+  assert.equal(good?.sourceRef, good?.installPath);
+  assert.equal(good?.lastUpdatedSource, "local");
+  const lastUpdated = good?.lastUpdated;
+  assert.ok(lastUpdated);
+  assert.equal(Number.isNaN(Date.parse(lastUpdated)), false);
+  assert.equal(good?.modified, "unknown");
+  assert.equal(good?.updateStatus, "unknown");
   const globalSkill = skills.find((entry) => entry.name === "global-skill");
   assert.ok(globalSkill?.id.includes(":user:"));
+  assert.equal(globalSkill?.version, undefined);
 
   const e2e = agents.find((entry) => entry.name === "e2e-runner");
   assert.ok(e2e);

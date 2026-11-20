@@ -20,6 +20,8 @@ import {
   type RunCommand,
 } from "@plugin-detector/core";
 import {
+  fileMtime,
+  readSkillVersion,
   skillCapabilitiesFromFrontmatter,
   skillNameFromFrontmatter,
   stripJsonc,
@@ -528,6 +530,12 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
         enabled,
         configRefs: [config.path],
         contextCostClass: COST_BY_KIND["plugin"] as ContextCostClass,
+        // The marketplace-qualified key is the install spec; installedPlugins
+        // version metadata is the only version evidence, never inferred.
+        sourceRef: key,
+        ...(version === null ? {} : { version }),
+        modified: "unknown",
+        updateStatus: "unknown",
       });
     }
   }
@@ -750,6 +758,9 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
       }
       const mapped = capabilities ?? [];
       const fromName = capabilityId(entry);
+      const version = readSkillVersion(text);
+      const skillDir = path.join(skillRoot, entry);
+      const mtime = fileMtime(skillFile);
       records.push({
         id: `claude-code:skill:${scope}:${entry}`,
         name: name ?? entry,
@@ -759,6 +770,14 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
         enabled: true,
         configRefs: [skillFile],
         contextCostClass: COST_BY_KIND["skill"] as ContextCostClass,
+        ...(version === undefined ? {} : { version }),
+        sourceRef: skillDir,
+        installPath: skillDir,
+        ...(mtime === undefined
+          ? {}
+          : { lastUpdated: mtime, lastUpdatedSource: "local" as const }),
+        modified: "unknown",
+        updateStatus: "unknown",
       });
     }
   }
