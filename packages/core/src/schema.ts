@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ArtifactType, HarnessId } from "./artifacts.js";
 import { ArtifactEvidenceSchema, PackageRegistrySchema } from "./evidence.js";
+import { ModifiedStatus, UpdateStatus } from "./lifecycle.js";
 
 // Closed verdict set: required / useful-optional / redundant / risky /
 // no-good-candidates (spec: Verdicts; Task 3 matches on these strings).
@@ -93,6 +94,23 @@ export const CapabilityRecordSchema = z.object({
   configRefs: z.array(z.string().min(1)),
   usageCount90d: z.number().int().nonnegative().optional(),
   contextCostClass: z.enum(["per-use", "per-session", "per-query", "zero"]),
+  // Lifecycle evidence. Every field is optional so records produced by
+  // inventory alone stay valid; absent version evidence means unknown.
+  version: z.string().min(1).optional(),
+  sourceRef: z.string().min(1).optional(),
+  installPath: z.string().min(1).optional(),
+  lastUpdated: z
+    .string()
+    .refine((s) => !Number.isNaN(Date.parse(s)), {
+      message: "lastUpdated must be an ISO date",
+    })
+    .optional(),
+  // Which clock lastUpdated came from: upstream release time or local mtime.
+  lastUpdatedSource: z.enum(["upstream", "local"]).optional(),
+  latestVersion: z.string().min(1).optional(),
+  latestSource: z.string().min(1).optional(),
+  updateStatus: UpdateStatus.optional(),
+  modified: ModifiedStatus.optional(),
 });
 export type CapabilityRecord = z.infer<typeof CapabilityRecordSchema>;
 
