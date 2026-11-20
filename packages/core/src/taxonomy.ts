@@ -28,6 +28,7 @@ export const CANONICAL_CAPABILITY_IDS = [
   "publishing.delivery",
   "security.dependencies",
   "harness.management",
+  "memory.context",
 ] as const;
 export type CanonicalCapabilityId =
   (typeof CANONICAL_CAPABILITY_IDS)[number];

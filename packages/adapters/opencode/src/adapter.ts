@@ -90,6 +90,95 @@ const GLOBAL_SKILL_ROOTS = [
 ];
 const PLUGIN_EXTENSIONS = new Set([".ts", ".js", ".mjs"]);
 
+// Explicit capability hints for installed plugins whose package names do not
+// contain taxonomy terms. This is still evidence at the inventory layer: it
+// maps known tool identity to the capabilities it provides, not popularity.
+const PLUGIN_CAPABILITY_HINTS: Array<{
+  match: RegExp;
+  capabilities: string[];
+}> = [
+  {
+    match: /superpowers/i,
+    capabilities: [
+      "planning.brainstorm",
+      "testing.runner",
+      "debugging.systematic",
+      "code-review.quality",
+      "vcs.workflow",
+    ],
+  },
+  {
+    match: /ponytail/i,
+    capabilities: ["code-review.quality"],
+  },
+  {
+    match: /open[-_]?code[-_]?review/i,
+    capabilities: ["code-review.quality", "code-review.security"],
+  },
+  {
+    match: /hindsight|coding-agents/i,
+    capabilities: ["memory.context"],
+  },
+  {
+    match: /\brtk\b/i,
+    capabilities: ["harness.management"],
+  },
+  {
+    match: /i-have-adhd/i,
+    capabilities: ["planning.orchestration"],
+  },
+];
+
+// Collapse a declared spec to the identity a local plugin file uses, so the
+// same plugin declared in config and auto-discovered on disk stays one record:
+// "superpowers@git+https://..." -> "superpowers",
+// "@scope/pkg@1.2.3" -> "@scope/pkg", "/tmp/x/coding-agents" -> "coding-agents".
+function pluginIdentity(entry: string): string {
+  if (entry.startsWith("/") || entry.startsWith(".")) {
+    return path.basename(entry).replace(/\.(?:ts|js|mjs)$/, "");
+  }
+  const versionAt = entry.indexOf("@", entry.startsWith("@") ? 1 : 0);
+  return versionAt <= 0 ? entry : entry.slice(0, versionAt);
+}
+
+function pluginCapabilities(name: string): string[] {
+  const hinted = PLUGIN_CAPABILITY_HINTS.find((entry) => entry.match.test(name));
+  if (hinted) return [...hinted.capabilities];
+  return inferCapabilities(name, name).capabilities;
+}
+
+// Only plugin/skill names carry harness-wide precedence; every other kind
+// keeps its scope-qualified identity.
+function recordScope(record: CapabilityRecord): "project" | "global" | null {
+  const scope = record.id.split(":")[2];
+  return scope === "project" || scope === "global" ? scope : null;
+}
+
+function recordArtifactKey(record: CapabilityRecord): string | null {
+  if (record.kind !== "plugin" && record.kind !== "skill") return null;
+  if (recordScope(record) === null) return null;
+  return `${record.kind}:${record.id.split(":").slice(3).join(":")}`;
+}
+
+// Manifest name only; version/source evidence is collected separately.
+function pluginDirectoryName(dir: string): string {
+  try {
+    const parsed = JSON.parse(
+      readFileSync(path.join(dir, "package.json"), "utf8"),
+    ) as unknown;
+    if (
+      isRecord(parsed) &&
+      typeof parsed["name"] === "string" &&
+      parsed["name"].length > 0
+    ) {
+      return parsed["name"];
+    }
+  } catch {
+    // Missing or unparseable manifest: the directory name is still evidence.
+  }
+  return path.basename(dir);
+}
+
 interface ParsedConfig {
   path: string;
   scope: "project" | "global";
@@ -147,14 +236,54 @@ export class OpenCodeAdapter implements HarnessAdapter {
       this.inventoryConfig(config, records, warnings);
     }
     this.inventorySkills(records, warnings);
-    this.inventoryLocalPlugins(records);
+    this.inventoryLocalPlugins(
+      records,
+      path.join(this.root, ".opencode", "plugins"),
+      "project",
+    );
+    this.inventoryLocalPlugins(
+      records,
+      path.join(this.home, ".config", "opencode", "plugins"),
+      "global",
+    );
     this.inventoryCommands(records, warnings);
     return {
       harness: "opencode",
       status: warnings.length > 0 ? "partial" : "ok",
-      records,
+      records: this.dedupeRecords(records),
       warnings,
     };
+  }
+
+  // Project records shadow global ones; exact duplicate IDs never ship twice.
+  private dedupeRecords(records: CapabilityRecord[]): CapabilityRecord[] {
+    const output: CapabilityRecord[] = [];
+    const ids = new Set<string>();
+    const artifacts = new Map<string, number>();
+    for (const record of records) {
+      if (ids.has(record.id)) continue;
+      const key = recordArtifactKey(record);
+      if (key !== null) {
+        const existingIndex = artifacts.get(key);
+        if (existingIndex !== undefined) {
+          const existing = output[existingIndex];
+          if (
+            existing !== undefined &&
+            recordScope(existing) === "global" &&
+            recordScope(record) === "project"
+          ) {
+            ids.delete(existing.id);
+            output[existingIndex] = record;
+            ids.add(record.id);
+          }
+          continue;
+        }
+      }
+      if (key !== null) artifacts.set(key, output.length);
+      ids.add(record.id);
+      output.push(record);
+    }
+    return output;
   }
 
   // Real 0-1 score consumed as-is by scoring: 1 for natively supported
@@ -478,12 +607,13 @@ export class OpenCodeAdapter implements HarnessAdapter {
         );
         continue;
       }
+      const identity = pluginIdentity(entry);
       records.push({
-        id: `opencode:plugin:${config.scope}:${entry}`,
+        id: `opencode:plugin:${config.scope}:${identity}`,
         name: entry,
         harness: "opencode",
         kind: "plugin",
-        capabilities: [],
+        capabilities: pluginCapabilities(identity),
         enabled: true,
         configRefs: [config.path],
         contextCostClass: COST_BY_KIND["plugin"] as ContextCostClass,
@@ -663,9 +793,13 @@ export class OpenCodeAdapter implements HarnessAdapter {
     }
   }
 
-  // Local plugins are listed by file name only and never imported.
-  private inventoryLocalPlugins(records: CapabilityRecord[]): void {
-    const pluginDir = path.join(this.root, ".opencode", "plugins");
+  // Local plugins are listed by file/directory name or manifest name only and
+  // never imported.
+  private inventoryLocalPlugins(
+    records: CapabilityRecord[],
+    pluginDir: string,
+    scope: "project" | "global",
+  ): void {
     let entries: string[];
     try {
       entries = readdirSync(pluginDir);
@@ -680,15 +814,22 @@ export class OpenCodeAdapter implements HarnessAdapter {
       } catch {
         continue;
       }
-      if (!stat.isFile() || !PLUGIN_EXTENSIONS.has(path.extname(entry))) continue;
-      const base = path.basename(entry, path.extname(entry));
-      const mapped = capabilityId(base);
+      let name: string;
+      if (stat.isDirectory()) {
+        name = pluginDirectoryName(full);
+      } else {
+        if (!stat.isFile() || !PLUGIN_EXTENSIONS.has(path.extname(entry))) {
+          continue;
+        }
+        name = path.basename(entry, path.extname(entry));
+      }
+      const identity = pluginIdentity(name);
       records.push({
-        id: `opencode:plugin:project:${base}`,
-        name: base,
+        id: `opencode:plugin:${scope}:${identity}`,
+        name,
         harness: "opencode",
         kind: "plugin",
-        capabilities: mapped ? [mapped] : [],
+        capabilities: pluginCapabilities(identity),
         enabled: true,
         configRefs: [full],
         contextCostClass: COST_BY_KIND["plugin"] as ContextCostClass,

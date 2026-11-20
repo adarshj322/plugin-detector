@@ -54,12 +54,58 @@ test("npm plugin entry normalizes to a capability record", async () => {
   assert.ok(record?.configRefs.some((ref) => ref.endsWith("opencode.json")));
 });
 
+test("known config plugins receive capability hints", async () => {
+  const adapter = new OpenCodeAdapter({ home: fixture("known-plugins") });
+  const inventory = await adapter.inventory();
+  const superpowers = inventory.records.find((r) => r.name.includes("superpowers"));
+  assert.ok(superpowers);
+  assert.ok(superpowers?.capabilities.includes("planning.brainstorm"));
+  assert.ok(superpowers?.capabilities.includes("testing.runner"));
+  const ponytail = inventory.records.find((r) => r.name.includes("ponytail"));
+  assert.deepEqual(ponytail?.capabilities, ["code-review.quality"]);
+  const hindsight = inventory.records.find((r) => r.name.includes("coding-agents"));
+  assert.deepEqual(hindsight?.capabilities, ["memory.context"]);
+});
+
+test("global auto-discovered plugins are inventoried without duplicates", async () => {
+  const adapter = new OpenCodeAdapter({ home: fixture("known-plugins") });
+  const inventory = await adapter.inventory();
+  const ocr = inventory.records.find((r) => r.name === "open-code-review");
+  assert.ok(ocr);
+  assert.equal(ocr?.kind, "plugin");
+  assert.equal(ocr?.id, "opencode:plugin:global:open-code-review");
+  assert.deepEqual(ocr?.capabilities, ["code-review.quality", "code-review.security"]);
+  assert.equal(
+    ocr?.configRefs[0]?.endsWith(".config/opencode/plugins/open-code-review.ts"),
+    true,
+  );
+  const rtk = inventory.records.find((r) => r.name === "rtk");
+  assert.deepEqual(rtk?.capabilities, ["harness.management"]);
+  const adhd = inventory.records.find((r) => r.name === "i-have-adhd");
+  assert.deepEqual(adhd?.capabilities, ["planning.orchestration"]);
+  const manifest = inventory.records.find((r) => r.name === "manifest-plugin");
+  assert.equal(manifest?.id, "opencode:plugin:global:manifest-plugin");
+  assert.equal(
+    manifest?.configRefs[0]?.endsWith("plugins/manifest-plugin"),
+    true,
+  );
+  const superpowers = inventory.records.filter((r) =>
+    r.name.includes("superpowers"),
+  );
+  assert.equal(superpowers.length, 1);
+  assert.equal(
+    new Set(inventory.records.map((r) => r.id)).size,
+    inventory.records.length,
+  );
+});
+
 test("local plugin file normalizes without executing it", async () => {
   const adapter = new OpenCodeAdapter({ home: fixture("local-plugin") });
   const inventory = await adapter.inventory();
   const record = inventory.records.find((entry) => entry.kind === "plugin");
   assert.ok(record);
   assert.equal(record?.name, "local-plugin");
+  assert.equal(record?.id, "opencode:plugin:project:local-plugin");
   assert.equal(record?.enabled, true);
   assert.ok(
     record?.configRefs.some((ref) =>
@@ -79,12 +125,20 @@ test("malformed skill frontmatter warns but keeps records", async () => {
   assert.equal(good?.contextCostClass, "per-use");
 });
 
-test("installed skill descriptions infer capabilities for overlap", async () => {
+test("installed skill descriptions infer capabilities and project wins", async () => {
   const adapter = new OpenCodeAdapter({ home: fixture("inferred-capability") });
   const inventory = await adapter.inventory();
-  const skill = inventory.records.find((entry) => entry.name === "e2e-browser");
-  assert.ok(skill);
+  const skills = inventory.records.filter(
+    (entry) => entry.name === "e2e-browser",
+  );
+  assert.equal(skills.length, 1);
+  const [skill] = skills;
   assert.ok(skill?.capabilities.includes("testing.e2e"));
+  assert.equal(skill?.id, "opencode:skill:project:e2e-browser");
+  assert.equal(
+    skill?.configRefs[0]?.endsWith(".opencode/skills/e2e-browser/SKILL.md"),
+    true,
+  );
 });
 
 test("mcp servers inventory per-query without secret values", async () => {

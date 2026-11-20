@@ -42,6 +42,7 @@ const EVIDENCE_IDS = [
   "media.video",
   "media.image",
   "collaboration.chat",
+  "memory.context",
 ];
 
 test("taxonomy includes the v1.0 evidence capability ids", () => {
