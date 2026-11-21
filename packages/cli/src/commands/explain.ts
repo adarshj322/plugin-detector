@@ -4,6 +4,7 @@ import {
   scoreCandidate,
   type CapabilityRecord,
 } from "@plugin-detector/core";
+import { detectExternalTools } from "@plugin-detector/adapter-shared";
 import {
   applyLatestVersions,
   createLatestVersionResolver,
@@ -27,6 +28,8 @@ export interface ExplainResult {
 export interface ExplainDeps {
   // Test seam; production resolves only when --check-updates is present.
   resolveLatest?: LatestVersionResolver | undefined;
+  // Test seam; production probes the curated external-CLI list.
+  externalTools?: (() => CapabilityRecord[]) | undefined;
 }
 
 export async function explain(
@@ -91,6 +94,9 @@ export async function explain(
     const inv = await adapter.inventory();
     installed.push(...inv.records);
   }
+  // Curated host CLIs are explainable installed records too, matching
+  // recommend's lifecycle inventory.
+  installed.push(...(deps.externalTools ?? detectExternalTools)());
   const selected = detected[0] ?? "unknown";
 
   const candidate = snapshot.candidates.find((c) => c.id === candidateId);

@@ -4,8 +4,12 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildSnapshot } from "@plugin-detector/registry";
-import type { Candidate } from "@plugin-detector/core";
-import { explain } from "../src/commands/explain.js";
+import type { Candidate, CapabilityRecord } from "@plugin-detector/core";
+import {
+  explain,
+  type ExplainDeps,
+  type ExplainResult,
+} from "../src/commands/explain.js";
 import {
   ExplainJsonSchema,
   InstalledExplainJsonSchema,
@@ -88,6 +92,15 @@ async function capture(run: () => Promise<unknown>): Promise<{
   return { logs, errors };
 }
 
+// Unit fixtures stay host-independent; the external CLI probe is injected by
+// the dedicated test below and by production without explicit deps.
+function runExplain(
+  args: string[],
+  deps: ExplainDeps = {},
+): Promise<ExplainResult> {
+  return explain(args, { externalTools: () => [], ...deps });
+}
+
 test("explain prints pinned ref, trust, components, overlap, risk, and age", async () => {
   const env = setup();
   writeSnapshot(env.cache);
@@ -102,7 +115,7 @@ test("explain prints pinned ref, trust, components, overlap, risk, and age", asy
   let code = -1;
   const { logs } = await capture(async () => {
     code = (
-      await explain([
+      await runExplain([
         "cand-explain",
         "--cache-dir",
         env.cache,
@@ -141,7 +154,7 @@ test("rawUntrustedCopy appears only with --show-untrusted behind a warning", asy
   let code = -1;
   const { logs } = await capture(async () => {
     code = (
-      await explain([
+      await runExplain([
         "cand-explain",
         "--cache-dir",
         env.cache,
@@ -165,7 +178,7 @@ test("unknown candidate id exits 1", async () => {
   let code = -1;
   await capture(async () => {
     code = (
-      await explain(["missing-id", "--cache-dir", env.cache, "--home", env.home])
+      await runExplain(["missing-id", "--cache-dir", env.cache, "--home", env.home])
     ).exitCode;
   });
   assert.equal(code, 1);
@@ -183,7 +196,7 @@ test("explain surfaces a risky verdict for a hard-gated candidate", async () => 
     JSON.stringify(snapshot),
   );
   const { logs } = await capture(() =>
-    explain([
+    runExplain([
       "cand-explain",
       "--cache-dir",
       env.cache,
@@ -232,7 +245,7 @@ test("explain accepts an installed artifact id and shows lifecycle evidence", as
   let code = -1;
   const { logs } = await capture(async () => {
     code = (
-      await explain(
+      await runExplain(
         [
           INSTALLED_ID,
           "--cache-dir",
@@ -272,7 +285,7 @@ test("explain text shows installed version, latest, status and action", async ()
   writeInstalledReview(env.root);
   writeSnapshot(env.cache, [REPLACEMENT]);
   const { logs } = await capture(() =>
-    explain(
+    runExplain(
       [
         INSTALLED_ID,
         "--cache-dir",
@@ -304,4 +317,72 @@ test("explain text shows installed version, latest, status and action", async ()
   ]) {
     assert.ok(text.includes(needle), `missing ${needle}`);
   }
+});
+
+const EXTERNAL_JQ: CapabilityRecord = {
+  id: "external:cli:jq",
+  name: "jq",
+  harness: "unknown",
+  kind: "cli",
+  capabilities: ["data.analysis"],
+  enabled: true,
+  configRefs: [],
+  contextCostClass: "zero",
+  version: "1.7",
+  sourceRef: "PATH:jq",
+  installPath: "/usr/bin/jq",
+};
+
+test("explain resolves a curated external CLI and shows version plus keep", async () => {
+  const env = setup();
+  writeSnapshot(env.cache);
+  const deps: ExplainDeps = { externalTools: () => [EXTERNAL_JQ] };
+
+  let code = -1;
+  const json = await capture(async () => {
+    code = (
+      await runExplain(
+        [
+          "external:cli:jq",
+          "--cache-dir",
+          env.cache,
+          "--home",
+          env.home,
+          "--root",
+          env.root,
+          "--json",
+        ],
+        deps,
+      )
+    ).exitCode;
+  });
+  assert.equal(code, 0);
+  const parsed = InstalledExplainJsonSchema.parse(
+    JSON.parse(json.logs.join("\n")),
+  );
+  assert.equal(parsed.facts.kind, "installed");
+  assert.equal(parsed.facts.installedId, "external:cli:jq");
+  assert.equal(parsed.facts.harness, "unknown");
+  assert.equal(parsed.facts.artifactKind, "cli");
+  assert.equal(parsed.facts.installedVersion, "1.7");
+  assert.equal(parsed.facts.action, "keep");
+  assert.equal(parsed.facts.candidateId, undefined);
+
+  const text = await capture(() =>
+    runExplain(
+      [
+        "external:cli:jq",
+        "--cache-dir",
+        env.cache,
+        "--home",
+        env.home,
+        "--root",
+        env.root,
+      ],
+      deps,
+    ),
+  );
+  assert.match(text.logs.join("\n"), /installed: external:cli:jq/);
+  assert.match(text.logs.join("\n"), /installed-version: 1\.7/);
+  assert.match(text.logs.join("\n"), /action: keep/);
 });

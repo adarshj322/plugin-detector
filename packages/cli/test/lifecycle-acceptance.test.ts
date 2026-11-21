@@ -75,6 +75,21 @@ const DATA_TOOL = candidate("data-tool", {
   capabilities: ["data.analysis", "docs.writing"],
 });
 
+const UPGRADE_CANDIDATE = candidate("upgrade-me", {
+  name: "upgrade-me",
+  capabilities: [],
+});
+
+const APPROVAL_NOTE =
+  "Run only after explicit approval; back up config before editing.";
+
+const ACCEPTANCE_CANDIDATES = [
+  SUPERPOWERS_CLONE,
+  NEW_REVIEW,
+  DATA_TOOL,
+  UPGRADE_CANDIDATE,
+];
+
 // Same curated shape as detectExternalTools: host PATH entry, unknown harness,
 // `cli` kind. No candidate artifact type is `cli`, so it can never be replaced.
 const EXTERNAL_JQ: CapabilityRecord = {
@@ -132,14 +147,21 @@ function writeSnapshot(cache: string, candidates: Candidate[]): void {
   writeFileSync(join(cache, "registry-snapshot.json"), JSON.stringify(snapshot));
 }
 
-function harnessFixture(env: Fixture): void {
+function harnessFixture(env: Fixture, candidates: Candidate[]): void {
   writeFileSync(
     join(env.root, "opencode.json"),
-    JSON.stringify({ plugin: ["superpowers@1.0.0", "code-review@1.0.0"] }),
+    JSON.stringify({
+      plugin: [
+        "superpowers@1.0.0",
+        "code-review@1.0.0",
+        "upgrade-me@1.0.0",
+      ],
+    }),
   );
   writeInstalledPlugin(env.root, "superpowers", "1.0.0");
   writeInstalledPlugin(env.root, "code-review", "1.0.0");
-  writeSnapshot(env.cache, [SUPERPOWERS_CLONE, NEW_REVIEW, DATA_TOOL]);
+  writeInstalledPlugin(env.root, "upgrade-me", "1.0.0");
+  writeSnapshot(env.cache, candidates);
 }
 
 function hashTree(dir: string): string {
@@ -194,10 +216,15 @@ function baseArgs(env: Fixture): string[] {
 
 const resolveLatest = async (input: {
   sourceRef?: string | undefined;
-}): Promise<{ version: string; sourceUrl: string } | null> =>
-  input.sourceRef?.startsWith("code-review@")
-    ? { version: "1.1.0", sourceUrl: "https://example.com/code-review" }
-    : null;
+}): Promise<{ version: string; sourceUrl: string } | null> => {
+  if (input.sourceRef?.startsWith("code-review@")) {
+    return { version: "1.1.0", sourceUrl: "https://example.com/code-review" };
+  }
+  if (input.sourceRef?.startsWith("superpowers@")) {
+    return { version: "2.0.0", sourceUrl: "https://example.com/superpowers" };
+  }
+  return null;
+};
 
 async function runAcceptance(
   env: Fixture,
@@ -213,7 +240,9 @@ async function runAcceptance(
 
 test("acceptance: installed superpowers beats a same-capability clone", async () => {
   const env = setup();
-  harnessFixture(env);
+  // Only the same-capability clone is available: the keep decision must come
+  // from coverage, not from a missing candidate or unknown version.
+  harnessFixture(env, [SUPERPOWERS_CLONE]);
   const parsed = await runAcceptance(env);
   const lifecycle = parsed.facts.lifecycle ?? [];
   const row = lifecycle.find(
@@ -222,7 +251,19 @@ test("acceptance: installed superpowers beats a same-capability clone", async ()
   assert.equal(row?.action, "keep");
   assert.equal(row?.candidateId, undefined);
   assert.equal(row?.recipe, undefined);
-  assert.ok((row?.reasons.length ?? 0) > 0);
+  assert.equal(
+    row?.latestVersion,
+    "2.0.0",
+    "upstream freshness is known, so keep is not an unknown-version fallback",
+  );
+  assert.ok(
+    row?.reasons.some((reason) => reason.includes("adds no capability")),
+    "keep reason must cite capability coverage",
+  );
+  assert.ok(
+    !row?.reasons.some((reason) => reason.includes("unknown")),
+    "keep must not be justified by unknown version evidence",
+  );
 
   const clone = parsed.facts.recommendations.find(
     (entry) => entry.candidateId === SUPERPOWERS_CLONE.id,
@@ -232,7 +273,7 @@ test("acceptance: installed superpowers beats a same-capability clone", async ()
 
 test("acceptance: older review plugin is replaced only by a superset", async () => {
   const env = setup();
-  harnessFixture(env);
+  harnessFixture(env, ACCEPTANCE_CANDIDATES);
   const parsed = await runAcceptance(env);
   const lifecycle = parsed.facts.lifecycle ?? [];
   const row = lifecycle.find(
@@ -241,13 +282,15 @@ test("acceptance: older review plugin is replaced only by a superset", async () 
   assert.equal(row?.action, "replace");
   assert.equal(row?.candidateId, NEW_REVIEW.id);
   assert.deepEqual(row?.capabilitiesAdded, ["code-review.security"]);
-  assert.ok(
-    row?.recipe !== undefined && row.recipe.length > 0,
-    "replace row carries a print-only recipe",
-  );
-  assert.ok(
-    row.recipe.some((step) => step.includes("remove")),
-    "the recipe removes the old plugin first",
+  const config = join(env.root, "opencode.json");
+  assert.deepEqual(
+    row?.recipe,
+    [
+      `Edit ${config}: remove "code-review@1.0.0" from the "plugin" array.`,
+      `Edit ${config}: add "new-review" to the "plugin" array.`,
+      APPROVAL_NOTE,
+    ],
+    "replace recipe carries both the exact remove and install steps",
   );
 
   // Only the superset candidate claims a replacement; the clone stays keep.
@@ -259,9 +302,31 @@ test("acceptance: older review plugin is replaced only by a superset", async () 
   );
 });
 
+test("acceptance: same-identity newer candidate upgrades without removal", async () => {
+  const env = setup();
+  harnessFixture(env, [UPGRADE_CANDIDATE]);
+  const parsed = await runAcceptance(env);
+  const lifecycle = parsed.facts.lifecycle ?? [];
+  const row = lifecycle.find(
+    (entry) => entry.installedId === "opencode:plugin:project:upgrade-me",
+  );
+  assert.equal(row?.action, "upgrade");
+  assert.equal(row?.candidateId, UPGRADE_CANDIDATE.id);
+  assert.equal(row?.installedVersion, "1.0.0");
+  assert.equal(row?.latestVersion, "2.0.0");
+  assert.deepEqual(row?.recipe, [
+    `Edit ${join(env.root, "opencode.json")}: update the "upgrade-me@1.0.0" plugin entry to "upgrade-me".`,
+    APPROVAL_NOTE,
+  ]);
+  assert.ok(
+    !(row?.recipe ?? []).some((step) => step.includes("remove")),
+    "upgrade recipe must not remove the installed plugin",
+  );
+});
+
 test("acceptance: curated external CLI stays keep with no candidate", async () => {
   const env = setup();
-  harnessFixture(env);
+  harnessFixture(env, ACCEPTANCE_CANDIDATES);
   const parsed = await runAcceptance(env);
   const lifecycle = parsed.facts.lifecycle ?? [];
   const external = lifecycle.filter((entry) =>
@@ -281,7 +346,7 @@ test("acceptance: curated external CLI stays keep with no candidate", async () =
 
 test("acceptance: the fixture run writes nothing", async () => {
   const env = setup();
-  harnessFixture(env);
+  harnessFixture(env, ACCEPTANCE_CANDIDATES);
   const before = [hashTree(env.home), hashTree(env.root), hashTree(env.cache)];
   await runAcceptance(env);
   assert.deepEqual(

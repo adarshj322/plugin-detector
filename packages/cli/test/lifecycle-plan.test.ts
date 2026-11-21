@@ -646,7 +646,7 @@ test("explain JSON includes the recipe for an installed artifact", async () => {
         "--check-updates",
         "--json",
       ],
-      { resolveLatest },
+      { resolveLatest, externalTools: () => [] },
     ),
   );
   const parsed = InstalledExplainJsonSchema.parse(JSON.parse(logs.join("\n")));
@@ -689,7 +689,7 @@ test("generating recipes through recommend and explain writes no files", async (
         env.root,
         "--check-updates",
       ],
-      { resolveLatest },
+      { resolveLatest, externalTools: () => [] },
     ),
   );
 
