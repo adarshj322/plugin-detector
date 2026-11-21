@@ -189,7 +189,7 @@ Applicability is narrower than inventory in v1.0:
 | Artifact kind | Upgrade / replace support |
 | --- | --- |
 | Config-declared plugin with source and installed version | Yes: same identity + newer version upgrades; same-kind capability superset replaces only when freshness is proven `outdated`. |
-| Skill with `metadata.homepage` and `version` | Yes for resolver-backed sources; the skills recipe passes `-a <harness>` so other harnesses are untouched. |
+| Skill with `metadata.homepage` and `version` | Yes for resolver-backed sources; remove/add pass `-a <harness>` so other harnesses are untouched (`update` has no agent flag). |
 | Skill without homepage/version | Inventory-only; stays `keep`. |
 | MCP server | Inventory-only unless source/version evidence exists. `sourceRef` is best-effort from a clear `npx <package>` / `npm exec <package>` command; installed versions are usually unknown. |
 | Agent | Inventory-only unless version metadata exists. `agent` is a valid candidate artifact type, but installed agents normally have no version. |

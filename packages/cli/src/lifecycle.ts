@@ -292,17 +292,18 @@ function skillsPlan(
   const name = installedSkillName(installed);
   const flag = skillsScopeFlag(scopeOf(installed));
   const agent = safeSegment(installed.harness);
-  if (name === undefined || flag === undefined || agent === undefined) {
+  if (name === undefined || flag === undefined) {
     return manualPlan(row, installed, candidate);
   }
   const scope = flag === "" ? [] : [flag];
   const target = quoted(skillDirectoryOf(installed));
-  const update = ["npx", "skills", "update", ...scope, "-a", agent, name].join(
-    " ",
-  );
+  // `skills update` has no -a/--agent flag; scope and name only.
+  const update = ["npx", "skills", "update", ...scope, name].join(" ");
   if (row.action === "upgrade") return withSafety(target, [update]);
   const spec = candidate === undefined ? undefined : candidateSkillsSpec(candidate);
-  if (spec === undefined) return manualPlan(row, installed, candidate);
+  if (agent === undefined || spec === undefined) {
+    return manualPlan(row, installed, candidate);
+  }
   return withSafety(target, [
     ["npx", "skills", "remove", ...scope, "-a", agent, name].join(" "),
     ["npx", "skills", "add", ...scope, "-a", agent, spec].join(" "),

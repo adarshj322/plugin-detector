@@ -451,3 +451,49 @@ test("explain installed lifecycle ignores unprobed candidates", async () => {
   assert.notEqual(secondParsed.facts.action, "upgrade");
   assert.equal(secondParsed.facts.candidateId, undefined);
 });
+
+test("explain installed omits candidateVersion for a hash pin", async () => {
+  const env = setup();
+  writeInstalledReview(env.root);
+  const evidence = {
+    ...(REPLACEMENT.artifactEvidence as NonNullable<
+      Candidate["artifactEvidence"]
+    >),
+  };
+  delete (evidence as { version?: string }).version;
+  const hashPin = `github:${"a".repeat(64)}`;
+  writeSnapshot(env.cache, [
+    { ...REPLACEMENT, pinnedRef: hashPin, artifactEvidence: evidence },
+  ]);
+  const logs = await capture(() =>
+    runExplain(
+      [
+        INSTALLED_ID,
+        "--cache-dir",
+        env.cache,
+        "--home",
+        env.home,
+        "--root",
+        env.root,
+        "--check-updates",
+        "--json",
+      ],
+      {
+        resolveLatest: async () => ({
+          version: "1.1.0",
+          sourceUrl: "https://example.com/latest",
+        }),
+      },
+    ),
+  );
+  const parsed = InstalledExplainJsonSchema.parse(
+    JSON.parse(logs.logs.join("\n")),
+  );
+  assert.equal(parsed.facts.action, "replace");
+  assert.equal(parsed.facts.candidateName, "new-review");
+  assert.equal(
+    parsed.facts.candidateVersion,
+    undefined,
+    "a github content hash is not a version",
+  );
+});

@@ -33,6 +33,17 @@ export interface ExplainDeps {
   externalTools?: (() => CapabilityRecord[]) | undefined;
 }
 
+// A candidate version is only displayed when it is a real comparable semver;
+// a content-addressed `github:<hash>` pin is not a version.
+const SEMVER_LIKE =
+  /^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+
+function semverLike(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  return SEMVER_LIKE.test(trimmed) ? trimmed : undefined;
+}
+
 export async function explain(
   argv: string[],
   deps: ExplainDeps = {},
@@ -166,7 +177,8 @@ export async function explain(
     const candidateVersion =
       replacement === undefined
         ? undefined
-        : replacement.artifactEvidence?.version ?? replacement.pinnedRef;
+        : semverLike(replacement.artifactEvidence?.version) ??
+          semverLike(replacement.pinnedRef);
     const candidateName = replacement?.name;
     const updateStatus = lifecycleFreshness(record);
     if (json) {

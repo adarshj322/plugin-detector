@@ -354,25 +354,23 @@ test("upgrade recipes use update commands without removal", () => {
   );
   assert.deepEqual(skill, [
     "Back up /home/me/.config/opencode/skills/old-review before making changes.",
-    "npx skills update -a opencode old-review",
+    "npx skills update old-review",
     "Rollback: restore /home/me/.config/opencode/skills/old-review from that backup.",
     APPROVAL_NOTE,
   ]);
 
   const userSkill = skillRecord({ id: "claude-code:skill:user:old-review", harness: "claude-code" });
-  assert.deepEqual(
-    lifecyclePlan(
-      row({ action: "upgrade", installedId: userSkill.id }),
-      userSkill,
-      SKILL_CANDIDATE,
-    ),
-    [
-      "Back up /home/me/.config/opencode/skills/old-review before making changes.",
-      "npx skills update -g -a claude-code old-review",
-      "Rollback: restore /home/me/.config/opencode/skills/old-review from that backup.",
-      APPROVAL_NOTE,
-    ],
+  const userSkillRecipe = lifecyclePlan(
+    row({ action: "upgrade", installedId: userSkill.id }),
+    userSkill,
+    SKILL_CANDIDATE,
   );
+  assert.deepEqual(userSkillRecipe, [
+    "Back up /home/me/.config/opencode/skills/old-review before making changes.",
+    "npx skills update -g old-review",
+    "Rollback: restore /home/me/.config/opencode/skills/old-review from that backup.",
+    APPROVAL_NOTE,
+  ]);
 
   const claude = lifecyclePlan(
     row({ action: "upgrade", installedId: "claude-code:plugin:user:market:old" }),
@@ -393,6 +391,14 @@ test("upgrade recipes use update commands without removal", () => {
   ]);
   for (const recipe of [plugin, skill, claude]) {
     assert.ok(!recipe.some((line) => line.includes("remove")));
+  }
+  for (const recipe of [skill, userSkillRecipe]) {
+    assert.ok(
+      !recipe.some(
+        (line) => line.includes("skills update") && line.includes(" -a "),
+      ),
+      "skills update has no -a/--agent flag",
+    );
   }
 });
 

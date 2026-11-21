@@ -195,7 +195,7 @@ kind; actionable lifecycle needs installed identity and version evidence.
 | Artifact kind | Upgrade / replace in v1.0 |
 | --- | --- |
 | Config-declared plugins with a source and installed version | Yes: same identity with a newer version upgrades; a same-kind superset replaces only when freshness is proven `outdated`. |
-| Skills with `metadata.homepage` and `version` | Yes for resolver-backed sources; the skills recipe passes `-a <harness>` so other harnesses are untouched. |
+| Skills with `metadata.homepage` and `version` | Yes for resolver-backed sources; remove/add pass `-a <harness>` so other harnesses are untouched (`update` has no agent flag). |
 | Skills without homepage/version | Inventory-only; stays `keep`. |
 | MCP servers | Inventory-only unless a source/version can be established; `sourceRef` is best-effort from `npx <package>` / `npm exec <package>` commands, and installed versions are usually unknown. |
 | Agents | Inventory-only unless version metadata exists; agent candidates now parse, but installed agents usually have no version. |
