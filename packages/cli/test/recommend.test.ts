@@ -446,3 +446,38 @@ test("recommend rejects a mistyped profile key instead of using the default thre
   assert.match(errors.join("\n"), /invalid profile/);
   assert.match(errors.join("\n"), /requiredThreshhold/);
 });
+
+test("recommend resolves latest versions only with --check-updates", async () => {
+  const env = setup();
+  writeSnapshot(env.cache, []);
+  writeFileSync(
+    join(env.root, "opencode.json"),
+    JSON.stringify({ plugin: ["left-pad@1.0.0"] }),
+  );
+  const seen: string[] = [];
+  const resolveLatest = async (input: {
+    sourceRef?: string | undefined;
+  }): Promise<{ version: string; sourceUrl: string }> => {
+    seen.push(input.sourceRef ?? "");
+    return { version: "1.1.0", sourceUrl: "https://npm.example/left-pad" };
+  };
+
+  let code = -1;
+  await capture(async () => {
+    code = (await recommend([...baseArgs(env), "--json"], { resolveLatest }))
+      .exitCode;
+  });
+  assert.equal(code, 0);
+  assert.deepEqual(seen, [], "the default recommendation path must stay offline");
+
+  const flagged = await capture(async () => {
+    code = (
+      await recommend([...baseArgs(env), "--check-updates", "--json"], {
+        resolveLatest,
+      })
+    ).exitCode;
+  });
+  assert.equal(code, 0);
+  assert.deepEqual(seen, ["left-pad@1.0.0"]);
+  assert.match(flagged.logs.join("\n"), /"verdict"/);
+});

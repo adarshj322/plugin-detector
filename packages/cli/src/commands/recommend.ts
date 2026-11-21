@@ -5,7 +5,12 @@ import {
   type CapabilityRecord,
   type HarnessId,
 } from "@plugin-detector/core";
-import { loadSnapshot } from "@plugin-detector/registry";
+import {
+  applyLatestVersions,
+  createLatestVersionResolver,
+  loadSnapshot,
+  type LatestVersionResolver,
+} from "@plugin-detector/registry";
 import {
   loadProfileFile,
   loadProfiles,
@@ -23,6 +28,11 @@ import { buildAdapters } from "./inventory.js";
 
 export interface RecommendResult {
   exitCode: number;
+}
+
+export interface RecommendDeps {
+  // Test seam; production resolves only when --check-updates is present.
+  resolveLatest?: LatestVersionResolver | undefined;
 }
 
 const VALID_HARNESSES = ["auto", "opencode", "claude-code", "codex", "cursor", "unknown"];
@@ -43,11 +53,15 @@ function usageError(
   return { exitCode: 2 };
 }
 
-export async function recommend(argv: string[]): Promise<RecommendResult> {
+export async function recommend(
+  argv: string[],
+  deps: RecommendDeps = {},
+): Promise<RecommendResult> {
   let useCase: string | undefined;
   let profilePath: string | undefined;
   const signals: string[] = [];
   let json = false;
+  let checkUpdates = false;
   let cacheDir: string | undefined;
   let home: string | undefined;
   let root: string | undefined;
@@ -56,6 +70,7 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--json") json = true;
+    else if (arg === "--check-updates") checkUpdates = true;
     else if (arg === "--use-case" && i + 1 < argv.length) {
       useCase = argv[i + 1];
       i += 1;
@@ -212,11 +227,20 @@ export async function recommend(argv: string[]): Promise<RecommendResult> {
 
   const adapters = buildAdapters(home, root);
   const detected: string[] = [];
-  const installedRecords: CapabilityRecord[] = [];
+  let installedRecords: CapabilityRecord[] = [];
   for (const adapter of adapters) {
     if ((await adapter.detect()).detected) detected.push(adapter.harness);
     const inv = await adapter.inventory();
     installedRecords.push(...inv.records);
+  }
+  if (checkUpdates) {
+    // Upstream evidence only; lifecycle comparison decides current/outdated.
+    const resolveLatest =
+      deps.resolveLatest ?? createLatestVersionResolver();
+    installedRecords = await applyLatestVersions(
+      installedRecords,
+      resolveLatest,
+    );
   }
   const selected =
     harness === "auto" ? (detected[0] ?? "unknown") : harness;

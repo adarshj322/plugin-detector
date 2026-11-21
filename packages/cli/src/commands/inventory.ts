@@ -8,7 +8,10 @@ import type {
   InstallPlan,
 } from "@plugin-detector/core";
 import {
+  applyLatestVersions,
+  createLatestVersionResolver,
   loadSnapshot,
+  type LatestVersionResolver,
   type SnapshotProvenance,
 } from "@plugin-detector/registry";
 import {
@@ -20,6 +23,11 @@ import {
 
 export interface InventoryResult {
   exitCode: number;
+}
+
+export interface InventoryDeps {
+  // Test seam; production resolves only when --check-updates is present.
+  resolveLatest?: LatestVersionResolver | undefined;
 }
 
 export type TrustLabel = "verified" | "curated" | "unverified";
@@ -167,13 +175,18 @@ export async function collectInventories(
   return out;
 }
 
-export async function inventory(argv: string[]): Promise<InventoryResult> {
+export async function inventory(
+  argv: string[],
+  deps: InventoryDeps = {},
+): Promise<InventoryResult> {
   let json = false;
+  let checkUpdates = false;
   let home: string | undefined;
   let root: string | undefined;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--json") json = true;
+    else if (arg === "--check-updates") checkUpdates = true;
     else if (arg === "--home" && i + 1 < argv.length) {
       home = argv[i + 1];
       i += 1;
@@ -186,6 +199,18 @@ export async function inventory(argv: string[]): Promise<InventoryResult> {
     }
   }
   const harnesses = await collectInventories(home, root);
+  if (checkUpdates) {
+    // One resolver per run: repeated sources share its cache and the shared
+    // 60/min limiter bounds every request.
+    const resolveLatest =
+      deps.resolveLatest ?? createLatestVersionResolver();
+    for (const harness of harnesses) {
+      harness.records = await applyLatestVersions(
+        harness.records,
+        resolveLatest,
+      );
+    }
+  }
   if (json) {
     printJson(
       {
@@ -207,6 +232,12 @@ export async function inventory(argv: string[]): Promise<InventoryResult> {
     for (const ref of h.configRefs) lines.push(`${h.harness} config: ${ref}`);
     for (const warning of h.warnings)
       lines.push(`${h.harness} warning: ${warning}`);
+    for (const record of h.records) {
+      if (record.latestVersion === undefined) continue;
+      lines.push(
+        `${h.harness} update: ${record.id} installed=${record.version ?? "unknown"} latest=${record.latestVersion}`,
+      );
+    }
   }
   // Secrets note: values are never read; only names and paths are shown.
   lines.push("secret values are never read (names and paths only)");

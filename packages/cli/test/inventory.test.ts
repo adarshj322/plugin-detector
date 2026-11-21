@@ -81,6 +81,82 @@ test("empty harness tree yields empty inventories for all four harnesses", async
   assert.equal(hashTree(home) + hashTree(root), before);
 });
 
+test("inventory stays offline unless --check-updates is explicit", async () => {
+  const { home, root } = fixtureTree();
+  writeFileSync(
+    join(root, "opencode.json"),
+    JSON.stringify({ plugin: ["opencode-test-plugin@1.2.3"] }),
+  );
+  let calls = 0;
+  const resolveLatest = async (): Promise<null> => {
+    calls += 1;
+    return null;
+  };
+  const before = hashTree(home) + hashTree(root);
+  const { logs } = await capture(() =>
+    inventory(["--home", home, "--root", root, "--json"], { resolveLatest }),
+  );
+  assert.equal(calls, 0, "the default inventory path must not resolve versions");
+  assert.equal(hashTree(home) + hashTree(root), before);
+  const parsed = InventoryJsonSchema.parse(JSON.parse(logs.join("\n")));
+  const record = parsed.facts.harnesses
+    .flatMap((h) => h.records)
+    .find((r) => r.kind === "plugin");
+  assert.equal(record?.latestVersion, undefined);
+});
+
+test("--check-updates attaches latest evidence to every resolvable record", async () => {
+  const { home, root } = fixtureTree();
+  writeFileSync(
+    join(root, "opencode.json"),
+    JSON.stringify({ plugin: ["opencode-test-plugin@1.2.3"] }),
+  );
+  const seen: string[] = [];
+  const resolveLatest = async (input: {
+    sourceRef?: string | undefined;
+  }): Promise<{ version: string; sourceUrl: string }> => {
+    seen.push(input.sourceRef ?? "");
+    return {
+      version: "2.0.0",
+      sourceUrl: "https://registry.npmjs.org/opencode-test-plugin",
+    };
+  };
+  const { logs } = await capture(() =>
+    inventory(
+      ["--home", home, "--root", root, "--check-updates", "--json"],
+      { resolveLatest },
+    ),
+  );
+  assert.deepEqual(seen, ["opencode-test-plugin@1.2.3"]);
+  const parsed = InventoryJsonSchema.parse(JSON.parse(logs.join("\n")));
+  const record = parsed.facts.harnesses
+    .flatMap((h) => h.records)
+    .find((r) => r.kind === "plugin");
+  assert.equal(record?.latestVersion, "2.0.0");
+  assert.equal(
+    record?.latestSource,
+    "https://registry.npmjs.org/opencode-test-plugin",
+  );
+  assert.equal(record?.updateStatus, "unknown");
+});
+
+test("--check-updates reports upstream versions in human output", async () => {
+  const { home, root } = fixtureTree();
+  writeFileSync(
+    join(root, "opencode.json"),
+    JSON.stringify({ plugin: ["opencode-test-plugin@1.2.3"] }),
+  );
+  const { logs } = await capture(() =>
+    inventory(["--home", home, "--root", root, "--check-updates"], {
+      resolveLatest: async () => ({
+        version: "2.0.0",
+        sourceUrl: "https://registry.npmjs.org/opencode-test-plugin",
+      }),
+    }),
+  );
+  assert.match(logs.join("\n"), /latest=2\.0\.0/);
+});
+
 test("human inventory prints per-harness counts without touching the tree", async () => {
   const { home, root } = fixtureTree();
   writeFileSync(
