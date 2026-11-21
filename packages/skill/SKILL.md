@@ -46,6 +46,11 @@ write.
 4. **Call `recommend`.** Run
    `plugin-detector recommend (--use-case <id> | --profile <file>) [--signal S ...] [--harness H]`
    and present at most the short candidate set it returns — never a dump.
+   Present the separate installed `lifecycle` rows too (`keep`, `upgrade`,
+   `replace`, `review`). `upgrade`/`replace` rows carry print-only recipes;
+   show them and stop — never execute a recipe, remove anything, or treat a
+   recipe as approval. Add `--check-updates` only when the user explicitly
+   accepts a network version check; it is the only `recommend` network path.
 5. **Show evidence and reasoning.** Per candidate show verdict
    (`required` / `useful-optional` / `redundant` / `risky` /
    `no-good-candidates`), fit, credibility, provenance, risk,
@@ -114,6 +119,8 @@ verified, and they never bypass the approval flow.
 ## Safety rules
 
 - Never execute candidate code. Inspect metadata and evidence only.
+- Never execute a lifecycle recipe, remove an installed artifact, or upgrade it
+  automatically. Recipes are print-only and require the user's own action.
 - Never install unapproved or unverified candidates automatically.
   Unverified candidates get a manual recipe, not an install.
 - Never write secrets; secrets flow only through existing environment

@@ -25,9 +25,13 @@ risk sits.
 - **No telemetry by default.** There is no telemetry endpoint, analytics SDK,
   crash reporter, account, or hosted dependency. The CLI does not require an
   account and has no "phone home" behavior.
-- Network access happens only on explicit `registry refresh` (or when the user
-  installs a candidate that fetches from its own source). Read-only commands and
-  `plan` use the local bundled snapshot or local cache.
+- Network access happens only on explicit `registry refresh` or explicit
+  `--check-updates` (or when the user installs a candidate that fetches from its
+  own source). Read-only commands and `plan` use the local bundled snapshot or
+  local cache by default.
+- `recommend` lifecycle `upgrade`/`replace` recipes and all `plan` recipes are
+  print-only: they are never executed, and lifecycle never removes or upgrades
+  an installed artifact.
 - Logging is local-only. v0.1 does not create a persistent log file; the spec's
   target is `~/.plugin-detector/logs` with documented retention (a v1.0 gate).
   Never enable a log that records prompts, project file contents, keys, or config
@@ -49,7 +53,8 @@ model APIs, and lets the tool work offline.
 
 `inventory`, `recommend`, `explain`, `plan`, `registry review`,
 `profiles list`, `profiles validate`, and `benchmark` are read-only. They do
-not create, modify, or delete harness configuration. `plan` and `registry
+not create, modify, or delete harness configuration. `recommend` lifecycle
+recipes are printed, never executed. `plan` and `registry
 review` write a file only when the user passes `--out <file>`. The only
 commands that write are:
 

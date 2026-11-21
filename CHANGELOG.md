@@ -10,6 +10,41 @@ Release stages: `0.1` alpha, `0.5` beta, `1.0` stable.
 
 ### Added
 
+- `recommend` now reports an installed `lifecycle` section alongside the top-5
+  candidate set. Every detected harness artifact (skills, plugins, MCP servers,
+  hooks, commands, agents) and the curated host-wide external CLIs get a
+  `keep`, `upgrade`, `replace`, or `review` row with reasons, installed/latest
+  version evidence, and added capabilities. Lifecycle rows never consume the
+  recommendation slots.
+- `upgrade` and `replace` lifecycle rows carry print-only recipes: exact
+  `opencode`, `claude`, `npx skills`, or config-edit steps where the harness and
+  scope are known, and manual instructions otherwise. Every recipe ends with
+  `Run only after explicit approval; back up config before editing.` Nothing is
+  executed, removed, or written, and no approval token is consumed.
+- Lifecycle comparison is conservative by design: same artifact kind, a
+  capability superset, no unpreserved installed capability, the profile
+  threshold, and proven outdatedness are all required before `replace`.
+  Unknown installed versions and current artifacts stay `keep`; locally
+  modified artifacts become `review`. Curated external CLIs can never be
+  replaced because no candidate artifact kind is `cli`.
+- `inventory` probes a fixed curated external-CLI list (`git`, `gh`, `docker`,
+  `kubectl`, `rg`, `jq`, `playwright`, `ffmpeg`, `node`, `npm`, `python3`,
+  `uv`) with a per-name PATH lookup and a bounded version probe. `recommend`
+  uses the same records as installed inventory, so an already-enabled CLI
+  suppresses duplicate capability recommendations and appears as `keep`.
+  `inventory --skip-external` bypasses the probe.
+- `inventory --check-updates` and `recommend --check-updates` attach upstream
+  latest-version evidence from npm, PyPI, or GitHub where a source mapping
+  exists. The default path stays offline; PATH-sourced CLIs and failed lookups
+  remain `unknown` rather than being called outdated.
+- Lifecycle recipe tests cover OpenCode/Claude plugin and skill commands,
+  user/global `-g` scope, project config edits, local plugins, MCP entries,
+  external CLIs, unknown harness/scope fallback, shell-metacharacter rejection,
+  and a no-write assertion.
+- Acceptance fixtures cover an installed `superpowers` plugin against a
+  same-capability clone (`keep`/`redundant`), an older review plugin against a
+  superset candidate (`replace` with recipe), and an external CLI (`keep`, no
+  candidate, no recipe).
 - `plugin-detector rollback --plan-file <file>`: restores the exact preimages
   recorded by an applied plan, so rollback remains available after a successful
   install, not only on apply failure.
@@ -42,6 +77,10 @@ Release stages: `0.1` alpha, `0.5` beta, `1.0` stable.
 
 ### Changed
 
+- `recommend` now scores candidates against the full installed inventory,
+  including curated external CLIs. A capability already covered by `git`,
+  `jq`, `playwright`, or another detected CLI lowers the candidate's overlap
+  score instead of being ignored.
 - Claude Code plugin plans are recipe-only: writing `enabledPlugins` alone does
   not install a plugin, so v0.1 never claims automatic Claude plugin install.
 - OpenCode plugin/MCP config writes are recipe-only when an `opencode.jsonc`
@@ -218,6 +257,15 @@ These are release blockers for a stable `1.0`, not for `0.1.0`:
 
 ### Known limitations
 
+- Lifecycle actions are advisory: v0.1 has no standalone remove flow and never
+  executes an upgrade or replacement. Recipes are print-only and may need
+  adaptation for local layouts.
+- Installed versions are unavailable for many path-installed skills and for
+  globally declared plugins without a resolved install path, so those rows stay
+  `unknown`/`keep`. A newer upstream version alone never triggers an upgrade.
+- `recommend` probes the curated external-CLI list on every run; there is no
+  `--skip-external` flag for `recommend` in v0.1 (use `inventory
+  --skip-external` when only harness config matters).
 - `recommend` requires `--use-case`; it does not yet run an interactive wizard.
 - Registry refresh uses public sources but their APIs/shapes can change; failures
   are isolated per source and never silently re-stamped as fresh. Live refresh

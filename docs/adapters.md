@@ -17,6 +17,7 @@ a runtime adapter method. Config discovery is performed inside `detect` /
 | --- | --- | --- | --- | --- |
 | Detect installation / config roots | Yes | Yes | Yes | Yes |
 | Inventory installed capabilities | Yes | Yes | Yes | Yes |
+| Lifecycle rows (`version`, `sourceRef`, scope) | Yes | Yes | Yes | Yes |
 | MCP server inventory | Yes | Yes | Yes | Yes |
 | Skills inventory | Yes | Yes | Yes | Yes (experimental) |
 | Hooks / commands inventory | Yes | Yes | Partial | Yes (commands) |
@@ -154,9 +155,53 @@ domain.
 
 Records appear in a separate `external` group in both `inventory` text and
 `inventory --json` output. The group is host-wide, not attributed to a harness.
-Because `PATH:<name>` has no registry mapping, `--check-updates` leaves these
-records unchanged for manual review. A wedged tool can cost up to 2s per
-probe; `inventory --skip-external` skips the group entirely.
+`recommend` includes the same records in its installed inventory and
+`lifecycle` rows, so an enabled external CLI suppresses duplicate capability
+recommendations and appears as a `keep` row. It can never be a replacement
+target: candidate artifact kinds are skill/plugin/MCP/hook/command/tool, not
+`cli`, so lifecycle comparison keeps it even when a candidate shares a
+capability. Because `PATH:<name>` has no registry mapping, `--check-updates`
+leaves these records unchanged for manual review. A wedged tool can cost up to
+2s per probe; `inventory --skip-external` skips the group entirely. `recommend`
+probes the same list on every run and has no `--skip-external` flag in v0.1.
+
+## Installed lifecycle
+
+`recommend` inventories every detected harness plus the curated external CLIs,
+then compares each installed record with the scored candidate set. The result is
+a separate `lifecycle` array in JSON and an `installed lifecycle` section in
+text output:
+
+| Action | Meaning | Recipe |
+| --- | --- | --- |
+| `keep` | No better candidate, current/unknown version, no added capability, or a lost capability | None |
+| `upgrade` | Same tool identity with a newer comparable version | Print-only update |
+| `replace` | Same kind, capability superset, threshold met, and proven outdated/weaker installed evidence | Print-only remove + install |
+| `review` | Locally modified installed artifact; manual review first | None |
+
+Text output omits unchanged `keep` rows that carry neither a candidate nor
+latest-version evidence, and prints how many rows were omitted; `--json` keeps
+every row.
+
+The comparison is deliberately conservative. It requires the same artifact
+kind, a candidate that adds at least one capability not already covered by an
+enabled install, no unpreserved installed capability, a candidate score at or
+above the profile threshold, and proven outdatedness. Unknown installed
+versions stay `keep`; current versions are not churned for novelty. A local
+modification produces `review`, never an automatic replacement.
+
+Recipes are documented `opencode`, `claude`, `npx skills`, or config-edit
+commands where the harness and scope are known, and manual instructions
+everywhere else (external CLIs, unknown harness/scope, local paths, unsafe
+arguments). They always end with:
+`Run only after explicit approval; back up config before editing.`
+No lifecycle command writes files, executes a recipe, removes an artifact, or
+consumes an approval token. `--check-updates` is the only network path; without
+it, versions stay `unknown`.
+
+Known limits: there is no standalone `remove` action in v0.1, recipes may need
+adaptation for local layouts, many path-installed skills have no version
+evidence, and not every harness exposes installed plugin versions.
 
 ## Compatibility scores
 

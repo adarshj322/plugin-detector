@@ -3,10 +3,10 @@
 **Find the few tools genuinely worth installing for your workflow — on your machine, with the evidence, and never without your approval.**
 
 `plugin-detector` is a local-first discovery and decision engine for agent-harness
-plugins, skills, MCP servers, hooks, and commands. It inventories what you already
-have in OpenCode, Claude Code, Codex, and Cursor, compares candidates against your
-declared use case, and returns a short, explained recommendation set instead of a
-star-count dump.
+artifacts: skills, plugins, MCP servers, hooks, commands, agents, and a curated
+set of host CLIs. It inventories what you already have in OpenCode, Claude Code,
+Codex, and Cursor, compares candidates against your declared use case, and
+returns a short, explained recommendation set instead of a star-count dump.
 
 > **Status: 0.1.0 alpha.** The CLI, adapters, consent gate, and recommendation
 > benchmark are implemented and tested. The bundled registry snapshot is still a
@@ -26,6 +26,10 @@ npx plugin-detector inventory
 
 # What should I add for a workflow?
 npx plugin-detector recommend --use-case software-development --signal tsconfig
+
+# Include upstream version evidence for installed artifacts.
+# This is the only recommend path that uses the network.
+npx plugin-detector recommend --use-case software-development --check-updates
 
 # Custom workflow not covered by a built-in profile?
 npx plugin-detector profiles list
@@ -81,6 +85,11 @@ legitimately return `no-good-candidates` until a reviewed refresh is committed
 | **Codex** | Yes | **Recipe-only** — no automatic writes | Full research/inventory; `applyPlan` refuses until live verification flips `installVerified`. |
 | **Cursor** | Yes | **Recipe-only** — no automatic writes | Full research/inventory; MCP is the documented path, while skills/rules/commands are experimental; `applyPlan` refuses. |
 
+Lifecycle (`keep` / `upgrade` / `replace` / `review`) works for every detected
+harness's inventory. External CLIs are host-wide and not attributed to one
+harness. All lifecycle plans are print-only in v0.1; only the consent-gated
+`install` path writes.
+
 "Tested writer" means the mutation path is covered by fixture and rollback tests,
 not that every upstream harness release is permanently verified. Upstream formats
 drift; see [docs/adapters.md](docs/adapters.md) for the exact artifact support,
@@ -99,9 +108,10 @@ npx plugin-detector recommend --use-case design-frontend --harness cursor
 
 - `inventory`, `recommend`, `explain`, `plan`, `registry review`,
   `profiles list`, and `profiles validate` are **read-only** by default. They
-  never write harness config or install anything. `plan --out <file>` writes
-  only the plan file you explicitly request; `registry review --out <file>`
-  writes only the review report.
+  never write harness config or install anything. `recommend` lifecycle
+  `upgrade`/`replace` recipes are printed, never executed. `plan --out <file>`
+  writes only the plan file you explicitly request; `registry review --out
+  <file>` writes only the review report.
 - The commands that write are `profiles init` (the starter profile file you
   requested), `registry refresh` (cache/snapshot update), `registry review
   --out` (explicit report file), `approve` (the one-shot token store), a
@@ -125,9 +135,9 @@ npx plugin-detector recommend --use-case design-frontend --harness cursor
 - Every managed write backs up the preimage, validates after writing, and restores
   on failure. Rollback instructions ship with the plan.
 - The CLI never executes candidate code, never calls an LLM, and sends no
-  telemetry. Discovery network access happens only on explicit `registry refresh`;
-  an approved install may invoke the harness's own installer, which can fetch the
-  artifact from its source.
+  telemetry. Discovery network access happens only on explicit `registry
+  refresh` or `--check-updates`; an approved install may invoke the harness's
+  own installer, which can fetch the artifact from its source.
 
 Read the full [security model](docs/security-model.md) and the
 [disclosure policy](SECURITY.md).
@@ -159,11 +169,59 @@ is a hard gate, so an artifact the selected harness cannot install can never be
 invoking agent. The JSON shape is not yet versioned, so treat it as an unstable
 0.x contract.
 
+## Installed lifecycle: keep, upgrade, replace, review
+
+`recommend` also reports a separate `lifecycle` section for what is already
+installed. It covers every artifact kind the detected harnesses expose
+(skills, plugins, MCP servers, hooks, commands, agents) plus the curated
+host-wide external CLIs (`git`, `gh`, `docker`, `kubectl`, `rg`, `jq`,
+`playwright`, `ffmpeg`, `node`, `npm`, `python3`, `uv`). Lifecycle rows never
+replace the top recommendation set; they answer a different question: should
+this installed artifact stay, update, or give way?
+
+Each row has one action:
+
+- `keep` — no better candidate; unknown or current version; or a candidate
+  that adds no capability or would drop one.
+- `upgrade` — the same artifact identity has a newer comparable version.
+- `replace` — a same-kind candidate is a superset with acceptable evidence and
+  the installed artifact is proven outdated or materially weaker.
+- `review` — the installed artifact is locally modified; changes require
+  manual review.
+
+A newer alternative is never enough by itself. Replacement requires the same
+artifact kind, at least one capability the installed artifact lacks and no
+installed-only capability lost, a candidate that clears the profile threshold,
+and freshness evidence. If the installed version is unknown, the row stays
+`keep`; if it is current, churn is not recommended. Curated external CLIs stay
+`keep` because no candidate artifact kind is `cli`.
+
+`upgrade` and `replace` rows carry a **print-only recipe** (exact documented
+commands or config edits, a backup note, and an explicit approval reminder).
+`keep` and `review` rows carry no recipe. Nothing in the lifecycle path writes
+files, removes anything, executes a recipe, or consumes an approval token; the
+existing `plan` → `approve` → `install` flow remains the only write path.
+
+Version checks are opt-in. Without `--check-updates`, `recommend` and
+`inventory` stay offline and report `updateStatus: unknown` rather than
+guessing. With the flag, installed versions are compared with npm, PyPI, or
+GitHub release/tag evidence where a source mapping exists; PATH-sourced CLIs
+stay unknown for manual review. A failed or throttled lookup also stays
+unknown, never "outdated".
+
+Known limits: there is no automatic remove or upgrade; recipes are advisory
+and may need adaptation for local layouts; version evidence is unavailable for
+many path-installed skills and globally declared plugins; the curated external
+CLI list is fixed; `recommend` probes that list on every run and has no
+`--skip-external` flag in v0.1; and the lifecycle JSON shape is still a 0.x
+contract.
+
 ## Manual install recipes
 
 When automatic install is not safe or not supported, `plan` prints a recipe
-instead of a write plan. These are illustrative shapes, not a substitute for
-the plan's exact output:
+instead of a write plan. `recommend` lifecycle rows for `upgrade` and `replace`
+use the same print-only convention. These are illustrative shapes, not a
+substitute for the plan's exact output:
 
 ```bash
 # Codex (recipe-only in v0.1): a skill copied into the user skill root
