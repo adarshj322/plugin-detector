@@ -17,20 +17,27 @@ short candidate set and the installed lifecycle.
 - `upgrade` — same tool identity with a newer comparable version.
 - `replace` — same kind, capability superset, threshold met, and proven
   outdatedness.
-- `review` — locally modified; manual review before any change.
+- `review` — reserved for a locally modified artifact once a baseline exists;
+  manual review before any change.
 
 `upgrade`/`replace` rows carry **print-only recipes** ending with the approval
 note. Never execute them, never edit harness config by hand, and never treat a
 recipe as consent. The existing `plan` → `approve` → `install` flow remains the
 only write path (and Codex/Cursor remain recipe-only).
 
-Version checks are opt-in: `recommend --check-updates` / `inventory
---check-updates` are the only network paths. Without the flag, versions stay
-`unknown`. PATH-sourced CLIs stay unknown even with the flag.
+Version checks are opt-in: `recommend --check-updates`, `inventory
+--check-updates`, and `explain --check-updates` are the only network paths.
+Without the flag, versions stay `unknown`. PATH-sourced CLIs stay unknown even
+with the flag.
+
+`review` is reserved in v1.0: no content baseline is recorded, adapters report
+`modified: unknown`, and locally edited artifacts are never automatically
+replaced.
 
 Known limits: no automatic remove/upgrade; path-installed skills and globally
 declared plugins often have no installed version; version/source fields are
-best-effort and Codex/Cursor inventories may be partial; the external CLI list is
+best-effort and Codex/Cursor inventories may be partial; MCP servers and agents
+are inventory-only unless version metadata exists; the external CLI list is
 fixed (`git`, `gh`, `docker`, `kubectl`, `rg`, `jq`, `playwright`, `ffmpeg`,
 `node`, `npm`, `python3`, `uv`); and `recommend` has no `--skip-external` in
 v0.1.

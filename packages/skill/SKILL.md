@@ -49,7 +49,10 @@ write.
    Present the separate installed `lifecycle` rows too (`keep`, `upgrade`,
    `replace`, `review`). `upgrade`/`replace` rows carry print-only recipes;
    show them and stop — never execute a recipe, remove anything, or treat a
-   recipe as approval. Add `--check-updates` only when the user explicitly
+   recipe as approval. Recipes include backup and rollback steps. `review` is
+   reserved in v1.0: adapters report `modified: unknown` because no baseline is
+   recorded, so never claim an artifact was auto-detected as locally edited or
+   automatically replaced. Add `--check-updates` only when the user explicitly
    accepts a network version check; it is the only `recommend` network path.
 5. **Show evidence and reasoning.** Per candidate show verdict
    (`required` / `useful-optional` / `redundant` / `risky` /

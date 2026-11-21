@@ -172,7 +172,7 @@ invoking agent. The JSON shape is not yet versioned, so treat it as an unstable
 ## Installed lifecycle: keep, upgrade, replace, review
 
 `recommend` also reports a separate `lifecycle` section for what is already
-installed. It covers every artifact kind the detected harnesses expose
+installed. It inventories every artifact kind the detected harnesses expose
 (skills, plugins, MCP servers, hooks, commands, agents) plus the curated
 host-wide external CLIs (`git`, `gh`, `docker`, `kubectl`, `rg`, `jq`,
 `playwright`, `ffmpeg`, `node`, `npm`, `python3`, `uv`). Lifecycle rows never
@@ -186,24 +186,42 @@ Each row has one action:
 - `upgrade` — the same artifact identity has a newer comparable version.
 - `replace` — a same-kind candidate is a superset with acceptable evidence, and
   the installed artifact's freshness is proven `outdated`.
-- `review` — the installed artifact is locally modified; changes require
-  manual review.
+- `review` — reserved for a locally modified artifact once a recorded baseline
+  exists; manual review before any change.
+
+**Upgrade/replace is narrower than inventory in v1.0.** Inventory covers every
+kind; actionable lifecycle needs installed identity and version evidence.
+
+| Artifact kind | Upgrade / replace in v1.0 |
+| --- | --- |
+| Config-declared plugins with a source and installed version | Yes: same identity with a newer version upgrades; a same-kind superset replaces only when freshness is proven `outdated`. |
+| Skills with `metadata.homepage` and `version` | Yes for resolver-backed sources; the skills recipe passes `-a <harness>` so other harnesses are untouched. |
+| Skills without homepage/version | Inventory-only; stays `keep`. |
+| MCP servers | Inventory-only unless a source/version can be established; `sourceRef` is best-effort from `npx <package>` / `npm exec <package>` commands, and installed versions are usually unknown. |
+| Agents | Inventory-only unless version metadata exists; agent candidates now parse, but installed agents usually have no version. |
+| External CLIs | Inventory-only; always `keep` because no candidate artifact kind is `cli`. |
 
 A newer alternative is never enough by itself. Replacement requires the same
 artifact kind, at least one capability the installed artifact lacks and no
 installed-only capability lost, a candidate that clears the profile threshold,
 and installed freshness proven `outdated`. If the installed version is unknown,
-the row stays `keep`; if it is current, churn is not recommended. Curated
-external CLIs stay `keep` because no candidate artifact kind is `cli`.
+the row stays `keep`; if it is current, churn is not recommended.
 
-`upgrade` and `replace` rows carry a **print-only recipe** (exact documented
-commands or config edits, a backup note, and an explicit approval reminder).
-`keep` and `review` rows carry no recipe. Nothing in the lifecycle path writes
-files, removes anything, executes a recipe, or consumes an approval token; the
-existing `plan` → `approve` → `install` flow remains the only write path.
+`upgrade` and `replace` rows carry a **print-only recipe**: an explicit backup
+step naming the config file or installed directory, the documented commands or
+config edits, an explicit rollback step naming the same target, and the approval
+reminder. `keep` and `review` rows carry no recipe. Nothing in the lifecycle path
+writes files, removes anything, executes a recipe, or consumes an approval
+token; the existing `plan` → `approve` → `install` flow remains the only write
+path.
 
-Version checks are opt-in. Without `--check-updates`, `recommend` and
-`inventory` stay offline and report `updateStatus: unknown` rather than
+`review` is reserved. Detecting a local edit requires a recorded baseline, and
+v1.0 does not populate one: adapters report `modified: unknown`. A locally
+edited artifact is therefore never treated as modified by comparison alone and
+is never automatically replaced; an explicit baseline is a future capability.
+
+Version checks are opt-in. Without `--check-updates`, `recommend`, `inventory`,
+and `explain` stay offline and report `updateStatus: unknown` rather than
 guessing. With the flag, installed versions are compared with npm, PyPI, or
 GitHub release/tag evidence where a source mapping exists; PATH-sourced CLIs
 stay unknown for manual review. A failed or throttled lookup also stays

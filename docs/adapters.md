@@ -176,20 +176,35 @@ text output:
 | Action | Meaning | Recipe |
 | --- | --- | --- |
 | `keep` | No better candidate, current/unknown version, no added capability, or a lost capability | None |
-| `upgrade` | Same tool identity with a newer comparable version | Print-only update |
-| `replace` | Same kind, capability superset, threshold met, and installed freshness proven `outdated` | Print-only remove + install |
+| `upgrade` | Same tool identity with a newer comparable version | Print-only backup + update + rollback |
+| `replace` | Same kind, capability superset, threshold met, and installed freshness proven `outdated` | Print-only backup + remove + install + rollback |
 | `review` | Locally modified installed artifact; manual review first | None |
 
 Text output omits unchanged `keep` rows that carry neither a candidate nor
 latest-version evidence, and prints how many rows were omitted; `--json` keeps
 every row.
 
+Applicability is narrower than inventory in v1.0:
+
+| Artifact kind | Upgrade / replace support |
+| --- | --- |
+| Config-declared plugin with source and installed version | Yes: same identity + newer version upgrades; same-kind capability superset replaces only when freshness is proven `outdated`. |
+| Skill with `metadata.homepage` and `version` | Yes for resolver-backed sources; the skills recipe passes `-a <harness>` so other harnesses are untouched. |
+| Skill without homepage/version | Inventory-only; stays `keep`. |
+| MCP server | Inventory-only unless source/version evidence exists. `sourceRef` is best-effort from a clear `npx <package>` / `npm exec <package>` command; installed versions are usually unknown. |
+| Agent | Inventory-only unless version metadata exists. `agent` is a valid candidate artifact type, but installed agents normally have no version. |
+| External CLI | Inventory-only; always `keep` because no candidate artifact kind is `cli`. |
+
 The comparison is deliberately conservative. It requires the same artifact
 kind, a candidate that adds at least one capability not already covered by an
 enabled install, no unpreserved installed capability, a candidate score at or
 above the profile threshold, and installed freshness proven `outdated`. Unknown
-installed versions stay `keep`; current versions are not churned for novelty. A
-local modification produces `review`, never an automatic replacement.
+installed versions stay `keep`; current versions are not churned for novelty.
+
+`review` requires a recorded baseline, and v1.0 does not populate one. Adapters
+report `modified: unknown`, so a locally edited artifact is never classified as
+modified from comparison alone and is never automatically replaced. `review`
+stays reserved for a future baseline.
 
 Lifecycle version/source fields are best-effort. A missing manifest, a
 config-only declaration, or a partial adapter inventory yields `unknown` rather
@@ -199,15 +214,19 @@ or upstream support are less complete.
 Recipes are documented `opencode`, `claude`, `npx skills`, or config-edit
 commands where the harness and scope are known, and manual instructions
 everywhere else (external CLIs, unknown harness/scope, local paths, unsafe
-arguments). They always end with:
+arguments). Every recipe starts with an explicit backup step naming the config
+file or installed directory, then the remove/update and install steps, then an
+explicit rollback step naming the same target, and finally:
 `Run only after explicit approval; back up config before editing.`
-No lifecycle command writes files, executes a recipe, removes an artifact, or
-consumes an approval token. `--check-updates` is the only network path; without
-it, versions stay `unknown`.
+For installed explain, `latestVersion` is the installed artifact's upstream
+latest; a replacement/upgrade candidate's version is shown separately as
+`candidateVersion`. No lifecycle command writes files, executes a recipe,
+removes an artifact, or consumes an approval token. `--check-updates` is the
+only network path; without it, versions stay `unknown`.
 
 Known limits: there is no standalone `remove` action in v0.1, recipes may need
 adaptation for local layouts, many path-installed skills have no version
-evidence, and not every harness exposes installed plugin versions.
+evidence, and not every harness exposes installed plugin or MCP versions.
 
 ## Compatibility scores
 

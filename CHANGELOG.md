@@ -16,11 +16,23 @@ Release stages: `0.1` alpha, `0.5` beta, `1.0` stable.
   `keep`, `upgrade`, `replace`, or `review` row with reasons, installed/latest
   version evidence, and added capabilities. Lifecycle rows never consume the
   recommendation slots.
-- `upgrade` and `replace` lifecycle rows carry print-only recipes: exact
-  `opencode`, `claude`, `npx skills`, or config-edit steps where the harness and
-  scope are known, and manual instructions otherwise. Every recipe ends with
+- `upgrade` and `replace` lifecycle rows carry print-only recipes: an explicit
+  backup step naming the config file or installed directory, exact `opencode`,
+  `claude`, `npx skills`, or config-edit steps where the harness and scope are
+  known, an explicit rollback step naming the same target, and finally
   `Run only after explicit approval; back up config before editing.` Nothing is
   executed, removed, or written, and no approval token is consumed.
+- Same-tool upgrades now honor the same hard gates as replacements
+  (critical audit, archived maintenance, unprobed artifact, zero compatibility)
+  and stay `keep` when the candidate is risky. Installed explain filters
+  unprobed candidates and separates the installed upstream `latestVersion` from
+  the replacement `candidateVersion`.
+- Skill inventory reads `metadata.homepage` from SKILL.md frontmatter and uses
+  it as `sourceRef` when present, so version resolution works for
+  homepage-backed skills; the install directory remains `installPath`.
+  `agent` is now a valid candidate/evidence artifact type. MCP inventory
+  derives a best-effort `sourceRef` only from a clear `npx <package>` or
+  `npm exec <package>` config command, without executing it.
 - Lifecycle comparison is conservative by design: same artifact kind, a
   capability superset, no unpreserved installed capability, the profile
   threshold, and proven outdatedness are all required before `replace`.
@@ -261,8 +273,16 @@ These are release blockers for a stable `1.0`, not for `0.1.0`:
 ### Known limitations
 
 - Lifecycle actions are advisory: v0.1 has no standalone remove flow and never
-  executes an upgrade or replacement. Recipes are print-only and may need
+  executes an upgrade or replacement. Every recipe starts with a backup step
+  and ends with a rollback step, but it is still print-only and may need
   adaptation for local layouts.
+- Upgrade/replace is narrower than inventory: config-declared plugins with
+  source+version and skills with `metadata.homepage`+version are actionable;
+  MCP servers, agents, and external CLIs are inventory-only unless version
+  metadata exists. Installed MCP versions are usually unknown.
+- `review` is reserved: v1.0 does not record a content baseline, adapters report
+  `modified: unknown`, and a locally edited artifact is never automatically
+  replaced.
 - Installed versions are unavailable for many path-installed skills and for
   globally declared plugins without a resolved install path, so those rows stay
   `unknown`/`keep`. A newer upstream version alone never triggers an upgrade.
