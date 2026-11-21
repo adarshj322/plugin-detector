@@ -267,6 +267,44 @@ test("Claude plugin commands carry the installed scope", () => {
   assert.ok(!manual.some((line) => line.startsWith("claude plugin")));
 });
 
+test("unknown installed scope falls back to manual", () => {
+  const unknownSkill = skillRecord({
+    id: "opencode:skill:unknown:old-review",
+    configRefs: [],
+  });
+  const skillRecipe = lifecyclePlan(
+    row({
+      installedId: unknownSkill.id,
+      candidateId: SKILL_CANDIDATE.id,
+    }),
+    unknownSkill,
+    SKILL_CANDIDATE,
+  );
+  assert.ok(isManualOnly(skillRecipe));
+  assert.ok(!skillRecipe.some((line) => line.startsWith("npx skills")));
+
+  const unknownPlugin = record({
+    id: "claude-code:plugin:unknown:market:old",
+    name: "old",
+    harness: "claude-code",
+    sourceRef: "old@market",
+    configRefs: [],
+  });
+  const pluginRecipe = lifecyclePlan(
+    row({
+      installedId: unknownPlugin.id,
+      candidateId: "new@market",
+    }),
+    unknownPlugin,
+    candidate({ id: "new@market", name: "new", packageName: "new@market" }),
+  );
+  assert.ok(isManualOnly(pluginRecipe));
+  assert.ok(
+    !pluginRecipe.some((line) => line.startsWith("claude plugin")),
+    "unknown Claude scope must not default to --scope user",
+  );
+});
+
 test("upgrade recipes use update commands without removal", () => {
   const plugin = lifecyclePlan(
     row({ action: "upgrade" }),
@@ -284,6 +322,16 @@ test("upgrade recipes use update commands without removal", () => {
     SKILL_CANDIDATE,
   );
   assert.deepEqual(skill, ["npx skills update old-review", APPROVAL_NOTE]);
+
+  const userSkill = skillRecord({ id: "claude-code:skill:user:old-review" });
+  assert.deepEqual(
+    lifecyclePlan(
+      row({ action: "upgrade", installedId: userSkill.id }),
+      userSkill,
+      SKILL_CANDIDATE,
+    ),
+    ["npx skills update -g old-review", APPROVAL_NOTE],
+  );
 
   const claude = lifecyclePlan(
     row({ action: "upgrade", installedId: "claude-code:plugin:user:market:old" }),
@@ -325,6 +373,44 @@ test("local installed plugin removal is manual, never a CLI path argument", () =
   );
   assert.match(upgrade[0] ?? "", /Manual: update the local plugin/);
   assert.ok(!upgrade.some((line) => line.startsWith("opencode plugin")));
+});
+
+test("external CLI and unknown-harness replacements stay manual", () => {
+  const external = record({
+    id: "external:cli:git",
+    name: "git",
+    harness: "unknown",
+    kind: "cli",
+    capabilities: ["vcs.workflow"],
+    sourceRef: "PATH:git",
+    installPath: "/usr/bin/git",
+  });
+  const recipe = lifecyclePlan(
+    row({ installedId: external.id }),
+    external,
+    candidate({ artifactType: "tool", packageName: undefined }),
+  );
+  assert.ok(recipe[0]?.startsWith("Manual: remove"));
+  assert.ok(recipe.some((line) => line.startsWith("Manual: install")));
+  assert.ok(isManualOnly(recipe));
+  assert.ok(
+    !recipe.some((line) => /\b(?:npm|pnpm|yarn|pip|brew|apt)\b/.test(line)),
+    "never invents a package-manager command",
+  );
+
+  const unknownHarness = record({
+    id: "tool:project:linter",
+    name: "linter",
+    harness: "unknown",
+    kind: "tool",
+  });
+  const upgrade = lifecyclePlan(
+    row({ action: "upgrade", installedId: unknownHarness.id }),
+    unknownHarness,
+    candidate({ artifactType: "tool" }),
+  );
+  assert.ok(isManualOnly(upgrade));
+  assert.ok(upgrade[0]?.startsWith("Manual: upgrade"));
 });
 
 test("shell metacharacters and control characters force manual recipes", () => {
@@ -528,7 +614,7 @@ test("recommend JSON includes CLI-shaped recipes only on actionable rows", async
   const logs = await capture(() =>
     recommend(
       [...baseArgs(env), "--check-updates", "--json"],
-      { resolveLatest },
+      { resolveLatest, externalTools: () => [] },
     ),
   );
   const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
@@ -581,7 +667,7 @@ test("generating recipes through recommend and explain writes no files", async (
   const recommendLogs = await capture(() =>
     recommend(
       [...baseArgs(env), "--check-updates", "--json"],
-      { resolveLatest },
+      { resolveLatest, externalTools: () => [] },
     ),
   );
   const parsed = RecommendJsonSchema.parse(
