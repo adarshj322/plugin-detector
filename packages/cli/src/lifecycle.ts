@@ -10,13 +10,18 @@ import {
 export interface LifecycleCandidate {
   candidate: Candidate;
   score: number;
-  compatibility?: number;
 }
 
 export interface LifecycleOptions {
   installedInventory: readonly CapabilityRecord[];
   profileDomainsFor: (candidate: Candidate) => readonly string[];
   threshold: number;
+  // Adapter compatibility for the installed record's own harness, matching
+  // explain. Omitted means "no harness-specific constraint".
+  compatibilityFor?: (
+    installed: CapabilityRecord,
+    candidate: Candidate,
+  ) => number | undefined;
 }
 
 const ACTION_RANK: Readonly<Record<LifecycleAction, number>> = {
@@ -58,18 +63,21 @@ function rowFor(
   candidates: readonly LifecycleCandidate[],
   options: LifecycleOptions,
 ): LifecycleRow {
-  const compared = candidates.map(({ candidate, score, compatibility }) => ({
-    candidate,
-    score,
-    row: compareLifecycle({
-      installed,
+  const compared = candidates.map(({ candidate, score }) => {
+    const compatibility = options.compatibilityFor?.(installed, candidate);
+    return {
       candidate,
-      installedInventory: options.installedInventory,
-      profileDomains: [...options.profileDomainsFor(candidate)],
-      threshold: options.threshold,
-      ...(compatibility === undefined ? {} : { compatibility }),
-    }),
-  }));
+      score,
+      row: compareLifecycle({
+        installed,
+        candidate,
+        installedInventory: options.installedInventory,
+        profileDomains: [...options.profileDomainsFor(candidate)],
+        threshold: options.threshold,
+        ...(compatibility === undefined ? {} : { compatibility }),
+      }),
+    };
+  });
   if (installed.modified === true || installed.updateStatus === "modified") {
     const review = compared.find((entry) => entry.row.action === "review");
     if (review !== undefined) return review.row;
@@ -105,15 +113,32 @@ function rowFor(
 
 // One candidate must never yield two plans: replace is the stronger claim, so
 // it claims the candidate first, upgrades claim their own, and every later row
-// is demoted to a recipe-free keep.
+// is demoted to a recipe-free keep. A replace survivor records why a weaker
+// upgrade for the same candidate was folded into it.
 function dedupeCandidatePlans(rows: readonly LifecycleRow[]): LifecycleRow[] {
-  const claimed = new Set<string>();
-  return rows.map((row) => {
+  const claimed = new Map<string, number>();
+  const output: LifecycleRow[] = [];
+  for (const row of rows) {
     const candidateId = row.candidateId;
-    if (candidateId === undefined) return row;
-    if (!claimed.has(candidateId)) {
-      claimed.add(candidateId);
-      return row;
+    if (candidateId === undefined) {
+      output.push(row);
+      continue;
+    }
+    const claimedIndex = claimed.get(candidateId);
+    if (claimedIndex === undefined) {
+      claimed.set(candidateId, output.length);
+      output.push(row);
+      continue;
+    }
+    const survivor = output[claimedIndex];
+    if (survivor?.action === "replace" && row.action === "upgrade") {
+      output[claimedIndex] = {
+        ...survivor,
+        reasons: [
+          ...survivor.reasons,
+          `candidate ${candidateId} also upgrades ${row.installedId}; replace plan takes precedence`,
+        ],
+      };
     }
     const {
       candidateId: _candidateId,
@@ -121,7 +146,7 @@ function dedupeCandidatePlans(rows: readonly LifecycleRow[]): LifecycleRow[] {
       recipe: _recipe,
       ...rest
     } = row;
-    return {
+    output.push({
       ...rest,
       action: "keep",
       reasons: [
@@ -129,8 +154,9 @@ function dedupeCandidatePlans(rows: readonly LifecycleRow[]): LifecycleRow[] {
         `candidate ${candidateId} is already proposed as a change for another installed artifact`,
       ],
       capabilitiesAdded: [],
-    };
-  });
+    });
+  }
+  return output;
 }
 
 export function buildLifecycleRows(
@@ -138,7 +164,17 @@ export function buildLifecycleRows(
   candidates: readonly LifecycleCandidate[],
   options: LifecycleOptions,
 ): LifecycleRow[] {
-  const rows = installed.map((record) => rowFor(record, candidates, options));
+  const rows = installed.map((record) => {
+    const row = rowFor(record, candidates, options);
+    // Upstream evidence resolved onto the installed record must stay visible
+    // on keep/review rows, where compareLifecycle omits it. Upgrade/replace
+    // latest versions describe the candidate and must not be relabeled.
+    return (row.action === "keep" || row.action === "review") &&
+      row.latestVersion === undefined &&
+      record.latestVersion !== undefined
+      ? { ...row, latestVersion: record.latestVersion }
+      : row;
+  });
   // Stable sort: stronger actions come first so dedupe keeps them, while
   // inventory order survives within the same action.
   rows.sort((a, b) => ACTION_RANK[b.action] - ACTION_RANK[a.action]);

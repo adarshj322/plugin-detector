@@ -72,6 +72,7 @@ export type RecommendJson = z.infer<typeof RecommendJsonSchema>;
 export const ExplainJsonSchema = z.object({
   command: z.literal("explain"),
   facts: z.object({
+    kind: z.literal("candidate"),
     candidateId: z.string().min(1),
     name: z.string().min(1),
     artifactType: z.string().min(1),
@@ -118,10 +119,11 @@ export type ExplainJson = z.infer<typeof ExplainJsonSchema>;
 export const InstalledExplainJsonSchema = z.object({
   command: z.literal("explain"),
   facts: z.object({
+    kind: z.literal("installed"),
     installedId: z.string().min(1),
     name: z.string().min(1),
     harness: z.string().min(1),
-    kind: z.string().min(1),
+    artifactKind: z.string().min(1),
     capabilities: z.array(z.string().min(1)),
     installedVersion: z.string().min(1).optional(),
     latestVersion: z.string().min(1).optional(),

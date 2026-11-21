@@ -11,8 +11,10 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { createHash } from "node:crypto";
 import { buildSnapshot } from "@plugin-detector/registry";
-import type { Candidate } from "@plugin-detector/core";
+import type { Candidate, CapabilityRecord } from "@plugin-detector/core";
 import { recommend } from "../src/commands/recommend.js";
+import { buildAdapters } from "../src/commands/inventory.js";
+import { buildLifecycleRows } from "../src/lifecycle.js";
 import { RecommendJsonSchema } from "../src/output.js";
 
 const PROFILE_CAPS = [
@@ -595,6 +597,11 @@ test("lifecycle JSON reports replace, upgrade and keep without recipes", async (
     byId.get("opencode:skill:project:keep-skill")?.action,
     "keep",
   );
+  assert.equal(
+    byId.get("opencode:skill:project:keep-skill")?.latestVersion,
+    "1.1.0",
+    "keep rows keep upstream latest evidence",
+  );
   for (const row of parsed.facts.lifecycle ?? []) {
     assert.equal(row.recipe, undefined, "v1.0 recipes arrive in Task 7");
   }
@@ -617,6 +624,75 @@ test("lifecycle text output names the installed section and actions", async () =
   assert.match(text, /opencode:skill:project:old-review \[replace\]/);
   assert.match(text, /opencode:plugin:project:cand-upgrade \[upgrade\]/);
   assert.match(text, /opencode:skill:project:keep-skill \[keep\]/);
+});
+
+test("lifecycle text summarizes keep rows without candidate or update evidence", async () => {
+  const env = setup();
+  writeInstalledPlugin(env.root, "acme", "1.0.0");
+  writeSnapshot(env.cache, [candidate("cand-1")]);
+
+  const json = await capture(() =>
+    recommend([...baseArgs(env), "--json"]),
+  );
+  const parsed = RecommendJsonSchema.parse(JSON.parse(json.logs.join("\n")));
+  assert.equal(
+    parsed.facts.lifecycle?.[0]?.installedId,
+    "opencode:plugin:project:acme",
+    "JSON keeps every installed row",
+  );
+
+  const text = await capture(() => recommend([...baseArgs(env)]));
+  const output = text.logs.join("\n");
+  assert.ok(!output.includes("opencode:plugin:project:acme"));
+  assert.match(output, /1 unchanged installed artifact row\(s\) omitted/);
+});
+
+test("lifecycle compatibility comes from each installed record's harness", () => {
+  const adapters = buildAdapters("/nonexistent/home", "/nonexistent/root");
+  const next = candidate("review-hook", {
+    name: "review-hook",
+    artifactType: "hook",
+    capabilities: ["code-review.quality", "code-review.security"],
+    pinnedRef: "v2.0.0",
+  });
+  const record = (harness: "claude-code" | "opencode"): CapabilityRecord => ({
+    id: `${harness}:hook:project:review`,
+    name: "review",
+    harness,
+    kind: "hook",
+    capabilities: ["code-review.quality"],
+    enabled: true,
+    configRefs: [],
+    contextCostClass: "per-session",
+    version: "1.0.0",
+    updateStatus: "outdated",
+  });
+  const records = [record("claude-code"), record("opencode")];
+  const rows = buildLifecycleRows(
+    records,
+    [{ candidate: next, score: 42 }],
+    {
+      installedInventory: records,
+      profileDomainsFor: () => [
+        "code-review.quality",
+        "code-review.security",
+      ],
+      threshold: 40,
+      compatibilityFor: (installedRecord, candidateForRecord) =>
+        adapters
+          .find((adapter) => adapter.harness === installedRecord.harness)
+          ?.compatibility(candidateForRecord),
+    },
+  );
+  // Claude scores the hook at 0.7 (42 >= 40); opencode at 0.5 (30 < 40).
+  assert.equal(
+    rows.find((row) => row.installedId.startsWith("claude-code:"))?.action,
+    "replace",
+  );
+  assert.equal(
+    rows.find((row) => row.installedId.startsWith("opencode:"))?.action,
+    "keep",
+  );
 });
 
 test("one candidate never produces both an upgrade and a replace plan", async () => {
@@ -665,6 +741,14 @@ test("one candidate never produces both an upgrade and a replace plan", async ()
     claims[0]?.installedId,
     "opencode:skill:project:old-review",
     "replace wins over upgrade for the same candidate",
+  );
+  assert.ok(
+    claims[0]?.reasons.some(
+      (reason) =>
+        reason.includes("also upgrades") &&
+        reason.includes("opencode:skill:project:cand-dup"),
+    ),
+    "the surviving replace row explains the folded upgrade",
   );
 
   const demoted = lifecycle.find(

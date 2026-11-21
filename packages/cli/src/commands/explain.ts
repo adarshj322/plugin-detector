@@ -108,33 +108,36 @@ export async function explain(
       );
       if (updated !== undefined) record = updated;
     }
-    const [row] = buildLifecycleRows(
+    const compatibilityFor = (
+      installedRecord: CapabilityRecord,
+      next: (typeof snapshot.candidates)[number],
+    ) =>
+      adapters.find((a) => a.harness === installedRecord.harness)
+        ?.compatibility(next) ?? 1;
+    const rows = buildLifecycleRows(
       [record],
-      snapshot.candidates.map((next) => {
-        const compatibility =
-          adapters.find((a) => a.harness === record.harness)?.compatibility(next) ?? 1;
-        return {
+      snapshot.candidates.map((next) => ({
+        candidate: next,
+        score: scoreCandidate({
           candidate: next,
-          compatibility,
-          score: scoreCandidate({
-            candidate: next,
-            installedCapabilities: [],
-            profileDomains: next.capabilities,
-            harness: record.harness,
-            useCaseMatch: 1,
-            projectSignalMatch: 0,
-            compatibility,
-          }).score,
-        };
-      }),
+          installedCapabilities: [],
+          profileDomains: next.capabilities,
+          harness: record.harness,
+          useCaseMatch: 1,
+          projectSignalMatch: 0,
+          compatibility: compatibilityFor(record, next),
+        }).score,
+      })),
       {
         installedInventory: installed,
         // Explain has no profile: a candidate's own capabilities are its
         // declared domains, matching the self-context candidate path.
         profileDomainsFor: (next) => next.capabilities,
         threshold: DEFAULT_REQUIRED_THRESHOLD,
+        compatibilityFor,
       },
     );
+    const row = rows[0];
     if (row === undefined) {
       // Unreachable: one installed record always yields one row.
       console.error(`no lifecycle evidence for installed artifact: ${record.id}`);
@@ -146,10 +149,11 @@ export async function explain(
         {
           command: "explain",
           facts: {
+            kind: "installed",
             installedId: record.id,
             name: record.name,
             harness: record.harness,
-            kind: record.kind,
+            artifactKind: record.kind,
             capabilities: record.capabilities,
             ...(record.version === undefined
               ? {}
@@ -247,6 +251,7 @@ export async function explain(
       {
         command: "explain",
         facts: {
+          kind: "candidate",
           candidateId: candidate.id,
           name: candidate.name,
           artifactType: candidate.artifactType,

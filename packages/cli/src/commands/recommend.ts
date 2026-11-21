@@ -297,12 +297,13 @@ export async function recommend(
     scored.map((s) => ({
       candidate: s.rec.candidate,
       score: s.rec.score,
-      ...(s.compatibility === null ? {} : { compatibility: s.compatibility }),
     })),
     {
       installedInventory: installedRecords,
       profileDomainsFor: () => profile.capabilities,
       threshold: effectiveThreshold,
+      compatibilityFor: (record, candidate) =>
+        adapters.find((a) => a.harness === record.harness)?.compatibility(candidate),
     },
   );
 
@@ -360,21 +361,35 @@ export async function recommend(
         (r) => `${r.candidateId}: ${r.reasoning}`,
       ),
     );
+    const visibleLifecycle = lifecycle.filter(
+      (row) =>
+        row.action !== "keep" ||
+        row.candidateId !== undefined ||
+        row.latestVersion !== undefined,
+    );
+    const hiddenLifecycleCount = lifecycle.length - visibleLifecycle.length;
     printSection(
       "installed lifecycle",
       lifecycle.length === 0
         ? ["(none)"]
-        : lifecycle.map(
-            (row) =>
-              `${row.installedId} [${row.action}] ` +
-              `installed=${row.installedVersion ?? "unknown"} ` +
-              `latest=${row.latestVersion ?? "unknown"}` +
-              (row.candidateId === undefined
-                ? ""
-                : ` candidate=${row.candidateId}`) +
-              ` added=${row.capabilitiesAdded.join(",") || "(none)"} ` +
-              `reason=${row.reasons.join("; ")}`,
-          ),
+        : [
+            ...visibleLifecycle.map(
+              (row) =>
+                `${row.installedId} [${row.action}] ` +
+                `installed=${row.installedVersion ?? "unknown"} ` +
+                `latest=${row.latestVersion ?? "unknown"}` +
+                (row.candidateId === undefined
+                  ? ""
+                  : ` candidate=${row.candidateId}`) +
+                ` added=${row.capabilitiesAdded.join(",") || "(none)"} ` +
+                `reason=${row.reasons.join("; ")}`,
+            ),
+            ...(hiddenLifecycleCount === 0
+              ? []
+              : [
+                  `${hiddenLifecycleCount} unchanged installed artifact row(s) omitted; --json keeps all rows`,
+                ]),
+          ],
     );
     printSection("untrustedCopy", []);
   }

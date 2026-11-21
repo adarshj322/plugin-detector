@@ -116,6 +116,7 @@ test("explain prints pinned ref, trust, components, overlap, risk, and age", asy
   });
   assert.equal(code, 0);
   const parsed = ExplainJsonSchema.parse(JSON.parse(logs.join("\n")));
+  assert.equal(parsed.facts.kind, "candidate");
   assert.equal(parsed.facts.pinnedRef, "v2.1.0");
   assert.equal(parsed.facts.trust, "unverified");
   assert.ok(parsed.facts.score.score >= 0);
@@ -254,7 +255,9 @@ test("explain accepts an installed artifact id and shows lifecycle evidence", as
   });
   assert.equal(code, 0);
   const parsed = InstalledExplainJsonSchema.parse(JSON.parse(logs.join("\n")));
+  assert.equal(parsed.facts.kind, "installed");
   assert.equal(parsed.facts.installedId, INSTALLED_ID);
+  assert.equal(parsed.facts.artifactKind, "skill");
   assert.equal(parsed.facts.installedVersion, "1.0.0");
   assert.equal(parsed.facts.latestVersion, "2.0.0");
   assert.equal(parsed.facts.updateStatus, "unknown");
