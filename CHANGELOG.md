@@ -20,8 +20,10 @@ Release stages: `0.1` alpha, `0.5` beta, `1.0` stable.
   backup step naming the config file or installed directory, exact `opencode`,
   `claude`, `npx skills`, or config-edit steps where the harness and scope are
   known, an explicit rollback step naming the same target, and finally
-  `Run only after explicit approval; back up config before editing.` Nothing is
-  executed, removed, or written, and no approval token is consumed.
+  `Run only after explicit approval; back up config and installed artifact files before editing.`
+  CLI-managed updates may also mutate package-manager caches outside the named
+  config/skill directory. Nothing is executed, removed, or written, and no
+  approval token is consumed.
 - Same-tool upgrades now honor the same hard gates as replacements
   (critical audit, archived maintenance, unprobed artifact, zero compatibility)
   and stay `keep` when the candidate is risky. Installed explain filters

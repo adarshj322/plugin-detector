@@ -25,7 +25,7 @@ import {
 } from "../src/output.js";
 
 const APPROVAL_NOTE =
-  "Run only after explicit approval; back up config before editing.";
+  "Run only after explicit approval; back up config and installed artifact files before editing.";
 
 function record(
   overrides: Partial<CapabilityRecord> = {},
@@ -269,7 +269,17 @@ test("Claude plugin commands carry the installed scope", () => {
     ],
   );
 
-  for (const packageName of ["new@1.0.0", "new@v1"]) {
+  for (const packageName of [
+    "new@1.0.0",
+    "new@v1",
+    "new@1.0.0-beta.1",
+    "new@latest",
+    "new@next",
+    "new@beta",
+    "new@alpha",
+    "new@canary",
+    "new@rc",
+  ]) {
     const pinned = lifecyclePlan(
       row({ installedId: user.id, candidateId: next.id }),
       user,

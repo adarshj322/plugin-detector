@@ -217,7 +217,10 @@ everywhere else (external CLIs, unknown harness/scope, local paths, unsafe
 arguments). Every recipe starts with an explicit backup step naming the config
 file or installed directory, then the remove/update and install steps, then an
 explicit rollback step naming the same target, and finally:
-`Run only after explicit approval; back up config before editing.`
+`Run only after explicit approval; back up config and installed artifact files before editing.`
+CLI-managed updates may also mutate package-manager caches outside the named
+config file or skill directory; the printed backup names the artifact/config
+target to restore.
 For installed explain, `latestVersion` is the installed artifact's upstream
 latest; a replacement/upgrade candidate's version is shown separately as
 `candidateVersion`. No lifecycle command writes files, executes a recipe,

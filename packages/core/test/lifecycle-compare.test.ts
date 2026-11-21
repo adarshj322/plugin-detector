@@ -409,6 +409,47 @@ test("package identity requires a boundary and a non-empty needle", () => {
   assert.notEqual(empty.action, "upgrade");
 });
 
+test("same repository with different display names is not the same skill", () => {
+  const current = installed({
+    id: "opencode:skill:project:brainstorming",
+    name: "brainstorming",
+    kind: "skill",
+    version: "1.0.0",
+    sourceRef: "https://github.com/acme/skills",
+    installPath: "/work/.opencode/skills/brainstorming",
+    capabilities: [],
+  });
+  const different = compare(
+    current,
+    candidate({
+      id: "opencode:skill:project:debugging",
+      name: "debugging",
+      artifactType: "skill",
+      pinnedRef: "v2.0.0",
+      repositoryUrl: "https://github.com/acme/skills",
+      packageName: undefined,
+      capabilities: [],
+    }),
+  );
+  assert.equal(different.action, "keep");
+  assert.equal(different.candidateId, undefined);
+
+  const sameName = compare(
+    current,
+    candidate({
+      id: "acme/skills/brainstorming",
+      name: "brainstorming",
+      artifactType: "skill",
+      pinnedRef: "v2.0.0",
+      repositoryUrl: "https://github.com/acme/skills",
+      packageName: undefined,
+      capabilities: [],
+    }),
+  );
+  assert.equal(sameName.action, "upgrade");
+  assert.equal(sameName.latestVersion, "v2.0.0");
+});
+
 test("dedupeReplacementRows proposes each replacement candidate once", () => {
   const first = installed({
     id: "reviewer-a",

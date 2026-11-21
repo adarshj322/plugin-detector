@@ -32,7 +32,7 @@ const ACTION_RANK: Readonly<Record<LifecycleAction, number>> = {
 };
 
 const APPROVAL_NOTE =
-  "Run only after explicit approval; back up config before editing.";
+  "Run only after explicit approval; back up config and installed artifact files before editing.";
 // Recipes are print-only, but still never interpolate control characters or
 // shell metacharacters into a command line.
 const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
@@ -126,15 +126,33 @@ function installSpec(candidate: Candidate): string | undefined {
 }
 
 // Claude marketplace specs are `plugin@marketplace`; a scoped npm name
-// (`@scope/pkg`) is not one, and a version-like suffix (`@1.0.0`, `@v1`) is
-// an npm pin, not a marketplace id.
+// (`@scope/pkg`) is not one, and a version/prerelease/dist-tag suffix
+// (`@1.0.0`, `@1.0.0-beta`, `@v1`, `@latest`) is a package pin, not a
+// marketplace id.
+const MARKETPLACE_VERSION_LIKE =
+  /^v?\d+(?:\.\d+)*(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/i;
+const MARKETPLACE_DIST_TAGS = new Set([
+  "latest",
+  "next",
+  "beta",
+  "alpha",
+  "canary",
+  "rc",
+]);
+
 function marketplaceSpec(candidate: Candidate): string | undefined {
   const spec = safeArg(candidate.packageName ?? candidate.id);
   if (spec === undefined) return undefined;
   const at = spec.indexOf("@", 1);
   if (at <= 0) return undefined;
   const marketplace = spec.slice(at + 1);
-  return /^v?\d+(?:\.\d+)*$/i.test(marketplace) ? undefined : spec;
+  if (
+    MARKETPLACE_VERSION_LIKE.test(marketplace) ||
+    MARKETPLACE_DIST_TAGS.has(marketplace.toLowerCase())
+  ) {
+    return undefined;
+  }
+  return spec;
 }
 
 function sourceRefOf(candidate: Candidate): string {

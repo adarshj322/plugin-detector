@@ -102,7 +102,7 @@ const NEW_SKILL = candidate("acme-new-skill", {
 });
 
 const APPROVAL_NOTE =
-  "Run only after explicit approval; back up config before editing.";
+  "Run only after explicit approval; back up config and installed artifact files before editing.";
 
 const ACCEPTANCE_CANDIDATES = [
   SUPERPOWERS_CLONE,

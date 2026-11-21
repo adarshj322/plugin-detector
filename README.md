@@ -210,10 +210,11 @@ the row stays `keep`; if it is current, churn is not recommended.
 `upgrade` and `replace` rows carry a **print-only recipe**: an explicit backup
 step naming the config file or installed directory, the documented commands or
 config edits, an explicit rollback step naming the same target, and the approval
-reminder. `keep` and `review` rows carry no recipe. Nothing in the lifecycle path
-writes files, removes anything, executes a recipe, or consumes an approval
-token; the existing `plan` → `approve` → `install` flow remains the only write
-path.
+reminder. CLI-managed updates may also mutate package-manager caches outside
+that target; the printed backup names the config or skill directory to restore.
+`keep` and `review` rows carry no recipe. Nothing in the lifecycle path writes
+files, removes anything, executes a recipe, or consumes an approval token; the
+existing `plan` → `approve` → `install` flow remains the only write path.
 
 `review` is reserved. Detecting a local edit requires a recorded baseline, and
 v1.0 does not populate one: adapters report `modified: unknown`. A locally

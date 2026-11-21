@@ -74,6 +74,10 @@ function sameTool(
     return true;
   }
   if (candidate.repositoryUrl === undefined) return false;
+  // A repository can host many skills/plugins. Repository matching is identity
+  // only when the display names also agree; package-name and id equality can
+  // still stand alone.
+  if (!sameDisplayName(installed, candidate)) return false;
   const repository = normalizeSource(candidate.repositoryUrl);
   return refs.some(
     (ref) =>
