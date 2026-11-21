@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   compareLifecycle,
+  dedupeReplacementRows,
   type Candidate,
   type CapabilityRecord,
 } from "../src/index.js";
@@ -49,7 +50,11 @@ function compare(
   current: CapabilityRecord,
   next: Candidate,
   inventory: CapabilityRecord[] = [current],
-  overrides: { profileDomains?: string[]; threshold?: number } = {},
+  overrides: {
+    profileDomains?: string[];
+    threshold?: number;
+    compatibility?: number;
+  } = {},
 ) {
   return compareLifecycle({
     installed: current,
@@ -60,6 +65,9 @@ function compare(
       "code-review.security",
     ],
     threshold: overrides.threshold ?? 55,
+    ...(overrides.compatibility === undefined
+      ? {}
+      : { compatibility: overrides.compatibility }),
   });
 }
 
@@ -149,6 +157,166 @@ test("outdated installed tool is replaced by a higher-scoring capability superse
   assert.equal(row.latestVersion, "v2.0.0");
   assert.deepEqual(row.capabilitiesAdded, ["code-review.security"]);
   assert.ok(row.reasons.some((reason) => reason.includes("code-review.security")));
+});
+
+test("candidate that drops an installed capability cannot replace it", () => {
+  const current = installed({
+    id: "legacy-review",
+    name: "legacy-review",
+    capabilities: ["code-review.basic"],
+    updateStatus: "outdated",
+  });
+  const row = compare(
+    current,
+    candidate({
+      id: "deployer",
+      name: "deployer",
+      capabilities: ["deploy.release"],
+    }),
+    [current],
+    { profileDomains: ["code-review.basic", "deploy.release"] },
+  );
+  assert.equal(row.action, "keep");
+  assert.equal(row.candidateId, undefined);
+  assert.ok(row.reasons.some((reason) => reason.includes("code-review.basic")));
+});
+
+test("a preserved capability can be covered by another enabled install", () => {
+  const current = installed({
+    id: "legacy-review",
+    name: "legacy-review",
+    capabilities: ["code-review.basic"],
+    updateStatus: "outdated",
+  });
+  const backup = installed({
+    id: "review-backup",
+    name: "review-backup",
+    capabilities: ["code-review.basic"],
+  });
+  const row = compare(
+    current,
+    candidate({
+      id: "deployer",
+      name: "deployer",
+      capabilities: ["deploy.release"],
+    }),
+    [current, backup],
+    { profileDomains: ["code-review.basic", "deploy.release"] },
+  );
+  assert.equal(row.action, "replace");
+  assert.deepEqual(row.capabilitiesAdded, ["deploy.release"]);
+});
+
+test("same display name with a different identity is not actionable", () => {
+  const current = installed({
+    id: "tool-a",
+    name: "shared-name",
+    updateStatus: "outdated",
+  });
+  const next = candidate({
+    id: "tool-b",
+    name: "shared-name",
+    capabilities: ["code-review.basic", "code-review.security"],
+  });
+  const row = compare(current, next);
+  assert.equal(row.action, "keep");
+  assert.equal(row.candidateId, undefined);
+  assert.ok(row.reasons.some((reason) => reason.includes("display name")));
+});
+
+test("different ids can upgrade when package identity matches", () => {
+  const current = installed({
+    id: "reviewer-old",
+    name: "reviewer-old",
+    version: "1.0.0",
+    sourceRef: "npm:reviewer@1.0.0",
+  });
+  const row = compare(
+    current,
+    candidate({
+      id: "reviewer-new",
+      name: "reviewer-new",
+      packageName: "reviewer",
+      pinnedRef: "v2.0.0",
+    }),
+  );
+  assert.equal(row.action, "upgrade");
+  assert.equal(row.candidateId, "reviewer-new");
+});
+
+test("replacement score respects adapter compatibility", () => {
+  const current = installed({
+    id: "legacy-review",
+    name: "legacy-review",
+    updateStatus: "outdated",
+  });
+  const next = candidate({
+    id: "deep-review",
+    name: "deep-review",
+    capabilities: ["code-review.basic", "code-review.security"],
+  });
+  const full = compare(current, next, [current], { threshold: 40 });
+  assert.equal(full.action, "replace");
+
+  const partial = compare(current, next, [current], {
+    threshold: 40,
+    compatibility: 0.5,
+  });
+  assert.equal(partial.action, "keep");
+  assert.ok(
+    partial.reasons.some((reason) => reason.includes("profile threshold")),
+  );
+});
+
+test("adapter mcp kind matches mcp-server candidates", () => {
+  const current = installed({
+    id: "mcp-tool",
+    name: "mcp-tool",
+    kind: "mcp",
+    version: "1.0.0",
+  });
+  const row = compare(
+    current,
+    candidate({
+      id: "mcp-tool",
+      name: "mcp-tool",
+      artifactType: "mcp-server",
+      pinnedRef: "v2.0.0",
+    }),
+  );
+  assert.equal(row.action, "upgrade");
+});
+
+test("dedupeReplacementRows proposes each replacement candidate once", () => {
+  const first = installed({
+    id: "reviewer-a",
+    name: "reviewer-a",
+    capabilities: ["code-review.basic"],
+    updateStatus: "outdated",
+  });
+  const second = installed({
+    id: "reviewer-b",
+    name: "reviewer-b",
+    capabilities: ["code-review.basic"],
+    updateStatus: "outdated",
+  });
+  const next = candidate({
+    id: "deep-review",
+    name: "deep-review",
+    capabilities: ["code-review.basic", "code-review.security"],
+  });
+  const rows = [
+    compare(first, next, [first, second]),
+    compare(second, next, [first, second]),
+  ];
+  assert.equal(rows[0]?.action, "replace");
+  assert.equal(rows[1]?.action, "replace");
+
+  const deduped = dedupeReplacementRows(rows);
+  assert.equal(deduped[0]?.action, "replace");
+  assert.equal(deduped[1]?.action, "keep");
+  assert.equal(deduped[1]?.candidateId, undefined);
+  assert.deepEqual(deduped[1]?.capabilitiesAdded, []);
 });
 
 test("candidate capability already covered by an enabled installed tool is kept", () => {

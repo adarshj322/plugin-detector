@@ -8,6 +8,9 @@ export interface LifecycleCompareInput {
   installedInventory: readonly CapabilityRecord[];
   profileDomains: readonly string[];
   threshold: number;
+  // Adapter-provided 0-1 compatibility for the candidate's harness. Omitted
+  // means 1 (no harness-specific constraint).
+  compatibility?: number;
 }
 
 type Version = readonly [major: number, minor: number, patch: number];
@@ -49,21 +52,57 @@ function sameTool(
   installed: CapabilityRecord,
   candidate: Candidate,
 ): boolean {
-  const id = installed.id.trim().toLowerCase();
-  if (id === candidate.id.trim().toLowerCase()) return true;
+  if (installed.id.trim().toLowerCase() === candidate.id.trim().toLowerCase()) {
+    return true;
+  }
+  const refs = [installed.sourceRef, installed.installPath, ...installed.configRefs]
+    .filter((ref): ref is string => ref !== undefined)
+    .map(normalizeSource);
+  if (refs.length === 0) return false;
+  const packageName = (
+    candidate.packageName ?? candidate.artifactEvidence?.packageName
+  )
+    ?.trim()
+    .toLowerCase();
   if (
-    installed.name.trim().toLowerCase() ===
-    candidate.name.trim().toLowerCase()
+    packageName !== undefined &&
+    refs.some((ref) => ref.includes(packageName))
   ) {
     return true;
   }
-  const packageName =
-    candidate.packageName ?? candidate.artifactEvidence?.packageName;
-  if (packageName === undefined) return false;
-  const needle = packageName.trim().toLowerCase();
-  return [installed.sourceRef, installed.installPath, ...installed.configRefs]
-    .filter((ref): ref is string => ref !== undefined)
-    .some((ref) => ref.toLowerCase().includes(needle));
+  if (candidate.repositoryUrl === undefined) return false;
+  const repository = normalizeSource(candidate.repositoryUrl);
+  return refs.some((ref) => ref === repository || ref.includes(repository));
+}
+
+function sameDisplayName(
+  installed: CapabilityRecord,
+  candidate: Candidate,
+): boolean {
+  return (
+    installed.name.trim().toLowerCase() ===
+    candidate.name.trim().toLowerCase()
+  );
+}
+
+function normalizeSource(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\.git\/?$/, "")
+    .replace(/\/+$/, "");
+}
+
+// Adapter `kind` vocabulary: adapters spell the MCP class "mcp" while the
+// candidate ArtifactType spells it "mcp-server". Match on the shared spelling;
+// future adapter aliases belong in this map rather than in each rule.
+const KIND_ALIASES: Readonly<Record<string, string>> = {
+  mcp: "mcp-server",
+};
+
+function normalizeKind(kind: string): string {
+  const normalized = kind.trim().toLowerCase();
+  return KIND_ALIASES[normalized] ?? normalized;
 }
 
 // Installed freshness without rescoring the installed record. Explicit
@@ -96,6 +135,24 @@ function capabilitiesAddedBy(
   return candidate.capabilities.filter((cap) => !enabled.has(cap));
 }
 
+// Replacing a tool must not silently drop a capability it provides. Another
+// enabled install may still cover that capability, so the candidate only has
+// to carry what nothing else provides.
+function unpreservedCapabilities(
+  installed: CapabilityRecord,
+  candidate: Candidate,
+  inventory: readonly CapabilityRecord[],
+): string[] {
+  const others = new Set<string>();
+  for (const record of inventory) {
+    if (!record.enabled || record.id === installed.id) continue;
+    for (const cap of record.capabilities) others.add(cap);
+  }
+  return installed.capabilities.filter(
+    (cap) => !candidate.capabilities.includes(cap) && !others.has(cap),
+  );
+}
+
 // Candidate score with the lifecycle overlap handled separately: the policy
 // compares capability coverage directly, so the general recommendation overlap
 // penalty must not veto a legitimate superset replacement. Project signals are
@@ -103,7 +160,8 @@ function capabilitiesAddedBy(
 function scoreForReplacement(
   input: LifecycleCompareInput,
 ): { score: number; risky: boolean } {
-  const { candidate, installed, profileDomains, threshold } = input;
+  const { candidate, installed, profileDomains, threshold, compatibility } =
+    input;
   const domains = new Set(profileDomains);
   const useCaseMatch =
     candidate.capabilities.length === 0
@@ -117,6 +175,7 @@ function scoreForReplacement(
     harness: installed.harness,
     useCaseMatch,
     projectSignalMatch: 0,
+    compatibility: compatibility ?? 1,
     requiredThreshold: threshold,
   });
   return {
@@ -147,12 +206,30 @@ export function compareLifecycle(input: LifecycleCompareInput): LifecycleRow {
     };
   }
 
-  if (candidate.artifactType !== installed.kind) {
+  if (normalizeKind(candidate.artifactType) !== normalizeKind(installed.kind)) {
     return {
       installedId: installed.id,
       action: "keep",
       reasons: [
         `candidate kind ${candidate.artifactType} does not match installed kind ${installed.kind}`,
+      ],
+      ...installedVersion,
+      capabilitiesAdded: [],
+    };
+  }
+
+  // A shared display name is not identity. Different tools can collide on
+  // "reviewer" or "linter"; without id/package/repository evidence, no action.
+  if (
+    !same &&
+    sameDisplayName(installed, candidate) &&
+    installed.id.trim().toLowerCase() !== candidate.id.trim().toLowerCase()
+  ) {
+    return {
+      installedId: installed.id,
+      action: "keep",
+      reasons: [
+        "candidate shares a display name but has a different identity; refusing to treat it as the same tool",
       ],
       ...installedVersion,
       capabilitiesAdded: [],
@@ -199,6 +276,22 @@ export function compareLifecycle(input: LifecycleCompareInput): LifecycleRow {
       action: "keep",
       reasons: [
         "candidate adds no capability that is not already covered by an enabled installed artifact",
+      ],
+      ...installedVersion,
+      capabilitiesAdded: [],
+    };
+  }
+  const lost = unpreservedCapabilities(
+    installed,
+    candidate,
+    installedInventory,
+  );
+  if (lost.length > 0) {
+    return {
+      installedId: installed.id,
+      action: "keep",
+      reasons: [
+        `replacement would drop installed capability ${lost.join(", ")} with no enabled artifact covering it`,
       ],
       ...installedVersion,
       capabilitiesAdded: [],
@@ -257,4 +350,31 @@ export function compareLifecycle(input: LifecycleCompareInput): LifecycleRow {
       : { latestVersion: replacementVersion }),
     capabilitiesAdded: added,
   };
+}
+
+// One candidate can be the best replacement for several installed records that
+// share a capability. Emit it once; later rows stay visible as keep so a plan
+// never installs the same candidate twice. Callers control priority by row
+// order and should put the strongest replacement first.
+export function dedupeReplacementRows(
+  rows: readonly LifecycleRow[],
+): LifecycleRow[] {
+  const claimed = new Set<string>();
+  return rows.map((row) => {
+    if (row.action !== "replace" || row.candidateId === undefined) return row;
+    if (!claimed.has(row.candidateId)) {
+      claimed.add(row.candidateId);
+      return row;
+    }
+    const { candidateId, latestVersion, ...rest } = row;
+    return {
+      ...rest,
+      action: "keep",
+      reasons: [
+        ...row.reasons,
+        `candidate ${candidateId} is already proposed as a replacement for another installed artifact`,
+      ],
+      capabilitiesAdded: [],
+    };
+  });
 }
