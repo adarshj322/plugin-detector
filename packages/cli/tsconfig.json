@@ -9,6 +9,7 @@
     { "path": "../core" },
     { "path": "../registry" },
     { "path": "../profiles" },
+    { "path": "../adapters/shared" },
     { "path": "../adapters/opencode" },
     { "path": "../adapters/claude-code" },
     { "path": "../adapters/codex" },

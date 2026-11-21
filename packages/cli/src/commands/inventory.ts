@@ -2,6 +2,7 @@ import { OpenCodeAdapter } from "@plugin-detector/opencode";
 import { ClaudeCodeAdapter } from "@plugin-detector/claude-code";
 import { CodexAdapter } from "@plugin-detector/codex";
 import { CursorAdapter } from "@plugin-detector/cursor";
+import { detectExternalTools } from "@plugin-detector/adapter-shared";
 import type {
   Candidate,
   CapabilityRecord,
@@ -28,6 +29,8 @@ export interface InventoryResult {
 export interface InventoryDeps {
   // Test seam; production resolves only when --check-updates is present.
   resolveLatest?: LatestVersionResolver | undefined;
+  // Test seam; production probes the curated external-CLI list.
+  externalTools?: (() => CapabilityRecord[]) | undefined;
 }
 
 export type TrustLabel = "verified" | "curated" | "unverified";
@@ -139,6 +142,7 @@ function redactSecrets(value: string): string {
 export async function collectInventories(
   home?: string,
   root?: string,
+  externalTools: () => CapabilityRecord[] = detectExternalTools,
 ): Promise<HarnessInventory[]> {
   const out: HarnessInventory[] = [];
   for (const adapter of adaptersFor(home, root)) {
@@ -172,6 +176,21 @@ export async function collectInventories(
       warnings: inv.warnings.map(redactSecrets),
     });
   }
+  // External CLIs are host-wide, not harness-owned: one synthetic group keeps
+  // them out of the per-harness counts while still riding the inventory shape.
+  const external = externalTools();
+  if (external.length > 0) {
+    out.push({
+      harness: "external",
+      detected: true,
+      status: "ok",
+      enabled: external.filter((r) => r.enabled).length,
+      disabled: external.filter((r) => !r.enabled).length,
+      records: external,
+      configRefs: [...new Set(external.flatMap((r) => r.configRefs))].sort(),
+      warnings: [],
+    });
+  }
   return out;
 }
 
@@ -198,13 +217,15 @@ export async function inventory(
       return { exitCode: 2 };
     }
   }
-  const harnesses = await collectInventories(home, root);
+  const harnesses = await collectInventories(home, root, deps.externalTools);
   if (checkUpdates) {
     // One resolver per run: repeated sources share its cache and the shared
     // 60/min limiter bounds every request.
     const resolveLatest =
       deps.resolveLatest ?? createLatestVersionResolver();
     for (const harness of harnesses) {
+      // PATH-sourced CLIs have no registry mapping; leave them unknown/manual.
+      if (harness.harness === "external") continue;
       harness.records = await applyLatestVersions(
         harness.records,
         resolveLatest,

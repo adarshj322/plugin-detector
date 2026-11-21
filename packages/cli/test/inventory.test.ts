@@ -10,6 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { createHash } from "node:crypto";
+import type { CapabilityRecord } from "@plugin-detector/core";
 import { inventory } from "../src/commands/inventory.js";
 import { InventoryJsonSchema } from "../src/output.js";
 
@@ -68,7 +69,9 @@ test("empty harness tree yields empty inventories for all four harnesses", async
   const { home, root } = fixtureTree();
   const before = hashTree(home) + hashTree(root);
   const { logs } = await capture(() =>
-    inventory(["--home", home, "--root", root, "--json"]),
+    inventory(["--home", home, "--root", root, "--json"], {
+      externalTools: () => [],
+    }),
   );
   const parsed = InventoryJsonSchema.parse(JSON.parse(logs.join("\n")));
   assert.equal(parsed.facts.harnesses.length, 4);
@@ -94,7 +97,10 @@ test("inventory stays offline unless --check-updates is explicit", async () => {
   };
   const before = hashTree(home) + hashTree(root);
   const { logs } = await capture(() =>
-    inventory(["--home", home, "--root", root, "--json"], { resolveLatest }),
+    inventory(["--home", home, "--root", root, "--json"], {
+      resolveLatest,
+      externalTools: () => [],
+    }),
   );
   assert.equal(calls, 0, "the default inventory path must not resolve versions");
   assert.equal(hashTree(home) + hashTree(root), before);
@@ -124,7 +130,7 @@ test("--check-updates attaches latest evidence to every resolvable record", asyn
   const { logs } = await capture(() =>
     inventory(
       ["--home", home, "--root", root, "--check-updates", "--json"],
-      { resolveLatest },
+      { resolveLatest, externalTools: () => [] },
     ),
   );
   assert.deepEqual(seen, ["opencode-test-plugin@1.2.3"]);
@@ -152,6 +158,7 @@ test("--check-updates reports upstream versions in human output", async () => {
         version: "2.0.0",
         sourceUrl: "https://registry.npmjs.org/opencode-test-plugin",
       }),
+      externalTools: () => [],
     }),
   );
   assert.match(logs.join("\n"), /latest=2\.0\.0/);
@@ -166,7 +173,11 @@ test("human inventory prints per-harness counts without touching the tree", asyn
   const before = hashTree(home) + hashTree(root);
   let code = -1;
   const { logs } = await capture(async () => {
-    code = (await inventory(["--home", home, "--root", root])).exitCode;
+    code = (
+      await inventory(["--home", home, "--root", root], {
+        externalTools: () => [],
+      })
+    ).exitCode;
   });
   assert.equal(code, 0);
   const text = logs.join("\n");
@@ -175,4 +186,57 @@ test("human inventory prints per-harness counts without touching the tree", asyn
   assert.match(text, /enabled=1/);
   assert.match(text, /opencode\.json/);
   assert.equal(hashTree(home) + hashTree(root), before);
+});
+
+function externalGitRecord(): CapabilityRecord {
+  return {
+    id: "external:cli:git",
+    name: "git",
+    harness: "unknown",
+    kind: "cli",
+    capabilities: ["vcs.workflow"],
+    enabled: true,
+    configRefs: [],
+    contextCostClass: "zero",
+    version: "2.43.0",
+    sourceRef: "PATH:git",
+    installPath: "/usr/bin/git",
+  };
+}
+
+test("inventory merges curated external CLI records", async () => {
+  const { home, root } = fixtureTree();
+  const { logs } = await capture(() =>
+    inventory(["--home", home, "--root", root, "--json"], {
+      externalTools: () => [externalGitRecord()],
+    }),
+  );
+  const parsed = InventoryJsonSchema.parse(JSON.parse(logs.join("\n")));
+  const external = parsed.facts.harnesses.find(
+    (entry) => entry.harness === "external",
+  );
+  assert.ok(external, "external CLI group is present");
+  assert.equal(external.detected, true);
+  assert.deepEqual(external.records, [externalGitRecord()]);
+});
+
+test("--check-updates leaves PATH-sourced CLIs to manual review", async () => {
+  const { home, root } = fixtureTree();
+  const seen: string[] = [];
+  const { logs } = await capture(() =>
+    inventory(["--home", home, "--root", root, "--check-updates", "--json"], {
+      resolveLatest: async (input) => {
+        seen.push(input.sourceRef ?? "");
+        return null;
+      },
+      externalTools: () => [externalGitRecord()],
+    }),
+  );
+  const parsed = InventoryJsonSchema.parse(JSON.parse(logs.join("\n")));
+  const record = parsed.facts.harnesses
+    .flatMap((entry) => entry.records)
+    .find((entry) => entry.kind === "cli");
+  assert.deepEqual(seen, []);
+  assert.equal(record?.latestVersion, undefined);
+  assert.equal(record?.updateStatus, undefined);
 });

@@ -13,6 +13,10 @@ export const CURATED_CLI_COMMANDS: ReadonlySet<string> = new Set([
   "jq",
   "playwright",
   "ffmpeg",
+  "node",
+  "npm",
+  "python3",
+  "uv",
 ]);
 
 const VERSION_TIMEOUT_MS = 2000;
