@@ -157,10 +157,11 @@ Records appear in a separate `external` group in both `inventory` text and
 `inventory --json` output. The group is host-wide, not attributed to a harness.
 `recommend` includes the same records in its installed inventory and
 `lifecycle` rows, so an enabled external CLI suppresses duplicate capability
-recommendations and appears as a `keep` row. It can never be a replacement
-target: candidate artifact kinds are skill/plugin/MCP/hook/command/tool, not
-`cli`, so lifecycle comparison keeps it even when a candidate shares a
-capability. Because `PATH:<name>` has no registry mapping, `--check-updates`
+recommendations and appears as a `keep` row. `explain external:cli:<name>`
+resolves the record and shows its version, status, and keep action. It can never
+be a replacement target: candidate artifact kinds are
+skill/plugin/MCP/hook/command/tool, not `cli`, so lifecycle comparison keeps it
+even when a candidate shares a capability. Because `PATH:<name>` has no registry mapping, `--check-updates`
 leaves these records unchanged for manual review. A wedged tool can cost up to
 2s per probe; `inventory --skip-external` skips the group entirely. `recommend`
 probes the same list on every run and has no `--skip-external` flag in v0.1.
@@ -176,7 +177,7 @@ text output:
 | --- | --- | --- |
 | `keep` | No better candidate, current/unknown version, no added capability, or a lost capability | None |
 | `upgrade` | Same tool identity with a newer comparable version | Print-only update |
-| `replace` | Same kind, capability superset, threshold met, and proven outdated/weaker installed evidence | Print-only remove + install |
+| `replace` | Same kind, capability superset, threshold met, and installed freshness proven `outdated` | Print-only remove + install |
 | `review` | Locally modified installed artifact; manual review first | None |
 
 Text output omits unchanged `keep` rows that carry neither a candidate nor
@@ -186,9 +187,14 @@ every row.
 The comparison is deliberately conservative. It requires the same artifact
 kind, a candidate that adds at least one capability not already covered by an
 enabled install, no unpreserved installed capability, a candidate score at or
-above the profile threshold, and proven outdatedness. Unknown installed
-versions stay `keep`; current versions are not churned for novelty. A local
-modification produces `review`, never an automatic replacement.
+above the profile threshold, and installed freshness proven `outdated`. Unknown
+installed versions stay `keep`; current versions are not churned for novelty. A
+local modification produces `review`, never an automatic replacement.
+
+Lifecycle version/source fields are best-effort. A missing manifest, a
+config-only declaration, or a partial adapter inventory yields `unknown` rather
+than a guess; Codex and Cursor inventories can be partial because their formats
+or upstream support are less complete.
 
 Recipes are documented `opencode`, `claude`, `npx skills`, or config-edit
 commands where the harness and scope are known, and manual instructions

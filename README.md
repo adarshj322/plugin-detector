@@ -184,17 +184,17 @@ Each row has one action:
 - `keep` — no better candidate; unknown or current version; or a candidate
   that adds no capability or would drop one.
 - `upgrade` — the same artifact identity has a newer comparable version.
-- `replace` — a same-kind candidate is a superset with acceptable evidence and
-  the installed artifact is proven outdated or materially weaker.
+- `replace` — a same-kind candidate is a superset with acceptable evidence, and
+  the installed artifact's freshness is proven `outdated`.
 - `review` — the installed artifact is locally modified; changes require
   manual review.
 
 A newer alternative is never enough by itself. Replacement requires the same
 artifact kind, at least one capability the installed artifact lacks and no
 installed-only capability lost, a candidate that clears the profile threshold,
-and freshness evidence. If the installed version is unknown, the row stays
-`keep`; if it is current, churn is not recommended. Curated external CLIs stay
-`keep` because no candidate artifact kind is `cli`.
+and installed freshness proven `outdated`. If the installed version is unknown,
+the row stays `keep`; if it is current, churn is not recommended. Curated
+external CLIs stay `keep` because no candidate artifact kind is `cli`.
 
 `upgrade` and `replace` rows carry a **print-only recipe** (exact documented
 commands or config edits, a backup note, and an explicit approval reminder).
@@ -210,9 +210,10 @@ stay unknown for manual review. A failed or throttled lookup also stays
 unknown, never "outdated".
 
 Known limits: there is no automatic remove or upgrade; recipes are advisory
-and may need adaptation for local layouts; version evidence is unavailable for
-many path-installed skills and globally declared plugins; the curated external
-CLI list is fixed; `recommend` probes that list on every run and has no
+and may need adaptation for local layouts; lifecycle version/source fields are
+best-effort (a missing manifest or config-only install yields `unknown`, never a
+guess), and Codex/Cursor inventories may be partial; the curated external CLI
+list is fixed; `recommend` probes that list on every run and has no
 `--skip-external` flag in v0.1; and the lifecycle JSON shape is still a 0.x
 contract.
 

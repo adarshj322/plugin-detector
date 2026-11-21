@@ -29,7 +29,8 @@ Version checks are opt-in: `recommend --check-updates` / `inventory
 `unknown`. PATH-sourced CLIs stay unknown even with the flag.
 
 Known limits: no automatic remove/upgrade; path-installed skills and globally
-declared plugins often have no installed version; the external CLI list is
+declared plugins often have no installed version; version/source fields are
+best-effort and Codex/Cursor inventories may be partial; the external CLI list is
 fixed (`git`, `gh`, `docker`, `kubectl`, `rg`, `jq`, `playwright`, `ffmpeg`,
 `node`, `npm`, `python3`, `uv`); and `recommend` has no `--skip-external` in
 v0.1.

@@ -42,9 +42,12 @@ Release stages: `0.1` alpha, `0.5` beta, `1.0` stable.
   external CLIs, unknown harness/scope fallback, shell-metacharacter rejection,
   and a no-write assertion.
 - Acceptance fixtures cover an installed `superpowers` plugin against a
-  same-capability clone (`keep`/`redundant`), an older review plugin against a
-  superset candidate (`replace` with recipe), and an external CLI (`keep`, no
-  candidate, no recipe).
+  same-capability clone (`keep`/`redundant` with known latest evidence), an older
+  review plugin against a superset candidate (`replace` with exact remove and
+  install recipe steps), a same-identity newer plugin (`upgrade` with an update
+  recipe and no remove), and an external CLI (`keep`, no candidate, no recipe).
+  `explain external:cli:<name>` resolves the curated record and shows its
+  version and keep action.
 - `plugin-detector rollback --plan-file <file>`: restores the exact preimages
   recorded by an applied plan, so rollback remains available after a successful
   install, not only on apply failure.
@@ -263,6 +266,8 @@ These are release blockers for a stable `1.0`, not for `0.1.0`:
 - Installed versions are unavailable for many path-installed skills and for
   globally declared plugins without a resolved install path, so those rows stay
   `unknown`/`keep`. A newer upstream version alone never triggers an upgrade.
+  Lifecycle version/source fields are best-effort, and Codex/Cursor inventories
+  may be partial.
 - `recommend` probes the curated external-CLI list on every run; there is no
   `--skip-external` flag for `recommend` in v0.1 (use `inventory
   --skip-external` when only harness config matters).
