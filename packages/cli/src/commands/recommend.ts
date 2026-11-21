@@ -5,6 +5,7 @@ import {
   type CapabilityRecord,
   type HarnessId,
 } from "@plugin-detector/core";
+import { detectExternalTools } from "@plugin-detector/adapter-shared";
 import {
   applyLatestVersions,
   createLatestVersionResolver,
@@ -34,6 +35,8 @@ export interface RecommendResult {
 export interface RecommendDeps {
   // Test seam; production resolves only when --check-updates is present.
   resolveLatest?: LatestVersionResolver | undefined;
+  // Test seam; production probes the curated external-CLI list.
+  externalTools?: (() => CapabilityRecord[]) | undefined;
 }
 
 const VALID_HARNESSES = ["auto", "opencode", "claude-code", "codex", "cursor", "unknown"];
@@ -228,20 +231,30 @@ export async function recommend(
 
   const adapters = buildAdapters(home, root);
   const detected: string[] = [];
-  let installedRecords: CapabilityRecord[] = [];
+  const adapterRecords: CapabilityRecord[] = [];
   for (const adapter of adapters) {
     if ((await adapter.detect()).detected) detected.push(adapter.harness);
     const inv = await adapter.inventory();
-    installedRecords.push(...inv.records);
+    adapterRecords.push(...inv.records);
   }
+  // Curated host CLIs are installed inventory too: they cover capabilities
+  // (git -> vcs.workflow) and belong in lifecycle rows even though no harness
+  // owns them. They are never replacement targets: candidate artifact kinds do
+  // not include `cli`, so comparison keeps them.
+  const externalRecords = (deps.externalTools ?? detectExternalTools)();
+  let installedRecords: CapabilityRecord[] = [
+    ...adapterRecords,
+    ...externalRecords,
+  ];
   if (checkUpdates) {
     // Upstream evidence only; lifecycle comparison decides current/outdated.
+    // PATH-sourced CLIs have no registry mapping and stay unknown/manual.
     const resolveLatest =
       deps.resolveLatest ?? createLatestVersionResolver();
-    installedRecords = await applyLatestVersions(
-      installedRecords,
-      resolveLatest,
-    );
+    installedRecords = [
+      ...(await applyLatestVersions(adapterRecords, resolveLatest)),
+      ...externalRecords,
+    ];
   }
   const selected =
     harness === "auto" ? (detected[0] ?? "unknown") : harness;

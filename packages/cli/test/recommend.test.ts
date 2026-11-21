@@ -12,7 +12,11 @@ import { join, relative } from "node:path";
 import { createHash } from "node:crypto";
 import { buildSnapshot } from "@plugin-detector/registry";
 import type { Candidate, CapabilityRecord } from "@plugin-detector/core";
-import { recommend } from "../src/commands/recommend.js";
+import {
+  recommend,
+  type RecommendDeps,
+  type RecommendResult,
+} from "../src/commands/recommend.js";
 import { buildAdapters } from "../src/commands/inventory.js";
 import { buildLifecycleRows } from "../src/lifecycle.js";
 import { RecommendJsonSchema } from "../src/output.js";
@@ -139,6 +143,15 @@ function baseArgs(env: { home: string; root: string; cache: string }): string[] 
   ];
 }
 
+// Unit fixtures stay host-independent; the real probe is injected only by the
+// acceptance test. Production recommends without explicit deps.
+function runRecommend(
+  args: string[],
+  deps: RecommendDeps = {},
+): Promise<RecommendResult> {
+  return recommend(args, { externalTools: () => [], ...deps });
+}
+
 test("seven eligible candidates emit at most five, sorted, with zero writes", async () => {
   const env = setup();
   writeSnapshot(
@@ -148,7 +161,7 @@ test("seven eligible candidates emit at most five, sorted, with zero writes", as
   const before = hashTree(env.home) + hashTree(env.root) + hashTree(env.cache);
   let code = -1;
   const { logs } = await capture(async () => {
-    code = (await recommend([...baseArgs(env), "--json"])).exitCode;
+    code = (await runRecommend([...baseArgs(env), "--json"])).exitCode;
   });
   assert.equal(code, 0);
   const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
@@ -168,7 +181,7 @@ test("empty snapshot emits the exact no-good-candidates verdict", async () => {
   writeSnapshot(env.cache, []);
   let code = -1;
   const { logs } = await capture(async () => {
-    code = (await recommend([...baseArgs(env), "--json"])).exitCode;
+    code = (await runRecommend([...baseArgs(env), "--json"])).exitCode;
   });
   assert.equal(code, 0);
   const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
@@ -183,7 +196,7 @@ test("contradiction exits 3 with needs-clarification and no candidates", async (
   let code = -1;
   const { logs } = await capture(async () => {
     code = (
-      await recommend([
+      await runRecommend([
         "--use-case",
         "video-editing",
         "--signal",
@@ -211,7 +224,7 @@ test("unknown use case exits 2 listing valid ids", async () => {
   const env = setup();
   let code = -1;
   const { errors } = await capture(async () => {
-    code = (await recommend(["--use-case", "nope", "--home", env.home])).exitCode;
+    code = (await runRecommend(["--use-case", "nope", "--home", env.home])).exitCode;
   });
   assert.equal(code, 2);
   assert.match(errors.join("\n"), /software-development/);
@@ -226,7 +239,7 @@ test("adapter compatibility zero hard-gates and never returns required", async (
   let code = -1;
   const { logs } = await capture(async () => {
     code = (
-      await recommend([...baseArgs(env), "--harness", "opencode", "--json"])
+      await runRecommend([...baseArgs(env), "--harness", "opencode", "--json"])
     ).exitCode;
   });
   assert.equal(code, 0);
@@ -248,7 +261,7 @@ test("source-declared unprobed candidates are excluded from recommendations", as
     candidate("cand-2"),
   ]);
   const { logs } = await capture(() =>
-    recommend([...baseArgs(env), "--json"]),
+    runRecommend([...baseArgs(env), "--json"]),
   );
   const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
   assert.ok(parsed.facts.recommendations.every((r) => r.candidateId !== "cand-1"));
@@ -274,7 +287,7 @@ test("legacy verified snapshots without artifact evidence are not recommended", 
     }),
   );
   const { logs } = await capture(() =>
-    recommend([...baseArgs(env), "--json"]),
+    runRecommend([...baseArgs(env), "--json"]),
   );
   const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
   assert.ok(
@@ -313,7 +326,7 @@ test("recommend --profile selects the custom profile and applies its threshold",
   let code = -1;
   const { logs } = await capture(async () => {
     code = (
-      await recommend([
+      await runRecommend([
         "--profile",
         file,
         "--signal",
@@ -358,7 +371,7 @@ test("recommend custom profile wins over a built-in profile with the same id", a
   let code = -1;
   const { logs } = await capture(async () => {
     code = (
-      await recommend([
+      await runRecommend([
         "--profile",
         file,
         "--signal",
@@ -386,7 +399,7 @@ test("recommend rejects conflicting --use-case and --profile", async () => {
   let code = -1;
   const { errors } = await capture(async () => {
     code = (
-      await recommend([
+      await runRecommend([
         "--use-case",
         "software-development",
         "--profile",
@@ -405,7 +418,7 @@ test("recommend exits 1 for a missing or invalid profile", async () => {
   let missingCode = -1;
   const missing = await capture(async () => {
     missingCode = (
-      await recommend([
+      await runRecommend([
         "--profile",
         join(env.home, "absent.yaml"),
         "--home",
@@ -421,7 +434,7 @@ test("recommend exits 1 for a missing or invalid profile", async () => {
   let invalidCode = -1;
   const invalid = await capture(async () => {
     invalidCode = (
-      await recommend(["--profile", badFile, "--home", env.home])
+      await runRecommend(["--profile", badFile, "--home", env.home])
     ).exitCode;
   });
   assert.equal(invalidCode, 1);
@@ -441,7 +454,7 @@ test("recommend rejects a mistyped profile key instead of using the default thre
   let code = -1;
   const { errors } = await capture(async () => {
     code = (
-      await recommend(["--profile", file, "--home", env.home])
+      await runRecommend(["--profile", file, "--home", env.home])
     ).exitCode;
   });
   assert.equal(code, 1);
@@ -535,7 +548,7 @@ test("lifecycle rows stay separate from the top-5 recommendations", async () => 
     Array.from({ length: 7 }, (_, i) => candidate(`cand-${i + 1}`)),
   );
   const baseline = await capture(() =>
-    recommend([...baseArgs(env), "--json"]),
+    runRecommend([...baseArgs(env), "--json"]),
   );
   const baselineParsed = RecommendJsonSchema.parse(
     JSON.parse(baseline.logs.join("\n")),
@@ -544,7 +557,7 @@ test("lifecycle rows stay separate from the top-5 recommendations", async () => 
   // A capability-free plugin cannot change overlap or redundancy scoring.
   writeInstalledPlugin(env.root, "acme", "1.0.0");
   const { logs } = await capture(() =>
-    recommend([...baseArgs(env), "--json"]),
+    runRecommend([...baseArgs(env), "--json"]),
   );
   const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
 
@@ -569,7 +582,7 @@ test("lifecycle JSON reports replace, upgrade and keep with print-only recipes",
   let code = -1;
   const { logs } = await capture(async () => {
     code = (
-      await recommend([...baseArgs(env), "--check-updates", "--json"], {
+      await runRecommend([...baseArgs(env), "--check-updates", "--json"], {
         resolveLatest,
       })
     ).exitCode;
@@ -622,7 +635,7 @@ test("lifecycle text output names the installed section and actions", async () =
   lifecycleFixtures(env);
   writeSnapshot(env.cache, lifecycleCandidates());
   const { logs } = await capture(() =>
-    recommend([...baseArgs(env), "--check-updates"], {
+    runRecommend([...baseArgs(env), "--check-updates"], {
       resolveLatest: async () => ({
         version: "1.1.0",
         sourceUrl: "https://example.com/latest",
@@ -642,7 +655,7 @@ test("lifecycle text summarizes keep rows without candidate or update evidence",
   writeSnapshot(env.cache, [candidate("cand-1")]);
 
   const json = await capture(() =>
-    recommend([...baseArgs(env), "--json"]),
+    runRecommend([...baseArgs(env), "--json"]),
   );
   const parsed = RecommendJsonSchema.parse(JSON.parse(json.logs.join("\n")));
   assert.equal(
@@ -651,7 +664,7 @@ test("lifecycle text summarizes keep rows without candidate or update evidence",
     "JSON keeps every installed row",
   );
 
-  const text = await capture(() => recommend([...baseArgs(env)]));
+  const text = await capture(() => runRecommend([...baseArgs(env)]));
   const output = text.logs.join("\n");
   assert.ok(!output.includes("opencode:plugin:project:acme"));
   assert.match(output, /1 unchanged installed artifact row\(s\) omitted/);
@@ -735,7 +748,7 @@ test("one candidate never produces both an upgrade and a replace plan", async ()
     }),
   ]);
   const { logs } = await capture(() =>
-    recommend([...baseArgs(env), "--check-updates", "--json"], {
+    runRecommend([...baseArgs(env), "--check-updates", "--json"], {
       resolveLatest: async () => ({
         version: "1.1.0",
         sourceUrl: "https://example.com/latest",
@@ -791,7 +804,7 @@ test("recommend resolves latest versions only with --check-updates", async () =>
 
   let code = -1;
   await capture(async () => {
-    code = (await recommend([...baseArgs(env), "--json"], { resolveLatest }))
+    code = (await runRecommend([...baseArgs(env), "--json"], { resolveLatest }))
       .exitCode;
   });
   assert.equal(code, 0);
@@ -799,7 +812,7 @@ test("recommend resolves latest versions only with --check-updates", async () =>
 
   const flagged = await capture(async () => {
     code = (
-      await recommend([...baseArgs(env), "--check-updates", "--json"], {
+      await runRecommend([...baseArgs(env), "--check-updates", "--json"], {
         resolveLatest,
       })
     ).exitCode;
