@@ -236,10 +236,11 @@ These are release blockers for a stable `1.0`, not for `0.1.0`:
 - [ ] **Candidate checksum/attestation evidence.** Trust classification accepts a
   caller-provided checksum signal; v0.1 does not fetch or verify candidate
   checksums/attestations where a source offers them.
-- [ ] **Live adapter verification.** Codex and Cursor remain recipe-only until
-  live verification plus review flips `installVerified`. OpenCode and Claude Code
-  writers are fixture/mutation tested; a live smoke test in a disposable home
-  before v1.0 is still expected.
+- [ ] **Live adapter verification.** OpenCode `plan` → `approve` → `install` →
+  `rollback` passed on a disposable home (2026-11-21), including token reuse,
+  no-token, plan-mismatch, and recipe-only checks. Claude Code writers remain
+  fixture/mutation tested. Codex and Cursor remain recipe-only until live
+  verification plus review flips `installVerified`.
 - [ ] **Interactive CLI default.** The spec describes an interactive CLI mode by
   default; 0.1.0 requires flags and delegates conversation to the harness skill.
 - [ ] **Adapter contract alignment (`discoverConfig`, `fixtures`).** Config

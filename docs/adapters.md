@@ -17,13 +17,13 @@ a runtime adapter method. Config discovery is performed inside `detect` /
 | --- | --- | --- | --- | --- |
 | Detect installation / config roots | Yes | Yes | Yes | Yes |
 | Inventory installed capabilities | Yes | Yes | Yes | Yes |
-| Lifecycle rows (`version`, `sourceRef`, scope) | Yes | Yes | Yes | Yes |
+| Lifecycle rows (`version`, `sourceRef`, scope) | Yes | Partial | Partial | Partial |
 | MCP server inventory | Yes | Yes | Yes | Yes |
 | Skills inventory | Yes | Yes | Yes | Yes (experimental) |
 | Hooks / commands inventory | Yes | Yes | Partial | Yes (commands) |
 | Automatic install writer | **Yes, verified only** | **Skills/MCP only, verified only** | **No — recipe-only** | **No — recipe-only** |
 | Rollback for managed writes | Yes | Yes | Recipe only | Recipe only |
-| Live upstream verification | Fixture-tested; re-check before release | Fixture-tested; re-check before release | **Not verified** | **Not verified** |
+| Live upstream verification | OpenCode smoke-tested 2026-11-21; re-check before release | Fixture-tested; re-check before release | **Not verified** | **Not verified** |
 
 "Verified only" means the plan is written only when the candidate's trust class
 is `verified` **and** the candidate's artifact was actually probed. Everything
