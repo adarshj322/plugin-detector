@@ -38,9 +38,10 @@ Release stages: `0.1` alpha, `0.5` beta, `1.0` stable.
 - Lifecycle comparison is conservative by design: same artifact kind, a
   capability superset, no unpreserved installed capability, the profile
   threshold, and proven outdatedness are all required before `replace`.
-  Unknown installed versions and current artifacts stay `keep`; locally
-  modified artifacts become `review`. Curated external CLIs can never be
-  replaced because no candidate artifact kind is `cli`.
+  Unknown installed versions and current artifacts stay `keep`; records that
+  carry a modified signal become `review` (v1.0 adapters report
+  `modified: unknown` because no baseline is recorded). Curated external CLIs
+  can never be replaced because no candidate artifact kind is `cli`.
 - `inventory` probes a fixed curated external-CLI list (`git`, `gh`, `docker`,
   `kubectl`, `rg`, `jq`, `playwright`, `ffmpeg`, `node`, `npm`, `python3`,
   `uv`) with a per-name PATH lookup and a bounded version probe. `recommend`
