@@ -557,7 +557,7 @@ test("lifecycle rows stay separate from the top-5 recommendations", async () => 
   assert.equal(parsed.facts.lifecycle?.[0]?.action, "keep");
 });
 
-test("lifecycle JSON reports replace, upgrade and keep without recipes", async () => {
+test("lifecycle JSON reports replace, upgrade and keep with print-only recipes", async () => {
   const env = setup();
   lifecycleFixtures(env);
   writeSnapshot(env.cache, lifecycleCandidates());
@@ -602,9 +602,19 @@ test("lifecycle JSON reports replace, upgrade and keep without recipes", async (
     "1.1.0",
     "keep rows keep upstream latest evidence",
   );
-  for (const row of parsed.facts.lifecycle ?? []) {
-    assert.equal(row.recipe, undefined, "v1.0 recipes arrive in Task 7");
-  }
+  assert.ok(
+    replaced?.recipe?.some((step) => step.includes("remove")),
+    "replace rows carry a removal recipe",
+  );
+  assert.ok(
+    upgraded?.recipe !== undefined,
+    "upgrade rows carry an install recipe",
+  );
+  assert.equal(
+    byId.get("opencode:skill:project:keep-skill")?.recipe,
+    undefined,
+    "keep rows carry no recipe",
+  );
 });
 
 test("lifecycle text output names the installed section and actions", async () => {

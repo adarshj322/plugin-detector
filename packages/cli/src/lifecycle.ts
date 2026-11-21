@@ -31,6 +31,185 @@ const ACTION_RANK: Readonly<Record<LifecycleAction, number>> = {
   keep: 0,
 };
 
+const APPROVAL_NOTE =
+  "Run only after explicit approval; back up config before editing.";
+
+function isGitHubOrSkillsSh(value: string): boolean {
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return host === "github.com" || host === "www.github.com" || host === "skills.sh";
+  } catch {
+    return false;
+  }
+}
+
+function hasSkillsCliSource(candidate: Candidate): boolean {
+  return [candidate.repositoryUrl, ...candidate.sources].some(
+    (value) => value !== undefined && isGitHubOrSkillsSh(value),
+  );
+}
+
+function isLocalSpec(spec: string): boolean {
+  return (
+    spec.startsWith("/") ||
+    spec.startsWith("./") ||
+    spec.startsWith("../") ||
+    spec.startsWith("~")
+  );
+}
+
+// The spec an OpenCode plugin install would use; a local path has no
+// portable add command and stays manual.
+function installSpec(candidate: Candidate): string | undefined {
+  const spec = (candidate.packageName ?? candidate.repositoryUrl)?.trim();
+  if (spec === undefined || spec === "" || isLocalSpec(spec)) return undefined;
+  return spec;
+}
+
+// Claude marketplace specs are `plugin@marketplace`; a scoped npm name
+// (`@scope/pkg`) is not one.
+function marketplaceSpec(candidate: Candidate): string | undefined {
+  const spec = (candidate.packageName ?? candidate.id).trim();
+  return spec.indexOf("@", 1) > 0 ? spec : undefined;
+}
+
+function sourceRefOf(candidate: Candidate): string {
+  return (
+    candidate.packageName ??
+    candidate.repositoryUrl ??
+    candidate.sources[0] ??
+    candidate.id
+  );
+}
+
+function withApproval(lines: string[]): string[] {
+  return [...lines, APPROVAL_NOTE];
+}
+
+function manualInstallLine(
+  candidate: Candidate | undefined,
+  harness: string,
+): string {
+  const name = candidate?.name ?? "the candidate";
+  const source =
+    candidate === undefined ? "its documented source" : sourceRefOf(candidate);
+  return `Manual: install "${name}" from ${source} using the ${harness} documented installation procedure.`;
+}
+
+function manualPlan(
+  row: LifecycleRow,
+  installed: CapabilityRecord,
+  candidate: Candidate | undefined,
+): string[] {
+  if (row.action === "upgrade") {
+    return withApproval([
+      `Manual: upgrade "${installed.name}" using the ${installed.harness} documented upgrade procedure; no automatic command is known.`,
+    ]);
+  }
+  return withApproval([
+    `Manual: remove "${installed.name}" using the ${installed.harness} documented uninstall procedure; no automatic removal command is known.`,
+    manualInstallLine(candidate, installed.harness),
+  ]);
+}
+
+function skillsPlan(
+  row: LifecycleRow,
+  installed: CapabilityRecord,
+  candidate: Candidate | undefined,
+): string[] {
+  if (candidate === undefined || !hasSkillsCliSource(candidate)) {
+    return manualPlan(row, installed, candidate);
+  }
+  const install = `npx skills add ${candidate.id}`;
+  return row.action === "upgrade"
+    ? withApproval([install])
+    : withApproval([`npx skills remove ${installed.id}`, install]);
+}
+
+function opencodePluginPlan(
+  row: LifecycleRow,
+  installed: CapabilityRecord,
+  candidate: Candidate | undefined,
+): string[] {
+  const spec = candidate === undefined ? undefined : installSpec(candidate);
+  if (candidate === undefined || spec === undefined) {
+    return manualPlan(row, installed, candidate);
+  }
+  const install = `opencode plugin add ${spec}`;
+  if (row.action === "upgrade") return withApproval([install]);
+  if (installed.sourceRef === undefined) {
+    return manualPlan(row, installed, candidate);
+  }
+  return withApproval([
+    `opencode plugin remove ${installed.sourceRef}`,
+    install,
+  ]);
+}
+
+function claudePluginPlan(
+  row: LifecycleRow,
+  installed: CapabilityRecord,
+  candidate: Candidate | undefined,
+): string[] {
+  const spec = candidate === undefined ? undefined : marketplaceSpec(candidate);
+  if (candidate === undefined || spec === undefined) {
+    return manualPlan(row, installed, candidate);
+  }
+  const install = `claude plugin install ${spec}`;
+  if (row.action === "upgrade") return withApproval([install]);
+  if (installed.sourceRef === undefined) {
+    return manualPlan(row, installed, candidate);
+  }
+  return withApproval([
+    `claude plugin uninstall ${installed.sourceRef}`,
+    install,
+  ]);
+}
+
+function mcpPlan(
+  row: LifecycleRow,
+  installed: CapabilityRecord,
+  candidate: Candidate | undefined,
+): string[] {
+  if (candidate === undefined) return [];
+  const config =
+    installed.configRefs[0] ?? `the ${installed.harness} MCP configuration`;
+  const source = sourceRefOf(candidate);
+  return row.action === "upgrade"
+    ? withApproval([
+        `Edit ${config}: update the "${installed.name}" server entry to ${source}.`,
+      ])
+    : withApproval([
+        `Edit ${config}: remove the "${installed.name}" server entry.`,
+        `Edit ${config}: add the "${candidate.id}" server entry from ${source}.`,
+      ]);
+}
+
+// Print-only plan for an actionable lifecycle row: exact, documented commands
+// where the harness supports them; a manual recipe everywhere else. Never
+// writes, fetches, or consumes an approval token.
+export function lifecyclePlan(
+  row: LifecycleRow,
+  installed: CapabilityRecord,
+  candidate?: Candidate,
+): string[] {
+  if (row.action !== "replace" && row.action !== "upgrade") return [];
+  if (installed.kind === "mcp") return mcpPlan(row, installed, candidate);
+  if (
+    installed.kind === "skill" &&
+    (installed.harness === "opencode" || installed.harness === "claude-code")
+  ) {
+    return skillsPlan(row, installed, candidate);
+  }
+  if (installed.harness === "opencode" && installed.kind === "plugin") {
+    return opencodePluginPlan(row, installed, candidate);
+  }
+  if (installed.harness === "claude-code" && installed.kind === "plugin") {
+    return claudePluginPlan(row, installed, candidate);
+  }
+  return manualPlan(row, installed, candidate);
+}
+
 // Relevance only; compareLifecycle still owns identity and name-collision
 // rules. Empty or whitespace identity needles never match.
 function relatedTo(
@@ -178,5 +357,20 @@ export function buildLifecycleRows(
   // Stable sort: stronger actions come first so dedupe keeps them, while
   // inventory order survives within the same action.
   rows.sort((a, b) => ACTION_RANK[b.action] - ACTION_RANK[a.action]);
-  return dedupeCandidatePlans(dedupeReplacementRows(rows));
+  const records = new Map(installed.map((record) => [record.id, record]));
+  const candidateById = new Map(
+    candidates.map((entry) => [entry.candidate.id, entry.candidate]),
+  );
+  // Recipes attach after dedupe so demoted rows stay recipe-free.
+  return dedupeCandidatePlans(dedupeReplacementRows(rows)).map((row) => {
+    if (row.action !== "replace" && row.action !== "upgrade") return row;
+    const record = records.get(row.installedId);
+    if (record === undefined) return row;
+    const next =
+      row.candidateId === undefined
+        ? undefined
+        : candidateById.get(row.candidateId);
+    const recipe = lifecyclePlan(row, record, next);
+    return recipe.length === 0 ? row : { ...row, recipe };
+  });
 }

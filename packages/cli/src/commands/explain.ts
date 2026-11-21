@@ -166,6 +166,7 @@ export async function explain(
               : { candidateId: row.candidateId }),
             capabilitiesAdded: row.capabilitiesAdded,
             reasons: row.reasons,
+            ...(row.recipe === undefined ? {} : { recipe: row.recipe }),
             snapshotGeneratedAt: generatedAt,
             snapshotAgeDays: Math.max(0, snapshotAgeDays),
           },
@@ -191,6 +192,7 @@ export async function explain(
       `capabilities-added: ${row.capabilitiesAdded.join(", ") || "(none)"}`,
       `snapshot-age: generated ${generatedAt} (${Math.max(0, snapshotAgeDays)}d ago)`,
       ...row.reasons.map((reason) => `reason: ${reason}`),
+      ...(row.recipe ?? []).map((step) => `recipe: ${step}`),
     ]);
     printSection("estimates", [
       "installed lifecycle evidence only; run recommend for a use-case verdict",

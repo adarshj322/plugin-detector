@@ -132,6 +132,7 @@ export const InstalledExplainJsonSchema = z.object({
     candidateId: z.string().min(1).optional(),
     capabilitiesAdded: z.array(z.string().min(1)),
     reasons: z.array(z.string().min(1)),
+    recipe: z.array(z.string().min(1)).optional(),
     snapshotGeneratedAt: z.string().min(1),
     snapshotAgeDays: z.number().nonnegative(),
   }),

@@ -373,9 +373,8 @@ export async function recommend(
       lifecycle.length === 0
         ? ["(none)"]
         : [
-            ...visibleLifecycle.map(
-              (row) =>
-                `${row.installedId} [${row.action}] ` +
+            ...visibleLifecycle.flatMap((row) => [
+              `${row.installedId} [${row.action}] ` +
                 `installed=${row.installedVersion ?? "unknown"} ` +
                 `latest=${row.latestVersion ?? "unknown"}` +
                 (row.candidateId === undefined
@@ -383,7 +382,10 @@ export async function recommend(
                   : ` candidate=${row.candidateId}`) +
                 ` added=${row.capabilitiesAdded.join(",") || "(none)"} ` +
                 `reason=${row.reasons.join("; ")}`,
-            ),
+              ...(row.recipe ?? []).map(
+                (step) => `recipe(${row.installedId}): ${step}`,
+              ),
+            ]),
             ...(hiddenLifecycleCount === 0
               ? []
               : [
