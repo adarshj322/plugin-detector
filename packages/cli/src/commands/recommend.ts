@@ -24,6 +24,7 @@ import {
   printSection,
   type RecommendJson,
 } from "../output.js";
+import { buildLifecycleRows } from "../lifecycle.js";
 import { buildAdapters } from "./inventory.js";
 
 export interface RecommendResult {
@@ -291,6 +292,19 @@ export async function recommend(
     recommendations: scored.map((s) => s.rec),
     requiredThreshold: effectiveThreshold,
   });
+  const lifecycle = buildLifecycleRows(
+    installedRecords,
+    scored.map((s) => ({
+      candidate: s.rec.candidate,
+      score: s.rec.score,
+      ...(s.compatibility === null ? {} : { compatibility: s.compatibility }),
+    })),
+    {
+      installedInventory: installedRecords,
+      profileDomainsFor: () => profile.capabilities,
+      threshold: effectiveThreshold,
+    },
+  );
 
   const payload: RecommendJson = {
     command: "recommend",
@@ -315,6 +329,7 @@ export async function recommend(
         pinnedRef: s.rec.candidate.pinnedRef,
         evidencePointers: s.rec.evidencePointers,
       })),
+      lifecycle,
       conflictingSignals: resolution.conflictingSignals,
     },
     estimates: {
@@ -344,6 +359,22 @@ export async function recommend(
       payload.estimates.reasoningByCandidate.map(
         (r) => `${r.candidateId}: ${r.reasoning}`,
       ),
+    );
+    printSection(
+      "installed lifecycle",
+      lifecycle.length === 0
+        ? ["(none)"]
+        : lifecycle.map(
+            (row) =>
+              `${row.installedId} [${row.action}] ` +
+              `installed=${row.installedVersion ?? "unknown"} ` +
+              `latest=${row.latestVersion ?? "unknown"}` +
+              (row.candidateId === undefined
+                ? ""
+                : ` candidate=${row.candidateId}`) +
+              ` added=${row.capabilitiesAdded.join(",") || "(none)"} ` +
+              `reason=${row.reasons.join("; ")}`,
+          ),
     );
     printSection("untrustedCopy", []);
   }

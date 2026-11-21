@@ -1,24 +1,41 @@
 import {
+  DEFAULT_REQUIRED_THRESHOLD,
   scoreBreakdown,
   scoreCandidate,
   type CapabilityRecord,
 } from "@plugin-detector/core";
-import { loadSnapshot } from "@plugin-detector/registry";
+import {
+  applyLatestVersions,
+  createLatestVersionResolver,
+  loadSnapshot,
+  type LatestVersionResolver,
+} from "@plugin-detector/registry";
 import {
   ExplainJsonSchema,
+  InstalledExplainJsonSchema,
   UNTRUSTED_WARNING,
   printJson,
   printSection,
 } from "../output.js";
+import { buildLifecycleRows } from "../lifecycle.js";
 import { buildAdapters } from "./inventory.js";
 
 export interface ExplainResult {
   exitCode: number;
 }
 
-export async function explain(argv: string[]): Promise<ExplainResult> {
+export interface ExplainDeps {
+  // Test seam; production resolves only when --check-updates is present.
+  resolveLatest?: LatestVersionResolver | undefined;
+}
+
+export async function explain(
+  argv: string[],
+  deps: ExplainDeps = {},
+): Promise<ExplainResult> {
   let candidateId: string | undefined;
   let showUntrusted = false;
+  let checkUpdates = false;
   let json = false;
   let cacheDir: string | undefined;
   let home: string | undefined;
@@ -26,6 +43,7 @@ export async function explain(argv: string[]): Promise<ExplainResult> {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--show-untrusted") showUntrusted = true;
+    else if (arg === "--check-updates") checkUpdates = true;
     else if (arg === "--json") json = true;
     else if (arg === "--cache-dir" && i + 1 < argv.length) {
       cacheDir = argv[i + 1];
@@ -44,7 +62,9 @@ export async function explain(argv: string[]): Promise<ExplainResult> {
     }
   }
   if (!candidateId) {
-    console.error(`usage: plugin-detector explain <candidate-id> [--show-untrusted] [--json]`);
+    console.error(
+      `usage: plugin-detector explain <candidate-or-installed-id> [--show-untrusted] [--check-updates] [--json]`,
+    );
     return { exitCode: 2 };
   }
 
@@ -57,24 +77,129 @@ export async function explain(argv: string[]): Promise<ExplainResult> {
     );
     return { exitCode: 1 };
   }
-  const candidate = snapshot.candidates.find((c) => c.id === candidateId);
-  if (!candidate) {
-    console.error(`unknown candidate: ${candidateId}`);
-    return { exitCode: 1 };
-  }
-  const provenance = snapshot.provenance.find((p) => p.id === candidate.id);
+  const generatedAt = snapshot.generatedAt;
+  const snapshotAgeDays =
+    Math.round(
+      ((Date.now() - Date.parse(generatedAt)) / 86_400_000) * 10,
+    ) / 10;
 
   const adapters = buildAdapters(home, root);
   const detected: string[] = [];
-  const compatibilityByHarness: Record<string, number> = {};
   const installed: CapabilityRecord[] = [];
   for (const adapter of adapters) {
     if ((await adapter.detect()).detected) detected.push(adapter.harness);
     const inv = await adapter.inventory();
     installed.push(...inv.records);
-    compatibilityByHarness[adapter.harness] = adapter.compatibility(candidate);
   }
   const selected = detected[0] ?? "unknown";
+
+  const candidate = snapshot.candidates.find((c) => c.id === candidateId);
+  if (!candidate) {
+    const found = installed.find((r) => r.id === candidateId);
+    if (!found) {
+      console.error(`unknown candidate or installed artifact: ${candidateId}`);
+      return { exitCode: 1 };
+    }
+    let record = found;
+    if (checkUpdates) {
+      const [updated] = await applyLatestVersions(
+        [found],
+        deps.resolveLatest ?? createLatestVersionResolver(),
+      );
+      if (updated !== undefined) record = updated;
+    }
+    const [row] = buildLifecycleRows(
+      [record],
+      snapshot.candidates.map((next) => {
+        const compatibility =
+          adapters.find((a) => a.harness === record.harness)?.compatibility(next) ?? 1;
+        return {
+          candidate: next,
+          compatibility,
+          score: scoreCandidate({
+            candidate: next,
+            installedCapabilities: [],
+            profileDomains: next.capabilities,
+            harness: record.harness,
+            useCaseMatch: 1,
+            projectSignalMatch: 0,
+            compatibility,
+          }).score,
+        };
+      }),
+      {
+        installedInventory: installed,
+        // Explain has no profile: a candidate's own capabilities are its
+        // declared domains, matching the self-context candidate path.
+        profileDomainsFor: (next) => next.capabilities,
+        threshold: DEFAULT_REQUIRED_THRESHOLD,
+      },
+    );
+    if (row === undefined) {
+      // Unreachable: one installed record always yields one row.
+      console.error(`no lifecycle evidence for installed artifact: ${record.id}`);
+      return { exitCode: 1 };
+    }
+    const latestVersion = row.latestVersion ?? record.latestVersion;
+    if (json) {
+      printJson(
+        {
+          command: "explain",
+          facts: {
+            installedId: record.id,
+            name: record.name,
+            harness: record.harness,
+            kind: record.kind,
+            capabilities: record.capabilities,
+            ...(record.version === undefined
+              ? {}
+              : { installedVersion: record.version }),
+            ...(latestVersion === undefined ? {} : { latestVersion }),
+            updateStatus: record.updateStatus ?? "unknown",
+            action: row.action,
+            ...(row.candidateId === undefined
+              ? {}
+              : { candidateId: row.candidateId }),
+            capabilitiesAdded: row.capabilitiesAdded,
+            reasons: row.reasons,
+            snapshotGeneratedAt: generatedAt,
+            snapshotAgeDays: Math.max(0, snapshotAgeDays),
+          },
+          estimates: {
+            reasoning:
+              "installed lifecycle evidence only; run recommend for a use-case verdict",
+          },
+          untrustedCopy: { withheld: true as const },
+        },
+        InstalledExplainJsonSchema,
+      );
+      return { exitCode: 0 };
+    }
+    printSection("facts", [
+      `installed: ${record.id} (${record.name})`,
+      `harness: ${record.harness} kind: ${record.kind} enabled: ${record.enabled}`,
+      `installed-version: ${record.version ?? "unknown"}`,
+      `latest-version: ${latestVersion ?? "unknown"}`,
+      `update-status: ${record.updateStatus ?? "unknown"}`,
+      `action: ${row.action}`,
+      `candidate: ${row.candidateId ?? "(none)"}`,
+      `capabilities: ${record.capabilities.join(", ") || "(none)"}`,
+      `capabilities-added: ${row.capabilitiesAdded.join(", ") || "(none)"}`,
+      `snapshot-age: generated ${generatedAt} (${Math.max(0, snapshotAgeDays)}d ago)`,
+      ...row.reasons.map((reason) => `reason: ${reason}`),
+    ]);
+    printSection("estimates", [
+      "installed lifecycle evidence only; run recommend for a use-case verdict",
+    ]);
+    printSection("untrustedCopy", ["(none)"]);
+    return { exitCode: 0 };
+  }
+
+  const provenance = snapshot.provenance.find((p) => p.id === candidate.id);
+  const compatibilityByHarness: Record<string, number> = {};
+  for (const adapter of adapters) {
+    compatibilityByHarness[adapter.harness] = adapter.compatibility(candidate);
+  }
 
   // Self-context scoring: explain has no profile, so the candidate is scored
   // against its own declared domains (useCaseMatch 1, no project signals).
@@ -112,11 +237,6 @@ export async function explain(argv: string[]): Promise<ExplainResult> {
     `provenance:${candidate.provenance}`,
     `install-mode:${candidate.installMode}`,
   ];
-  const generatedAt = snapshot.generatedAt;
-  const snapshotAgeDays =
-    Math.round(
-      ((Date.now() - Date.parse(generatedAt)) / 86_400_000) * 10,
-    ) / 10;
   const trust = provenance?.trust ?? "unverified";
   const hasUntrusted =
     candidate.rawUntrustedCopy !== undefined &&

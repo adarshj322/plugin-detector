@@ -6,7 +6,10 @@ import { join } from "node:path";
 import { buildSnapshot } from "@plugin-detector/registry";
 import type { Candidate } from "@plugin-detector/core";
 import { explain } from "../src/commands/explain.js";
-import { ExplainJsonSchema } from "../src/output.js";
+import {
+  ExplainJsonSchema,
+  InstalledExplainJsonSchema,
+} from "../src/output.js";
 
 function setup(): { home: string; root: string; cache: string } {
   const base = mkdtempSync(join(tmpdir(), "pd-explain-"));
@@ -51,9 +54,12 @@ const CANDIDATE: Candidate = {
   rawUntrustedCopy: "SECRET-UNTRUSTED-MARKER buy now!!!",
 };
 
-function writeSnapshot(cache: string): void {
+function writeSnapshot(cache: string, candidates: Candidate[] = [CANDIDATE]): void {
   const snapshot = buildSnapshot(
-    [{ candidate: CANDIDATE, sourceUrl: "https://example.com/cand-explain" }],
+    candidates.map((candidate) => ({
+      candidate,
+      sourceUrl: candidate.sources[0] ?? "",
+    })),
     new Date("2026-11-08T00:00:00.000Z"),
   );
   writeFileSync(join(cache, "registry-snapshot.json"), JSON.stringify(snapshot));
@@ -189,4 +195,110 @@ test("explain surfaces a risky verdict for a hard-gated candidate", async () => 
   );
   const parsed = ExplainJsonSchema.parse(JSON.parse(logs.join("\n")));
   assert.equal(parsed.facts.verdict, "risky");
+});
+
+const INSTALLED_ID = "opencode:skill:project:old-review";
+
+const REPLACEMENT: Candidate = {
+  ...CANDIDATE,
+  id: "new-review",
+  name: "new-review",
+  capabilities: ["code-review.quality", "code-review.security"],
+  pinnedRef: "v2.0.0",
+  artifactEvidence: {
+    ...(CANDIDATE.artifactEvidence as NonNullable<
+      Candidate["artifactEvidence"]
+    >),
+    name: "new-review",
+    resolvedRef: "v2.0.0",
+    version: "2.0.0",
+  },
+};
+
+function writeInstalledReview(root: string): void {
+  const dir = join(root, ".opencode", "skills", "old-review");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "SKILL.md"),
+    "---\nname: old-review\nversion: 1.0.0\ncapabilities: [code-review.quality]\n---\n# old-review\n",
+  );
+}
+
+test("explain accepts an installed artifact id and shows lifecycle evidence", async () => {
+  const env = setup();
+  writeInstalledReview(env.root);
+  writeSnapshot(env.cache, [REPLACEMENT]);
+  let code = -1;
+  const { logs } = await capture(async () => {
+    code = (
+      await explain(
+        [
+          INSTALLED_ID,
+          "--cache-dir",
+          env.cache,
+          "--home",
+          env.home,
+          "--root",
+          env.root,
+          "--check-updates",
+          "--json",
+        ],
+        {
+          resolveLatest: async () => ({
+            version: "1.1.0",
+            sourceUrl: "https://example.com/latest",
+          }),
+        },
+      )
+    ).exitCode;
+  });
+  assert.equal(code, 0);
+  const parsed = InstalledExplainJsonSchema.parse(JSON.parse(logs.join("\n")));
+  assert.equal(parsed.facts.installedId, INSTALLED_ID);
+  assert.equal(parsed.facts.installedVersion, "1.0.0");
+  assert.equal(parsed.facts.latestVersion, "2.0.0");
+  assert.equal(parsed.facts.updateStatus, "unknown");
+  assert.equal(parsed.facts.action, "replace");
+  assert.equal(parsed.facts.candidateId, "new-review");
+  assert.deepEqual(parsed.facts.capabilitiesAdded, ["code-review.security"]);
+  assert.ok(parsed.facts.reasons.length > 0);
+});
+
+test("explain text shows installed version, latest, status and action", async () => {
+  const env = setup();
+  writeInstalledReview(env.root);
+  writeSnapshot(env.cache, [REPLACEMENT]);
+  const { logs } = await capture(() =>
+    explain(
+      [
+        INSTALLED_ID,
+        "--cache-dir",
+        env.cache,
+        "--home",
+        env.home,
+        "--root",
+        env.root,
+        "--check-updates",
+      ],
+      {
+        resolveLatest: async () => ({
+          version: "1.1.0",
+          sourceUrl: "https://example.com/latest",
+        }),
+      },
+    ),
+  );
+  const text = logs.join("\n");
+  for (const needle of [
+    `installed: ${INSTALLED_ID}`,
+    "installed-version: 1.0.0",
+    "latest-version: 2.0.0",
+    "update-status: unknown",
+    "action: replace",
+    "candidate: new-review",
+    "capabilities-added: code-review.security",
+    "reason:",
+  ]) {
+    assert.ok(text.includes(needle), `missing ${needle}`);
+  }
 });

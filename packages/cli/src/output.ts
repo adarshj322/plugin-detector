@@ -3,6 +3,9 @@ import {
   CapabilityRecordSchema,
   Confidence,
   InstallPlanSchema,
+  LifecycleAction,
+  LifecycleRowSchema,
+  UpdateStatus,
   Verdict,
 } from "@plugin-detector/core";
 
@@ -53,6 +56,8 @@ export const RecommendJsonSchema = z.object({
     verdict: z.string().min(1),
     message: z.string().optional(),
     recommendations: z.array(RecommendationFactsSchema).max(5),
+    // Installed-artifact rows stay out of the registry top-5 contract.
+    lifecycle: z.array(LifecycleRowSchema).optional(),
     conflictingSignals: z.array(z.string()),
   }),
   estimates: z.object({
@@ -107,6 +112,31 @@ export const ExplainJsonSchema = z.object({
   ]),
 });
 export type ExplainJson = z.infer<typeof ExplainJsonSchema>;
+
+// Installed artifacts have different facts than registry candidates, so they
+// validate against their own contract instead of faking candidate fields.
+export const InstalledExplainJsonSchema = z.object({
+  command: z.literal("explain"),
+  facts: z.object({
+    installedId: z.string().min(1),
+    name: z.string().min(1),
+    harness: z.string().min(1),
+    kind: z.string().min(1),
+    capabilities: z.array(z.string().min(1)),
+    installedVersion: z.string().min(1).optional(),
+    latestVersion: z.string().min(1).optional(),
+    updateStatus: UpdateStatus,
+    action: LifecycleAction,
+    candidateId: z.string().min(1).optional(),
+    capabilitiesAdded: z.array(z.string().min(1)),
+    reasons: z.array(z.string().min(1)),
+    snapshotGeneratedAt: z.string().min(1),
+    snapshotAgeDays: z.number().nonnegative(),
+  }),
+  estimates: z.object({ reasoning: z.string() }),
+  untrustedCopy: z.object({ withheld: z.literal(true) }),
+});
+export type InstalledExplainJson = z.infer<typeof InstalledExplainJsonSchema>;
 
 export const CliErrorSchema = z.object({
   command: z.string().min(1),
@@ -175,10 +205,10 @@ export const RollbackJsonSchema = z.object({
 });
 export type RollbackJson = z.infer<typeof RollbackJsonSchema>;
 
-// Section printers keep the same three headers on stdout so scripted
-// consumers can split on them as reliably as --json consumers split keys.
+// Section printers keep stable headers on stdout so scripted consumers can
+// split on them as reliably as --json consumers split keys.
 export function printSection(
-  title: "facts" | "estimates" | "untrustedCopy",
+  title: "facts" | "estimates" | "installed lifecycle" | "untrustedCopy",
   lines: string[],
 ): void {
   console.log(`${title}:`);

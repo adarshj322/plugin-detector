@@ -366,7 +366,7 @@ export function dedupeReplacementRows(
       claimed.add(row.candidateId);
       return row;
     }
-    const { candidateId, latestVersion, ...rest } = row;
+    const { candidateId, latestVersion, recipe: _recipe, ...rest } = row;
     return {
       ...rest,
       action: "keep",

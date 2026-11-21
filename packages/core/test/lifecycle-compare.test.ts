@@ -312,10 +312,18 @@ test("dedupeReplacementRows proposes each replacement candidate once", () => {
   assert.equal(rows[0]?.action, "replace");
   assert.equal(rows[1]?.action, "replace");
 
-  const deduped = dedupeReplacementRows(rows);
+  const deduped = dedupeReplacementRows([
+    rows[0] as (typeof rows)[number],
+    { ...(rows[1] as (typeof rows)[number]), recipe: ["remove reviewer-b"] },
+  ]);
   assert.equal(deduped[0]?.action, "replace");
   assert.equal(deduped[1]?.action, "keep");
   assert.equal(deduped[1]?.candidateId, undefined);
+  assert.equal(
+    deduped[1]?.recipe,
+    undefined,
+    "a demoted row must not carry an executable recipe",
+  );
   assert.deepEqual(deduped[1]?.capabilitiesAdded, []);
 });
 

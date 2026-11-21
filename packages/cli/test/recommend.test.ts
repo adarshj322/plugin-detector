@@ -447,6 +447,239 @@ test("recommend rejects a mistyped profile key instead of using the default thre
   assert.match(errors.join("\n"), /requiredThreshhold/);
 });
 
+function writeInstalledSkill(
+  root: string,
+  dir: string,
+  frontmatter: string,
+): void {
+  const skillDir = join(root, ".opencode", "skills", dir);
+  mkdirSync(skillDir, { recursive: true });
+  writeFileSync(
+    join(skillDir, "SKILL.md"),
+    `---\n${frontmatter}\n---\n# ${dir}\n`,
+  );
+}
+
+function writeInstalledPlugin(root: string, name: string, version: string): void {
+  const pluginDir = join(root, ".opencode", "plugins", name);
+  mkdirSync(pluginDir, { recursive: true });
+  writeFileSync(
+    join(pluginDir, "package.json"),
+    JSON.stringify({ name, version }),
+  );
+}
+
+function lifecycleFixtures(env: { root: string }): void {
+  writeInstalledSkill(
+    env.root,
+    "old-review",
+    "name: old-review\nversion: 1.0.0\ncapabilities: [code-review.quality]",
+  );
+  writeInstalledSkill(
+    env.root,
+    "keep-skill",
+    "name: keep-skill\nversion: 2.0.0\ncapabilities: [testing.runner]",
+  );
+  writeInstalledPlugin(env.root, "cand-upgrade", "1.0.0");
+}
+
+function lifecycleCandidates(): Candidate[] {
+  return [
+    candidate("cand-upgrade", {
+      name: "cand-upgrade",
+      artifactType: "plugin",
+      packageName: "cand-upgrade",
+      capabilities: [],
+      pinnedRef: "v1.1.0",
+      artifactEvidence: {
+        ...(candidate("cand-upgrade").artifactEvidence as NonNullable<
+          Candidate["artifactEvidence"]
+        >),
+        kind: "plugin",
+        name: "cand-upgrade",
+        version: "1.1.0",
+      },
+    }),
+    candidate("new-review", {
+      name: "new-review",
+      artifactType: "skill",
+      capabilities: ["code-review.quality", "code-review.security"],
+      pinnedRef: "v2.0.0",
+      artifactEvidence: {
+        ...(candidate("new-review").artifactEvidence as NonNullable<
+          Candidate["artifactEvidence"]
+        >),
+        kind: "skill",
+        name: "new-review",
+        version: "2.0.0",
+      },
+    }),
+    candidate("keep-cand", {
+      name: "keep-cand",
+      artifactType: "skill",
+      capabilities: ["testing.runner"],
+      pinnedRef: "v1.0.0",
+    }),
+  ];
+}
+
+test("lifecycle rows stay separate from the top-5 recommendations", async () => {
+  const env = setup();
+  // Both runs must resolve the same harness; the empty directory only makes
+  // the harness detectable.
+  mkdirSync(join(env.root, ".opencode"), { recursive: true });
+  writeSnapshot(
+    env.cache,
+    Array.from({ length: 7 }, (_, i) => candidate(`cand-${i + 1}`)),
+  );
+  const baseline = await capture(() =>
+    recommend([...baseArgs(env), "--json"]),
+  );
+  const baselineParsed = RecommendJsonSchema.parse(
+    JSON.parse(baseline.logs.join("\n")),
+  );
+
+  // A capability-free plugin cannot change overlap or redundancy scoring.
+  writeInstalledPlugin(env.root, "acme", "1.0.0");
+  const { logs } = await capture(() =>
+    recommend([...baseArgs(env), "--json"]),
+  );
+  const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
+
+  assert.deepEqual(
+    parsed.facts.recommendations,
+    baselineParsed.facts.recommendations,
+  );
+  assert.equal(parsed.facts.recommendations.length, 5);
+  assert.equal(parsed.facts.lifecycle?.length, 1);
+  assert.equal(parsed.facts.lifecycle?.[0]?.action, "keep");
+});
+
+test("lifecycle JSON reports replace, upgrade and keep without recipes", async () => {
+  const env = setup();
+  lifecycleFixtures(env);
+  writeSnapshot(env.cache, lifecycleCandidates());
+  const resolveLatest = async (): Promise<{
+    version: string;
+    sourceUrl: string;
+  }> => ({ version: "1.1.0", sourceUrl: "https://example.com/latest" });
+
+  let code = -1;
+  const { logs } = await capture(async () => {
+    code = (
+      await recommend([...baseArgs(env), "--check-updates", "--json"], {
+        resolveLatest,
+      })
+    ).exitCode;
+  });
+  assert.equal(code, 0);
+  const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
+  assert.ok(parsed.facts.lifecycle !== undefined);
+  const byId = new Map(
+    (parsed.facts.lifecycle ?? []).map((row) => [row.installedId, row]),
+  );
+
+  const replaced = byId.get("opencode:skill:project:old-review");
+  assert.equal(replaced?.action, "replace");
+  assert.equal(replaced?.candidateId, "new-review");
+  assert.deepEqual(replaced?.capabilitiesAdded, ["code-review.security"]);
+  assert.equal(replaced?.latestVersion, "2.0.0");
+  assert.ok((replaced?.reasons.length ?? 0) > 0);
+
+  const upgraded = byId.get("opencode:plugin:project:cand-upgrade");
+  assert.equal(upgraded?.action, "upgrade");
+  assert.equal(upgraded?.installedVersion, "1.0.0");
+  assert.equal(upgraded?.latestVersion, "1.1.0");
+
+  assert.equal(
+    byId.get("opencode:skill:project:keep-skill")?.action,
+    "keep",
+  );
+  for (const row of parsed.facts.lifecycle ?? []) {
+    assert.equal(row.recipe, undefined, "v1.0 recipes arrive in Task 7");
+  }
+});
+
+test("lifecycle text output names the installed section and actions", async () => {
+  const env = setup();
+  lifecycleFixtures(env);
+  writeSnapshot(env.cache, lifecycleCandidates());
+  const { logs } = await capture(() =>
+    recommend([...baseArgs(env), "--check-updates"], {
+      resolveLatest: async () => ({
+        version: "1.1.0",
+        sourceUrl: "https://example.com/latest",
+      }),
+    }),
+  );
+  const text = logs.join("\n");
+  assert.match(text, /installed lifecycle:/);
+  assert.match(text, /opencode:skill:project:old-review \[replace\]/);
+  assert.match(text, /opencode:plugin:project:cand-upgrade \[upgrade\]/);
+  assert.match(text, /opencode:skill:project:keep-skill \[keep\]/);
+});
+
+test("one candidate never produces both an upgrade and a replace plan", async () => {
+  const env = setup();
+  writeInstalledSkill(
+    env.root,
+    "cand-dup",
+    "name: cand-dup\nversion: 1.0.0\ncapabilities: [testing.runner]",
+  );
+  writeInstalledSkill(
+    env.root,
+    "old-review",
+    "name: old-review\nversion: 1.0.0\ncapabilities: [code-review.quality]",
+  );
+  writeSnapshot(env.cache, [
+    candidate("cand-dup", {
+      name: "cand-dup",
+      artifactType: "skill",
+      packageName: "cand-dup",
+      capabilities: ["code-review.quality", "code-review.security"],
+      pinnedRef: "v2.0.0",
+      artifactEvidence: {
+        ...(candidate("cand-dup").artifactEvidence as NonNullable<
+          Candidate["artifactEvidence"]
+        >),
+        kind: "skill",
+        name: "cand-dup",
+        version: "2.0.0",
+      },
+    }),
+  ]);
+  const { logs } = await capture(() =>
+    recommend([...baseArgs(env), "--check-updates", "--json"], {
+      resolveLatest: async () => ({
+        version: "1.1.0",
+        sourceUrl: "https://example.com/latest",
+      }),
+    }),
+  );
+  const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
+  const lifecycle = parsed.facts.lifecycle ?? [];
+  const claims = lifecycle.filter((row) => row.candidateId === "cand-dup");
+  assert.equal(claims.length, 1);
+  assert.equal(claims[0]?.action, "replace");
+  assert.equal(
+    claims[0]?.installedId,
+    "opencode:skill:project:old-review",
+    "replace wins over upgrade for the same candidate",
+  );
+
+  const demoted = lifecycle.find(
+    (row) => row.installedId === "opencode:skill:project:cand-dup",
+  );
+  assert.equal(demoted?.action, "keep");
+  assert.equal(demoted?.candidateId, undefined);
+  assert.equal(demoted?.latestVersion, undefined);
+  assert.equal(demoted?.recipe, undefined);
+  assert.deepEqual(demoted?.capabilitiesAdded, []);
+  assert.ok(
+    demoted?.reasons.some((reason) => reason.includes("already proposed")),
+  );
+});
+
 test("recommend resolves latest versions only with --check-updates", async () => {
   const env = setup();
   writeSnapshot(env.cache, []);
