@@ -4,7 +4,11 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:f
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { CANONICAL_CAPABILITY_IDS } from "@plugin-detector/core";
-import { detectExternalTools } from "../src/index.js";
+import {
+  CURATED_CLI_COMMANDS,
+  CURATED_CLI_NAMES,
+  detectExternalTools,
+} from "../src/index.js";
 
 function tempDir(): string {
   return mkdtempSync(path.join(tmpdir(), "pd-external-"));
@@ -23,11 +27,11 @@ test("detects curated tools with PATH evidence and parsed versions", () => {
   try {
     const git = stubBinary(dir, "git");
     const gh = stubBinary(dir, "gh");
-    const probed: string[] = [];
+    const probed: Array<[string, string]> = [];
     const records = detectExternalTools({
       path: dir,
-      readVersion: (command) => {
-        probed.push(command);
+      readVersion: (command, installPath) => {
+        probed.push([command, installPath]);
         return command === "git" ? "2.43.0" : undefined;
       },
     });
@@ -36,7 +40,10 @@ test("detects curated tools with PATH evidence and parsed versions", () => {
       records.map((record) => record.name),
       ["git", "gh"],
     );
-    assert.deepEqual(probed, ["git", "gh"]);
+    assert.deepEqual(probed, [
+      ["git", git],
+      ["gh", gh],
+    ]);
     const gitRecord = records.find((record) => record.name === "git");
     assert.ok(gitRecord);
     assert.deepEqual(gitRecord, {
@@ -104,29 +111,23 @@ test("probes only the curated names, never enumerating PATH", () => {
   }
 });
 
-test("capability mapping uses only canonical IDs", () => {
+test("every curated command is probed and mapped to canonical IDs", () => {
   const dir = tempDir();
   try {
-    const names = [
-      "git",
-      "gh",
-      "docker",
-      "kubectl",
-      "rg",
-      "jq",
-      "playwright",
-      "ffmpeg",
-      "node",
-      "npm",
-      "python3",
-      "uv",
-    ];
+    const names = [...CURATED_CLI_NAMES];
     for (const name of names) stubBinary(dir, name);
+    const probed: string[] = [];
     const records = detectExternalTools({
       path: dir,
-      readVersion: () => "1.2.3",
+      readVersion: (command) => {
+        probed.push(command);
+        return "1.2.3";
+      },
     });
 
+    assert.equal(CURATED_CLI_COMMANDS.size, names.length);
+    for (const name of names) assert.ok(CURATED_CLI_COMMANDS.has(name));
+    assert.deepEqual(probed, names);
     assert.deepEqual(
       records.map((record) => record.name),
       names,
@@ -153,12 +154,26 @@ test("capability mapping uses only canonical IDs", () => {
         jq: ["data.analysis"],
         playwright: ["browser.automation"],
         ffmpeg: ["media.transcode"],
-        node: ["harness.management"],
-        npm: ["harness.management"],
-        python3: ["data.analysis"],
-        uv: ["data.analysis"],
+        node: [],
+        npm: [],
+        python3: [],
+        uv: [],
       },
     );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the default version probe executes the resolved binary, not a bare name", () => {
+  const dir = tempDir();
+  try {
+    const git = path.join(dir, "git");
+    writeFileSync(git, "#!/bin/sh\necho 'git version 2.43'\n");
+    chmodSync(git, 0o755);
+    const records = detectExternalTools({ path: dir });
+    assert.equal(records[0]?.installPath, git);
+    assert.equal(records[0]?.version, "2.43");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

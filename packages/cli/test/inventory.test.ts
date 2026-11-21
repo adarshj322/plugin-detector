@@ -220,6 +220,25 @@ test("inventory merges curated external CLI records", async () => {
   assert.deepEqual(external.records, [externalGitRecord()]);
 });
 
+test("--skip-external bypasses the curated CLI probe", async () => {
+  const { home, root } = fixtureTree();
+  let called = 0;
+  const { logs } = await capture(() =>
+    inventory(["--home", home, "--root", root, "--skip-external", "--json"], {
+      externalTools: () => {
+        called += 1;
+        return [externalGitRecord()];
+      },
+    }),
+  );
+  assert.equal(called, 0);
+  const parsed = InventoryJsonSchema.parse(JSON.parse(logs.join("\n")));
+  assert.equal(
+    parsed.facts.harnesses.some((entry) => entry.harness === "external"),
+    false,
+  );
+});
+
 test("--check-updates leaves PATH-sourced CLIs to manual review", async () => {
   const { home, root } = fixtureTree();
   const seen: string[] = [];

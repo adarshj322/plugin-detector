@@ -77,7 +77,7 @@ Cons: ops, trust, privacy, moderation; contradicts local-first v1.
 ## Locked decisions
 
 - **Inventory source of truth**: per harness, combine declared config with actual auto-discovered artifacts. For OpenCode, scan `~/.config/opencode/plugins/` and project `.opencode/plugins/`, plus config entries. Prefer runtime-derived state where available.
-- **All artifact classes**: skills, plugins, MCP servers, hooks, commands, agents, and a curated external-CLI set. External CLIs are inventoried only from a known list (e.g. `git`, `gh`, `docker`, `kubectl`, `rg`, `jq`, `playwright`) and configured tool paths; never enumerate the whole PATH by default.
+- **All artifact classes**: skills, plugins, MCP servers, hooks, commands, agents, and a curated external-CLI set. External CLIs are inventoried only from a fixed list (`git`, `gh`, `docker`, `kubectl`, `rg`, `jq`, `playwright`, `ffmpeg`, `node`, `npm`, `python3`, `uv`); never enumerate the whole PATH by default. Capabilities come from an explicit map (`git`/`gh` → `vcs.workflow`, `docker`/`kubectl` → `containers.orchestration`, `jq` → `data.analysis`, `playwright` → `browser.automation`, `ffmpeg` → `media.transcode`); `rg` and the language/package runtimes stay unclassified (`[]`) rather than guessing.
 - **Version evidence**: installed version from `package.json`, plugin manifest, MCP package metadata, skill metadata if present, or CLI `--version`. If unknown, `updateStatus: unknown`; do not call it outdated.
 - **Latest version**: same registry/source when possible: npm dist-tag, PyPI release, GitHub latest release/tag, skills.sh snapshot hash. If no comparable source, no upgrade recommendation.
 - **Better tool rule**: a replacement must have (a) a superset of the installed tool’s capabilities, or cover the same capability with better evidence; (b) better maintenance/freshness and no higher risk; and (c) a compatible install path. Stars/install counts are tiebreakers only.
@@ -131,7 +131,7 @@ These resolve the implementation questions the spec left open:
 
 ## Open builder decisions
 
-- Exact curated external-CLI list.
+- Resolved (Task 8): exact curated external-CLI list and explicit capability map (see Locked decisions).
 - Version comparison for skills with no version metadata.
 - Whether to use `opencode plugin list` as a runtime probe or only filesystem/config parsing.
 - How to score “superset capabilities” when the installed tool is unclassified.

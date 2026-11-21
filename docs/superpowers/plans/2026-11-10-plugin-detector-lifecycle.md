@@ -172,8 +172,10 @@
 - Test: `packages/adapters/shared/test/external-tools.test.ts`, CLI inventory tests
 
 **Interfaces:**
-- Produces: curated list `git`, `gh`, `docker`, `kubectl`, `rg`, `jq`, `playwright`, `ffmpeg`; `detectExternalTools(): CapabilityRecord[]` with version where `--version` works; missing tools omitted.
-- No full PATH scan.
+- Produces: curated list `git`, `gh`, `docker`, `kubectl`, `rg`, `jq`, `playwright`, `ffmpeg`, `node`, `npm`, `python3`, `uv`; `detectExternalTools(): CapabilityRecord[]` with version where `--version` works; missing tools omitted.
+- Capabilities are explicit: `git`/`gh` → `vcs.workflow`, `docker`/`kubectl` → `containers.orchestration`, `jq` → `data.analysis`, `playwright` → `browser.automation`, `ffmpeg` → `media.transcode`; `rg`, `node`, `npm`, `python3`, `uv` stay `[]` (inventoried, not classified — no code-search or runtime capability exists).
+- One canonical list drives both the PATH inventory and the `--version` allowlist; `readCliVersionAt` probes the resolved binary, not a second bare-name lookup.
+- No full PATH scan. `inventory --skip-external` bypasses the probe; each version check is capped at 2s (12 × 2s worst case).
 
 - [ ] **Step 1: Write failing tests** — known stub binaries detected; missing omitted; version parsed; no arbitrary path enumeration.
 - [ ] **Step 2: Verify red**.

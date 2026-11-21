@@ -35,6 +35,11 @@ write.
 2. **Call `inventory`.** Run `plugin-detector inventory` to learn which of
    the four supported v1 harnesses is present: `opencode`, `claude-code`,
    `codex`, `cursor`. Report the detected harness and what is installed.
+   `inventory` also reports a host-wide `external` group for the curated CLIs
+   `git`, `gh`, `docker`, `kubectl`, `rg`, `jq`, `playwright`, `ffmpeg`,
+   `node`, `npm`, `python3`, `uv`; it belongs to no harness. Pass
+   `--skip-external` when only harness config matters or when PATH version
+   probes are unwanted.
 3. **Ask missing clarifiers one at a time.** If `recommend` exits 3
    (`needs-clarification`) or signals are thin, ask exactly one question,
    wait for the answer, then re-run. Never batch interrogations.

@@ -26,6 +26,12 @@ test("SKILL.md names all four supported v1 harnesses", () => {
   }
 });
 
+test("SKILL.md documents the external CLI group and its skip flag", () => {
+  const text = skill();
+  assert.match(text, /`external` group/);
+  assert.match(text, /--skip-external/);
+});
+
 test("SKILL.md documents the one-shot candidate+plan-scoped approval token", () => {
   const text = skill();
   assert.match(text, /approve --candidate/);

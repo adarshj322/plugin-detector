@@ -4,36 +4,43 @@ import type {
   CanonicalCapabilityId,
   CapabilityRecord,
 } from "@plugin-detector/core";
-import { readCliVersion } from "./versions.js";
+import {
+  CURATED_CLI_NAMES,
+  readCliVersionAt,
+  type CuratedCliCommand,
+} from "./versions.js";
 
-// Curated external CLIs only. A full PATH scan would turn every unrelated
-// binary into inventory noise, so the names are fixed and ordered.
-const EXTERNAL_TOOLS: readonly (readonly [
-  name: string,
-  capabilities: readonly CanonicalCapabilityId[],
-])[] = [
-  ["git", ["vcs.workflow"]],
-  ["gh", ["vcs.workflow"]],
-  ["docker", ["containers.orchestration"]],
-  ["kubectl", ["containers.orchestration"]],
-  // ripgrep is code search; search.web means web search, so it stays unmapped.
-  ["rg", []],
-  ["jq", ["data.analysis"]],
-  ["playwright", ["browser.automation"]],
-  ["ffmpeg", ["media.transcode"]],
-  ["node", ["harness.management"]],
-  ["npm", ["harness.management"]],
-  ["python3", ["data.analysis"]],
-  ["uv", ["data.analysis"]],
-];
+// Explicit capability map for the curated external CLIs. An empty list means
+// the tool is inventoried but unclassified: language/package runtimes
+// (`node`, `npm`, `python3`, `uv`) and `rg` (code search, not `search.web`)
+// must not claim a capability they do not cover. Record keys are checked
+// against CURATED_CLI_NAMES, so every inventoried tool has a decision here.
+const CAPABILITIES_BY_TOOL: Record<
+  CuratedCliCommand,
+  readonly CanonicalCapabilityId[]
+> = {
+  git: ["vcs.workflow"],
+  gh: ["vcs.workflow"],
+  docker: ["containers.orchestration"],
+  kubectl: ["containers.orchestration"],
+  rg: [],
+  jq: ["data.analysis"],
+  playwright: ["browser.automation"],
+  ffmpeg: ["media.transcode"],
+  node: [],
+  npm: [],
+  python3: [],
+  uv: [],
+};
 
 const WINDOWS_EXTENSIONS = [".exe", ".cmd", ".bat"];
 
 export interface ExternalToolOptions {
   // PATH value to search; injected by tests, defaults to the process PATH.
   path?: string;
-  // Version probe seam; defaults to the shared curated --version reader.
-  readVersion?: (command: string) => string | undefined;
+  // Version probe seam; receives the resolved binary so tests can assert the
+  // probe never falls back to a bare name lookup. Defaults to readCliVersionAt.
+  readVersion?: (command: string, installPath: string) => string | undefined;
 }
 
 function isExecutableFile(file: string): boolean {
@@ -66,18 +73,20 @@ export function detectExternalTools(
   options: ExternalToolOptions = {},
 ): CapabilityRecord[] {
   const pathValue = options.path ?? process.env["PATH"] ?? "";
-  const readVersion = options.readVersion ?? readCliVersion;
+  const readVersion = options.readVersion ?? readCliVersionAt;
   const records: CapabilityRecord[] = [];
-  for (const [name, capabilities] of EXTERNAL_TOOLS) {
+  // Each probe is capped at 2s by readCliVersionAt; a fully wedged host can
+  // therefore add up to 24s. `inventory --skip-external` bypasses this loop.
+  for (const name of CURATED_CLI_NAMES) {
     const installPath = resolveOnPath(name, pathValue);
     if (installPath === undefined) continue;
-    const version = readVersion(name);
+    const version = readVersion(name, installPath);
     records.push({
       id: `external:cli:${name}`,
       name,
       harness: "unknown",
       kind: "cli",
-      capabilities: [...capabilities],
+      capabilities: [...CAPABILITIES_BY_TOOL[name]],
       enabled: true,
       configRefs: [],
       contextCostClass: "zero",

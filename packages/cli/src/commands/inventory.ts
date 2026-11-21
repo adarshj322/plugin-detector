@@ -200,12 +200,14 @@ export async function inventory(
 ): Promise<InventoryResult> {
   let json = false;
   let checkUpdates = false;
+  let skipExternal = false;
   let home: string | undefined;
   let root: string | undefined;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--json") json = true;
     else if (arg === "--check-updates") checkUpdates = true;
+    else if (arg === "--skip-external") skipExternal = true;
     else if (arg === "--home" && i + 1 < argv.length) {
       home = argv[i + 1];
       i += 1;
@@ -217,7 +219,12 @@ export async function inventory(
       return { exitCode: 2 };
     }
   }
-  const harnesses = await collectInventories(home, root, deps.externalTools);
+  const harnesses = await collectInventories(
+    home,
+    root,
+    // --skip-external is the escape hatch from the 12 x 2s version-probe cap.
+    skipExternal ? () => [] : deps.externalTools,
+  );
   if (checkUpdates) {
     // One resolver per run: repeated sources share its cache and the shared
     // 60/min limiter bounds every request.

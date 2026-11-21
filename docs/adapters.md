@@ -136,6 +136,28 @@ manual recipes. `applyPlan` throws until live verification flips
 `installVerified`. Do not treat Cursor installation as equal in stability to
 OpenCode or Claude Code.
 
+## External CLI inventory
+
+`inventory` also probes a fixed, curated list of host CLIs: `git`, `gh`,
+`docker`, `kubectl`, `rg`, `jq`, `playwright`, `ffmpeg`, `node`, `npm`,
+`python3`, and `uv`. It checks only those names on `PATH` with a per-name
+`which`-style lookup (no directory listing, no shell), records the resolved
+binary as `installPath` and `PATH:<name>` as `sourceRef`, and runs only
+`--version` against that resolved binary with a 2s cap.
+
+Capabilities are explicit and canonical: `git`/`gh` → `vcs.workflow`,
+`docker`/`kubectl` → `containers.orchestration`, `jq` → `data.analysis`,
+`playwright` → `browser.automation`, `ffmpeg` → `media.transcode`. `rg` and the
+language/package runtimes `node`, `npm`, `python3`, and `uv` stay unclassified
+(`capabilities: []`): being installed does not make them cover a workflow
+domain.
+
+Records appear in a separate `external` group in both `inventory` text and
+`inventory --json` output. The group is host-wide, not attributed to a harness.
+Because `PATH:<name>` has no registry mapping, `--check-updates` leaves these
+records unchanged for manual review. A wedged tool can cost up to 2s per
+probe; `inventory --skip-external` skips the group entirely.
+
 ## Compatibility scores
 
 Adapters return a 0–1 compatibility score used by the production scorer in both

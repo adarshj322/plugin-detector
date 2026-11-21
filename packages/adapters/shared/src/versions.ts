@@ -3,8 +3,10 @@ import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 // Only curated inventory commands may be probed. Arbitrary command execution
-// and whole-PATH enumeration stay out of the adapters.
-export const CURATED_CLI_COMMANDS: ReadonlySet<string> = new Set([
+// and whole-PATH enumeration stay out of the adapters. One list drives both
+// the PATH inventory and this allowlist, so a tool cannot be inventoried
+// without also being version-probed.
+export const CURATED_CLI_NAMES = [
   "git",
   "gh",
   "docker",
@@ -17,10 +19,16 @@ export const CURATED_CLI_COMMANDS: ReadonlySet<string> = new Set([
   "npm",
   "python3",
   "uv",
-]);
+] as const;
+export type CuratedCliCommand = (typeof CURATED_CLI_NAMES)[number];
+export const CURATED_CLI_COMMANDS: ReadonlySet<string> = new Set(
+  CURATED_CLI_NAMES,
+);
 
 const VERSION_TIMEOUT_MS = 2000;
-const FIRST_SEMVER = /\bv?(\d+\.\d+\.\d+)/;
+// First dotted token: `1.2.3`, `jq-1.7`, `git version 2.43`. Word and dot
+// boundaries reject prose numbers and partial matches inside `1.2.3.4`.
+const FIRST_VERSION = /(?<![\w.])v?(\d+\.\d+(?:\.\d+)?)(?!\.\d)(?!\d)/;
 
 export interface CliVersionOptions {
   timeout: number;
@@ -112,14 +120,35 @@ export function readCliVersion(
   probe: CliVersionProbe = probeVersionCommand,
 ): string | undefined {
   if (!CURATED_CLI_COMMANDS.has(command)) return undefined;
+  return probeVersion(command, probe);
+}
+
+// Same allowlist, but probes the binary inventory actually resolved instead of
+// looking the name up on PATH a second time. The basename must still match the
+// curated command, so this is not a general "execute any path" entry point.
+export function readCliVersionAt(
+  command: string,
+  executablePath: string,
+  probe: CliVersionProbe = probeVersionCommand,
+): string | undefined {
+  if (!CURATED_CLI_COMMANDS.has(command)) return undefined;
+  const base = path.basename(executablePath).replace(/\.(?:exe|cmd|bat)$/i, "");
+  if (base !== command) return undefined;
+  return probeVersion(executablePath, probe);
+}
+
+function probeVersion(
+  executable: string,
+  probe: CliVersionProbe,
+): string | undefined {
   let output: { stdout: string; stderr: string };
   try {
-    output = probe(command, ["--version"], {
+    output = probe(executable, ["--version"], {
       timeout: VERSION_TIMEOUT_MS,
       shell: false,
     });
   } catch {
     return undefined;
   }
-  return FIRST_SEMVER.exec(`${output.stdout}\n${output.stderr}`)?.[1];
+  return FIRST_VERSION.exec(`${output.stdout}\n${output.stderr}`)?.[1];
 }

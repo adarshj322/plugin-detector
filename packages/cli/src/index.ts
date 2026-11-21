@@ -21,7 +21,7 @@ function usage(): number {
   console.error(
     [
       "usage: plugin-detector <command> [options]",
-      "  inventory [--json] [--check-updates] [--home DIR] [--root DIR]",
+      "  inventory [--json] [--check-updates] [--skip-external] [--home DIR] [--root DIR]",
       "  recommend (--use-case <id> | --profile <file>) [--signal S ...] [--check-updates] [--json] [--cache-dir DIR] [--home DIR] [--root DIR] [--harness H] [--threshold N]",
       "  explain <candidate-id> [--show-untrusted] [--json] [--cache-dir DIR] [--home DIR] [--root DIR]",
       "  profiles list",
