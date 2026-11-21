@@ -7,7 +7,9 @@ import {
   fileMtime,
   readCliVersion,
   readCliVersionAt,
+  readMcpPackageSource,
   readPackageVersion,
+  readSkillHomepage,
   readSkillVersion,
 } from "../src/index.js";
 
@@ -45,6 +47,55 @@ test("skill version reads an optional plain frontmatter scalar", () => {
   assert.equal(readSkillVersion("---\nname: x\n---\n"), undefined);
   assert.equal(readSkillVersion("no frontmatter here"), undefined);
   assert.equal(readSkillVersion("---\nversion: [1.0.0]\n---\n"), undefined);
+});
+
+test("skill homepage reads only metadata.homepage http(s) URLs", () => {
+  const text =
+    "---\nname: x\nmetadata:\n  homepage: https://github.com/acme/x\n---\n";
+  assert.equal(readSkillHomepage(text), "https://github.com/acme/x");
+  assert.equal(
+    readSkillHomepage(
+      "---\nname: x\nhomepage: https://example.com/top\n---\n",
+    ),
+    undefined,
+    "a top-level homepage is not metadata.homepage",
+  );
+  assert.equal(
+    readSkillHomepage("---\nmetadata:\n  homepage: javascript:alert(1)\n---\n"),
+    undefined,
+  );
+  assert.equal(
+    readSkillHomepage("---\nmetadata:\n  homepage: /local/path\n---\n"),
+    undefined,
+  );
+  assert.equal(readSkillHomepage("no frontmatter"), undefined);
+});
+
+test("mcp package source accepts only clear npx or npm exec shapes", () => {
+  assert.equal(readMcpPackageSource(["npx", "@scope/server"]), "@scope/server");
+  assert.equal(
+    readMcpPackageSource(["npm", "exec", "server-pkg"]),
+    "server-pkg",
+  );
+  assert.equal(readMcpPackageSource("npx server-pkg"), "server-pkg");
+  assert.equal(readMcpPackageSource(["npx", "-y", "server-pkg"]), "server-pkg");
+  assert.equal(
+    readMcpPackageSource("npx", ["@scope/server"]),
+    "@scope/server",
+  );
+  assert.equal(
+    readMcpPackageSource("npm", ["exec", "server-pkg"]),
+    "server-pkg",
+  );
+  for (const command of [
+    ["node", "server.js"],
+    ["npx", "./local-server"],
+    ["npm", "run", "server"],
+    [],
+    undefined,
+  ]) {
+    assert.equal(readMcpPackageSource(command), undefined);
+  }
 });
 
 test("file mtime returns an ISO timestamp and undefined when missing", () => {

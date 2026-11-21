@@ -23,6 +23,8 @@ import {
 import {
   fileMtime,
   readPackageVersion,
+  readMcpPackageSource,
+  readSkillHomepage,
   readSkillVersion,
   skillCapabilitiesFromFrontmatter,
   skillDescriptionFromFrontmatter,
@@ -721,6 +723,10 @@ export class OpenCodeAdapter implements HarnessAdapter {
     for (const [name, entry] of Object.entries(mcp)) {
       const detail = isRecord(entry) ? entry : {};
       const enabled = detail["enabled"];
+      const sourceRef = readMcpPackageSource(
+        detail["command"],
+        detail["args"],
+      );
       records.push({
         id: `opencode:mcp:${config.scope}:${name}`,
         name,
@@ -730,6 +736,7 @@ export class OpenCodeAdapter implements HarnessAdapter {
         enabled: enabled === undefined ? true : enabled !== false,
         configRefs: [config.path],
         contextCostClass: COST_BY_KIND["mcp"] as ContextCostClass,
+        ...(sourceRef === undefined ? {} : { sourceRef }),
       });
     }
   }
@@ -864,6 +871,7 @@ export class OpenCodeAdapter implements HarnessAdapter {
       ).capabilities;
       const combined = [...new Set([...mapped, ...(fromName ? [fromName] : []), ...inferred])];
       const version = readSkillVersion(text);
+      const homepage = readSkillHomepage(text);
       const skillDir = path.join(skillRoot, entry);
       const mtime = fileMtime(skillFile);
       records.push({
@@ -876,7 +884,7 @@ export class OpenCodeAdapter implements HarnessAdapter {
         configRefs: [skillFile],
         contextCostClass: COST_BY_KIND["skill"] as ContextCostClass,
         ...(version === undefined ? {} : { version }),
-        sourceRef: skillDir,
+        sourceRef: homepage ?? skillDir,
         installPath: skillDir,
         ...(mtime === undefined
           ? {}

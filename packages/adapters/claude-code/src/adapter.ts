@@ -21,6 +21,8 @@ import {
 } from "@plugin-detector/core";
 import {
   fileMtime,
+  readMcpPackageSource,
+  readSkillHomepage,
   readSkillVersion,
   skillCapabilitiesFromFrontmatter,
   skillNameFromFrontmatter,
@@ -582,6 +584,10 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
     for (const [name, entry] of Object.entries(servers)) {
       const detail = isRecord(entry) ? entry : {};
       const enabled = detail["enabled"];
+      const sourceRef = readMcpPackageSource(
+        detail["command"],
+        detail["args"],
+      );
       records.push({
         id: `claude-code:mcp:${scope}:${name}`,
         name,
@@ -591,6 +597,7 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
         enabled: enabled === undefined ? true : enabled !== false,
         configRefs: [config.path],
         contextCostClass: COST_BY_KIND["mcp"] as ContextCostClass,
+        ...(sourceRef === undefined ? {} : { sourceRef }),
       });
     }
   }
@@ -759,6 +766,7 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
       const mapped = capabilities ?? [];
       const fromName = capabilityId(entry);
       const version = readSkillVersion(text);
+      const homepage = readSkillHomepage(text);
       const skillDir = path.join(skillRoot, entry);
       const mtime = fileMtime(skillFile);
       records.push({
@@ -771,7 +779,7 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
         configRefs: [skillFile],
         contextCostClass: COST_BY_KIND["skill"] as ContextCostClass,
         ...(version === undefined ? {} : { version }),
-        sourceRef: skillDir,
+        sourceRef: homepage ?? skillDir,
         installPath: skillDir,
         ...(mtime === undefined
           ? {}

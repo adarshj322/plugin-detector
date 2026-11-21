@@ -273,6 +273,11 @@ test("mcp servers inventory per-query without secret values", async () => {
   assert.equal(reviewer?.contextCostClass, "per-query");
   const disabled = inventory.records.find((entry) => entry.name === "disabled-docs");
   assert.equal(disabled?.enabled, false);
+  const npxServer = inventory.records.find(
+    (entry) => entry.kind === "mcp" && entry.name === "npx-server",
+  );
+  assert.equal(npxServer?.sourceRef, "@acme/opencode-mcp");
+  assert.equal(reviewer?.sourceRef, undefined, "node command is not a package");
   const serialized = JSON.stringify(inventory);
   assert.ok(!serialized.includes("sk-ant-secret-value-that-must-never-appear"));
 });

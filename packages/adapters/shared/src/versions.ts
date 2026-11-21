@@ -104,6 +104,72 @@ export function readSkillVersion(frontmatterText: string): string | undefined {
   return undefined;
 }
 
+// `metadata.homepage` from SKILL.md frontmatter. Only an http(s) URL is usable
+// as a resolver source; anything else stays unknown rather than guessing.
+export function readSkillHomepage(
+  frontmatterText: string,
+): string | undefined {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(frontmatterText);
+  if (!match?.[1]) return undefined;
+  const lines = match[1].split("\n");
+  let inMetadata = false;
+  let metadataIndent = 0;
+  for (const line of lines) {
+    if (/^\s*#/.test(line) || line.trim().length === 0) continue;
+    const indent = line.length - line.trimStart().length;
+    if (/^\s*metadata\s*:\s*$/.test(line)) {
+      inMetadata = true;
+      metadataIndent = indent;
+      continue;
+    }
+    if (!inMetadata) continue;
+    if (indent <= metadataIndent) {
+      inMetadata = false;
+      continue;
+    }
+    const value = /^\s*homepage\s*:\s*(.+?)\s*$/.exec(line)?.[1];
+    if (value === undefined) continue;
+    const unquoted = value.replace(/^["']|["']$/g, "");
+    try {
+      const url = new URL(unquoted);
+      return url.protocol === "http:" || url.protocol === "https:"
+        ? unquoted
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+// Best-effort MCP package identity from a config command. Only the documented
+// `npx <package>` / `npm exec <package>` shapes count; nothing is executed.
+export function readMcpPackageSource(
+  command: unknown,
+  args?: unknown,
+): string | undefined {
+  const tokens = Array.isArray(command)
+    ? command.filter((token): token is string => typeof token === "string")
+    : typeof command === "string"
+      ? command.trim().split(/\s+/)
+      : [];
+  if (Array.isArray(args)) {
+    tokens.push(...args.filter((token): token is string => typeof token === "string"));
+  }
+  if (tokens.length === 0) return undefined;
+  let pkg: string | undefined;
+  if (tokens[0] === "npx") {
+    pkg = tokens.slice(1).find((token) => !token.startsWith("-"));
+  } else if (tokens[0] === "npm" && tokens[1] === "exec") {
+    pkg = tokens.slice(2).find((token) => !token.startsWith("-"));
+  }
+  if (pkg === undefined || pkg.startsWith("-")) return undefined;
+  if (pkg.startsWith("/") || pkg.startsWith("./") || pkg.startsWith("../")) {
+    return undefined;
+  }
+  return pkg;
+}
+
 // Local freshness evidence: the filesystem mtime as an ISO timestamp.
 export function fileMtime(file: string): string | undefined {
   try {

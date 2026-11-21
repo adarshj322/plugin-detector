@@ -15,6 +15,10 @@
       "type": "remote",
       "url": "https://docs.example.com/mcp",
       "enabled": false
+    },
+    "npx-server": {
+      "type": "local",
+      "command": ["npx", "@acme/opencode-mcp"]
     }
   }
 }

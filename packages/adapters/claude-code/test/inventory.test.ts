@@ -176,7 +176,7 @@ test("mcp servers inventory per-query from global and project config", async () 
   const inventory = await adapterFor("mcp").inventory();
   assert.equal(inventory.status, "ok");
   const servers = inventory.records.filter((entry) => entry.kind === "mcp");
-  assert.equal(servers.length, 3);
+  assert.equal(servers.length, 4);
   assert.ok(servers.every((entry) => entry.contextCostClass === "per-query"));
 
   const reviewer = servers.find((entry) => entry.name === "reviewer");
@@ -191,6 +191,9 @@ test("mcp servers inventory per-query from global and project config", async () 
   );
   const disabled = servers.find((entry) => entry.name === "disabled-docs");
   assert.equal(disabled?.enabled, false);
+  const npxServer = servers.find((entry) => entry.name === "npx-server");
+  assert.equal(npxServer?.sourceRef, "@acme/claude-mcp");
+  assert.equal(projectDb?.sourceRef, undefined, "node command is not a package");
 
   const serialized = JSON.stringify(inventory);
   assert.ok(!serialized.includes("sk-ant-secret-value-that-must-never-appear"));

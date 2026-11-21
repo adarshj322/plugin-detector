@@ -5,6 +5,10 @@
       "env": {
         "DB_PASSWORD": "db-secret-value-that-must-never-appear"
       }
+    },
+    "npx-server": {
+      "command": "npx",
+      "args": ["-y", "@acme/claude-mcp"]
     }
   }
 }

@@ -8,6 +8,7 @@ import type {
 } from "@plugin-detector/core";
 import { capabilityId } from "@plugin-detector/core";
 import {
+  readSkillHomepage,
   skillCapabilitiesFromFrontmatter,
   skillNameFromFrontmatter,
   stripJsonc,
@@ -453,6 +454,8 @@ export class CodexAdapter implements HarnessAdapter {
         enabled: true,
         configRefs: [skillFile],
         contextCostClass: COST_BY_KIND["skill"] as ContextCostClass,
+        sourceRef: readSkillHomepage(text) ?? path.join(skillRoot, entry),
+        installPath: path.join(skillRoot, entry),
       });
     }
   }
