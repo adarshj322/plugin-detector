@@ -33,19 +33,78 @@ const ACTION_RANK: Readonly<Record<LifecycleAction, number>> = {
 
 const APPROVAL_NOTE =
   "Run only after explicit approval; back up config before editing.";
+// Recipes are print-only, but still never interpolate control characters or
+// shell metacharacters into a command line.
+const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
+const SAFE_ARG = /^[A-Za-z0-9@._:/+~-]+$/;
+const SAFE_SEGMENT = /^[A-Za-z0-9._-]+$/;
+const KNOWN_SCOPES = new Set(["global", "user", "project", "local"]);
+const CONFIG_BASENAMES = new Set([
+  "opencode.json",
+  "opencode.jsonc",
+  ".claude.json",
+  "settings.json",
+]);
 
-function isGitHubOrSkillsSh(value: string): boolean {
-  try {
-    const host = new URL(value).hostname.toLowerCase();
-    return host === "github.com" || host === "www.github.com" || host === "skills.sh";
-  } catch {
-    return false;
-  }
+type InstalledScope = "global" | "user" | "project" | "local" | "unknown";
+
+function plain(value: string): string {
+  return value.replace(CONTROL_CHARS, " ").trim();
 }
 
-function hasSkillsCliSource(candidate: Candidate): boolean {
-  return [candidate.repositoryUrl, ...candidate.sources].some(
-    (value) => value !== undefined && isGitHubOrSkillsSh(value),
+function quoted(value: string): string {
+  return plain(value).replace(/"/g, '\\"');
+}
+
+function safeArg(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  return trimmed !== "" && !trimmed.startsWith("-") && SAFE_ARG.test(trimmed)
+    ? trimmed
+    : undefined;
+}
+
+function safeSegment(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  return trimmed !== "" && !trimmed.startsWith("-") && SAFE_SEGMENT.test(trimmed)
+    ? trimmed
+    : undefined;
+}
+
+function scopeOf(installed: CapabilityRecord): InstalledScope {
+  const segment = installed.id.split(":")[2]?.trim().toLowerCase();
+  if (segment !== undefined && KNOWN_SCOPES.has(segment)) {
+    return segment as InstalledScope;
+  }
+  for (const ref of installed.configRefs) {
+    const normalized = plain(ref).replace(/\\/g, "/").toLowerCase();
+    if (
+      installed.harness === "opencode" &&
+      normalized.includes("/.config/opencode/")
+    ) {
+      return "global";
+    }
+    if (
+      installed.harness === "claude-code" &&
+      (normalized.includes("/.claude/") ||
+        normalized.endsWith("/.claude.json"))
+    ) {
+      return "user";
+    }
+  }
+  return "unknown";
+}
+
+function configRefOf(installed: CapabilityRecord): string {
+  const found = installed.configRefs.find((ref) => {
+    const base = plain(ref).replace(/\\/g, "/").split("/").pop() ?? "";
+    return CONFIG_BASENAMES.has(base);
+  });
+  return plain(
+    found ??
+      installed.configRefs[0] ??
+      `the ${installed.harness} configuration`,
   );
 }
 
@@ -54,7 +113,8 @@ function isLocalSpec(spec: string): boolean {
     spec.startsWith("/") ||
     spec.startsWith("./") ||
     spec.startsWith("../") ||
-    spec.startsWith("~")
+    spec.startsWith("~") ||
+    spec.startsWith("file:")
   );
 }
 
@@ -63,14 +123,14 @@ function isLocalSpec(spec: string): boolean {
 function installSpec(candidate: Candidate): string | undefined {
   const spec = (candidate.packageName ?? candidate.repositoryUrl)?.trim();
   if (spec === undefined || spec === "" || isLocalSpec(spec)) return undefined;
-  return spec;
+  return safeArg(spec);
 }
 
 // Claude marketplace specs are `plugin@marketplace`; a scoped npm name
 // (`@scope/pkg`) is not one.
 function marketplaceSpec(candidate: Candidate): string | undefined {
-  const spec = (candidate.packageName ?? candidate.id).trim();
-  return spec.indexOf("@", 1) > 0 ? spec : undefined;
+  const spec = safeArg(candidate.packageName ?? candidate.id);
+  return spec !== undefined && spec.indexOf("@", 1) > 0 ? spec : undefined;
 }
 
 function sourceRefOf(candidate: Candidate): string {
@@ -82,18 +142,76 @@ function sourceRefOf(candidate: Candidate): string {
   );
 }
 
+function safeInstalledSource(installed: CapabilityRecord): string | undefined {
+  if (
+    installed.sourceRef === undefined ||
+    isLocalSpec(installed.sourceRef)
+  ) {
+    return undefined;
+  }
+  return safeArg(installed.sourceRef);
+}
+
 function withApproval(lines: string[]): string[] {
   return [...lines, APPROVAL_NOTE];
+}
+
+function githubRepo(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  try {
+    const url = new URL(value.trim());
+    const host = url.hostname.toLowerCase();
+    if (host !== "github.com" && host !== "www.github.com") return undefined;
+    const segments = url.pathname.split("/").filter(Boolean);
+    const owner = safeSegment(segments[0]);
+    const repo = safeSegment(segments[1]?.replace(/\.git$/, ""));
+    return owner === undefined || repo === undefined
+      ? undefined
+      : `${owner}/${repo}`;
+  } catch {
+    return undefined;
+  }
+}
+
+function candidateSkillName(candidate: Candidate): string | undefined {
+  const declared =
+    safeSegment(candidate.artifactEvidence?.name) ??
+    safeSegment(candidate.name);
+  if (declared !== undefined) return declared;
+  return safeSegment(candidate.id.split("/").filter(Boolean).at(-1));
+}
+
+function candidateSkillsSpec(candidate: Candidate): string | undefined {
+  const repo =
+    githubRepo(candidate.repositoryUrl) ??
+    candidate.sources
+      .map((source) => githubRepo(source))
+      .find((value) => value !== undefined);
+  const skill = candidateSkillName(candidate);
+  return repo === undefined || skill === undefined
+    ? undefined
+    : `${repo}@${skill}`;
+}
+
+function installedSkillName(installed: CapabilityRecord): string | undefined {
+  const declared = safeSegment(installed.name);
+  if (declared !== undefined) return declared;
+  const fromPath = installed.installPath ?? installed.sourceRef;
+  if (fromPath === undefined) return undefined;
+  const base = fromPath.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
+  return safeSegment(base);
 }
 
 function manualInstallLine(
   candidate: Candidate | undefined,
   harness: string,
 ): string {
-  const name = candidate?.name ?? "the candidate";
+  const name = quoted(candidate?.name ?? "the candidate");
   const source =
-    candidate === undefined ? "its documented source" : sourceRefOf(candidate);
-  return `Manual: install "${name}" from ${source} using the ${harness} documented installation procedure.`;
+    candidate === undefined
+      ? "its documented source"
+      : `"${quoted(sourceRefOf(candidate))}"`;
+  return `Manual: install "${name}" from ${source} using the ${plain(harness)} documented installation procedure.`;
 }
 
 function manualPlan(
@@ -101,15 +219,44 @@ function manualPlan(
   installed: CapabilityRecord,
   candidate: Candidate | undefined,
 ): string[] {
+  const name = quoted(installed.name);
+  const harness = plain(installed.harness);
   if (row.action === "upgrade") {
     return withApproval([
-      `Manual: upgrade "${installed.name}" using the ${installed.harness} documented upgrade procedure; no automatic command is known.`,
+      `Manual: upgrade "${name}" using the ${harness} documented upgrade procedure; no automatic command is known.`,
     ]);
   }
   return withApproval([
-    `Manual: remove "${installed.name}" using the ${installed.harness} documented uninstall procedure; no automatic removal command is known.`,
+    `Manual: remove "${name}" using the ${harness} documented uninstall procedure; no automatic removal command is known.`,
+    manualInstallLine(candidate, harness),
+  ]);
+}
+
+// A locally installed plugin has no portable CLI removal; say what to delete
+// instead of passing a filesystem path to a package-manager command.
+function localPluginPlan(
+  row: LifecycleRow,
+  installed: CapabilityRecord,
+  candidate: Candidate | undefined,
+): string[] {
+  const target = quoted(
+    installed.sourceRef ?? installed.installPath ?? installed.name,
+  );
+  if (row.action === "upgrade") {
+    return withApproval([
+      `Manual: update the local plugin at "${target}" using its documented procedure; no automatic command is known.`,
+    ]);
+  }
+  return withApproval([
+    `Manual: delete the local plugin at "${target}" (or remove its config entry); no automatic removal command is known.`,
     manualInstallLine(candidate, installed.harness),
   ]);
+}
+
+function skillsScopeFlag(scope: InstalledScope): string | undefined {
+  if (scope === "global" || scope === "user") return "-g";
+  if (scope === "project" || scope === "local") return "";
+  return undefined;
 }
 
 function skillsPlan(
@@ -117,13 +264,41 @@ function skillsPlan(
   installed: CapabilityRecord,
   candidate: Candidate | undefined,
 ): string[] {
-  if (candidate === undefined || !hasSkillsCliSource(candidate)) {
+  const name = installedSkillName(installed);
+  const flag = skillsScopeFlag(scopeOf(installed));
+  if (name === undefined || flag === undefined) {
     return manualPlan(row, installed, candidate);
   }
-  const install = `npx skills add ${candidate.id}`;
+  const scope = flag === "" ? [] : [flag];
+  const update = ["npx", "skills", "update", ...scope, name].join(" ");
+  if (row.action === "upgrade") return withApproval([update]);
+  const spec = candidate === undefined ? undefined : candidateSkillsSpec(candidate);
+  if (spec === undefined) return manualPlan(row, installed, candidate);
+  return withApproval([
+    ["npx", "skills", "remove", ...scope, name].join(" "),
+    ["npx", "skills", "add", ...scope, spec].join(" "),
+  ]);
+}
+
+// Project/local plugins live in the config file, not in the global plugin
+// registry the CLI mutates.
+function opencodeConfigPlan(
+  row: LifecycleRow,
+  installed: CapabilityRecord,
+  candidate: Candidate | undefined,
+): string[] | undefined {
+  const source = safeInstalledSource(installed);
+  const spec = candidate === undefined ? undefined : installSpec(candidate);
+  if (source === undefined || spec === undefined) return undefined;
+  const config = configRefOf(installed);
   return row.action === "upgrade"
-    ? withApproval([install])
-    : withApproval([`npx skills remove ${installed.id}`, install]);
+    ? withApproval([
+        `Edit ${config}: update the "${quoted(source)}" plugin entry to "${quoted(spec)}".`,
+      ])
+    : withApproval([
+        `Edit ${config}: remove "${quoted(source)}" from the "plugin" array.`,
+        `Edit ${config}: add "${quoted(spec)}" to the "plugin" array.`,
+      ]);
 }
 
 function opencodePluginPlan(
@@ -131,19 +306,37 @@ function opencodePluginPlan(
   installed: CapabilityRecord,
   candidate: Candidate | undefined,
 ): string[] {
-  const spec = candidate === undefined ? undefined : installSpec(candidate);
-  if (candidate === undefined || spec === undefined) {
-    return manualPlan(row, installed, candidate);
+  if (
+    installed.sourceRef !== undefined &&
+    isLocalSpec(installed.sourceRef)
+  ) {
+    return localPluginPlan(row, installed, candidate);
   }
-  const install = `opencode plugin add ${spec}`;
-  if (row.action === "upgrade") return withApproval([install]);
-  if (installed.sourceRef === undefined) {
+  if (scopeOf(installed) !== "global") {
+    const configPlan = opencodeConfigPlan(row, installed, candidate);
+    return configPlan ?? manualPlan(row, installed, candidate);
+  }
+  const source = safeInstalledSource(installed);
+  const spec = candidate === undefined ? undefined : installSpec(candidate);
+  if (row.action === "upgrade") {
+    const updateTarget = source ?? spec;
+    return updateTarget === undefined
+      ? manualPlan(row, installed, candidate)
+      : withApproval([`opencode plugin update ${updateTarget}`]);
+  }
+  if (source === undefined || spec === undefined) {
     return manualPlan(row, installed, candidate);
   }
   return withApproval([
-    `opencode plugin remove ${installed.sourceRef}`,
-    install,
+    `opencode plugin remove ${source}`,
+    `opencode plugin add ${spec}`,
   ]);
+}
+
+function claudeScopeArg(scope: InstalledScope): string | undefined {
+  return scope === "user" || scope === "project" || scope === "local"
+    ? `--scope ${scope}`
+    : undefined;
 }
 
 function claudePluginPlan(
@@ -151,18 +344,22 @@ function claudePluginPlan(
   installed: CapabilityRecord,
   candidate: Candidate | undefined,
 ): string[] {
+  const scope = claudeScopeArg(scopeOf(installed));
+  if (scope === undefined) return manualPlan(row, installed, candidate);
+  const source = safeInstalledSource(installed);
   const spec = candidate === undefined ? undefined : marketplaceSpec(candidate);
-  if (candidate === undefined || spec === undefined) {
-    return manualPlan(row, installed, candidate);
+  if (row.action === "upgrade") {
+    const updateTarget = source ?? spec;
+    return updateTarget === undefined
+      ? manualPlan(row, installed, candidate)
+      : withApproval([`claude plugin update ${scope} ${updateTarget}`]);
   }
-  const install = `claude plugin install ${spec}`;
-  if (row.action === "upgrade") return withApproval([install]);
-  if (installed.sourceRef === undefined) {
+  if (source === undefined || spec === undefined) {
     return manualPlan(row, installed, candidate);
   }
   return withApproval([
-    `claude plugin uninstall ${installed.sourceRef}`,
-    install,
+    `claude plugin uninstall ${scope} ${source}`,
+    `claude plugin install ${scope} ${spec}`,
   ]);
 }
 
@@ -172,16 +369,16 @@ function mcpPlan(
   candidate: Candidate | undefined,
 ): string[] {
   if (candidate === undefined) return [];
-  const config =
-    installed.configRefs[0] ?? `the ${installed.harness} MCP configuration`;
-  const source = sourceRefOf(candidate);
+  const config = configRefOf(installed);
+  const key = quoted(installed.name);
+  const source = quoted(sourceRefOf(candidate));
   return row.action === "upgrade"
     ? withApproval([
-        `Edit ${config}: update the "${installed.name}" server entry to ${source}.`,
+        `Edit ${config}: update the "${key}" server entry to "${source}".`,
       ])
     : withApproval([
-        `Edit ${config}: remove the "${installed.name}" server entry.`,
-        `Edit ${config}: add the "${candidate.id}" server entry from ${source}.`,
+        `Edit ${config}: remove the "${key}" server entry.`,
+        `Edit ${config}: add the "${quoted(candidate.id)}" server entry from "${source}".`,
       ]);
 }
 
