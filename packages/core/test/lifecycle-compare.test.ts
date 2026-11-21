@@ -287,6 +287,128 @@ test("adapter mcp kind matches mcp-server candidates", () => {
   assert.equal(row.action, "upgrade");
 });
 
+test("same-tool upgrade honors the risk gate: critical audit keeps", () => {
+  const row = compare(
+    installed({ version: "1.2.0" }),
+    candidate({
+      auditStatus: "critical",
+      artifactEvidence: {
+        kind: "skill",
+        sourceUrl: "https://example.com/repo",
+        resolvedRef: "v1.3.0",
+        contentHash: "sha256:abc",
+        license: "MIT",
+        version: "1.3.0",
+        capabilities: [],
+        evidenceSnippets: [],
+        retrievedAt: "2026-11-01T00:00:00.000Z",
+      },
+    }),
+  );
+  assert.equal(row.action, "keep");
+  assert.equal(row.candidateId, undefined);
+  assert.ok(row.reasons.some((reason) => reason.includes("risk gate")));
+});
+
+test("same-tool upgrade honors the risk gate: archived maintenance keeps", () => {
+  const row = compare(
+    installed({ version: "1.2.0" }),
+    candidate({
+      maintenance: "archived",
+      artifactEvidence: {
+        kind: "skill",
+        sourceUrl: "https://example.com/repo",
+        resolvedRef: "v1.3.0",
+        contentHash: "sha256:abc",
+        license: "MIT",
+        version: "1.3.0",
+        capabilities: [],
+        evidenceSnippets: [],
+        retrievedAt: "2026-11-01T00:00:00.000Z",
+      },
+    }),
+  );
+  assert.equal(row.action, "keep");
+  assert.equal(row.candidateId, undefined);
+});
+
+test("same-tool upgrade honors the risk gate: zero compatibility keeps", () => {
+  const row = compare(
+    installed({ version: "1.2.0" }),
+    candidate({
+      artifactEvidence: {
+        kind: "skill",
+        sourceUrl: "https://example.com/repo",
+        resolvedRef: "v1.3.0",
+        contentHash: "sha256:abc",
+        license: "MIT",
+        version: "1.3.0",
+        capabilities: [],
+        evidenceSnippets: [],
+        retrievedAt: "2026-11-01T00:00:00.000Z",
+      },
+    }),
+    [installed({ version: "1.2.0" })],
+    { compatibility: 0 },
+  );
+  assert.equal(row.action, "keep");
+  assert.equal(row.candidateId, undefined);
+});
+
+test("configRefs never establish same-tool identity", () => {
+  const current = installed({
+    id: "reviewer-old",
+    name: "reviewer-old",
+    version: "1.0.0",
+    configRefs: ["/work/configs/reviewer"],
+    capabilities: [],
+  });
+  const row = compare(
+    current,
+    candidate({
+      id: "reviewer-new",
+      name: "reviewer-new",
+      packageName: "reviewer",
+      pinnedRef: "v2.0.0",
+      capabilities: [],
+    }),
+  );
+  assert.notEqual(row.action, "upgrade");
+});
+
+test("package identity requires a boundary and a non-empty needle", () => {
+  const current = installed({
+    id: "reviewer-old",
+    name: "reviewer-old",
+    version: "1.0.0",
+    sourceRef: "my-reviewer@1.0.0",
+    capabilities: [],
+  });
+  const boundary = compare(
+    current,
+    candidate({
+      id: "reviewer-new",
+      name: "reviewer-new",
+      packageName: "review",
+      pinnedRef: "v2.0.0",
+      capabilities: [],
+    }),
+  );
+  assert.notEqual(boundary.action, "upgrade");
+
+  const empty = compare(
+    current,
+    candidate({
+      id: "reviewer-new",
+      name: "reviewer-new",
+      packageName: "   ",
+      pinnedRef: "v2.0.0",
+      capabilities: [],
+    }),
+  );
+  assert.notEqual(empty.action, "upgrade");
+});
+
 test("dedupeReplacementRows proposes each replacement candidate once", () => {
   const first = installed({
     id: "reviewer-a",

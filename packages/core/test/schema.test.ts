@@ -79,6 +79,7 @@ test("harness and artifact enums are closed", () => {
   assert.equal(HarnessId.parse("opencode"), "opencode");
   assert.throws(() => HarnessId.parse("not-a-harness"));
   assert.equal(ArtifactType.parse("skill"), "skill");
+  assert.equal(ArtifactType.parse("agent"), "agent");
   assert.throws(() => ArtifactType.parse("exe"));
 });
 

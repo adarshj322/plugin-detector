@@ -18,5 +18,6 @@ export const ArtifactType = z.enum([
   "hook",
   "command",
   "tool",
+  "agent",
 ]);
 export type ArtifactType = z.infer<typeof ArtifactType>;

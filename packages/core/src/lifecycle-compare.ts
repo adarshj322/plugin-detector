@@ -55,7 +55,9 @@ function sameTool(
   if (installed.id.trim().toLowerCase() === candidate.id.trim().toLowerCase()) {
     return true;
   }
-  const refs = [installed.sourceRef, installed.installPath, ...installed.configRefs]
+  // configRefs are local file locations, not identity: a shared config path
+  // must never make two unrelated tools look like the same package.
+  const refs = [installed.sourceRef, installed.installPath]
     .filter((ref): ref is string => ref !== undefined)
     .map(normalizeSource);
   if (refs.length === 0) return false;
@@ -66,13 +68,33 @@ function sameTool(
     .toLowerCase();
   if (
     packageName !== undefined &&
-    refs.some((ref) => ref.includes(packageName))
+    packageName.length > 0 &&
+    refs.some((ref) => hasIdentityBoundary(ref, packageName))
   ) {
     return true;
   }
   if (candidate.repositoryUrl === undefined) return false;
   const repository = normalizeSource(candidate.repositoryUrl);
-  return refs.some((ref) => ref === repository || ref.includes(repository));
+  return refs.some(
+    (ref) =>
+      ref === repository || hasIdentityBoundary(ref, repository),
+  );
+}
+
+// A raw substring is not identity: `review` must not match `my-reviewer`.
+// Accept an exact value or a token followed by a package/source separator.
+function hasIdentityBoundary(haystack: string, needle: string): boolean {
+  if (needle.length === 0) return false;
+  let index = haystack.indexOf(needle);
+  while (index !== -1) {
+    const before = index === 0 ? "" : haystack[index - 1];
+    const after = haystack.slice(index + needle.length);
+    const beforeOk = index === 0 || /[@/:+]/.test(before ?? "");
+    const afterOk = after.length === 0 || /^[@/:+]/.test(after);
+    if (beforeOk && afterOk) return true;
+    index = haystack.indexOf(needle, index + 1);
+  }
+  return false;
 }
 
 function sameDisplayName(
@@ -107,9 +129,10 @@ function normalizeKind(kind: string): string {
 
 // Installed freshness without rescoring the installed record. Explicit
 // inventory status wins; otherwise only two comparable versions can decide.
-function freshnessOf(
+export function lifecycleFreshness(
   installed: CapabilityRecord,
-): "current" | "outdated" | "unknown" {
+): "current" | "outdated" | "unknown" | "modified" {
+  if (installed.updateStatus === "modified") return "modified";
   if (installed.updateStatus === "current") return "current";
   if (installed.updateStatus === "outdated") return "outdated";
   const current = parseVersion(installed.version);
@@ -242,6 +265,19 @@ export function compareLifecycle(input: LifecycleCompareInput): LifecycleRow {
       nextVersion !== null &&
       isNewer(nextVersion, currentVersion)
     ) {
+      // Same-tool upgrades still honor every hard gate: a critical audit,
+      // archived maintenance, unprobed artifact, or zero compatibility keeps
+      // the installed tool instead of proposing an upgrade.
+      const { risky } = scoreForReplacement(input);
+      if (risky) {
+        return {
+          installedId: installed.id,
+          action: "keep",
+          reasons: ["candidate fails the risk gate; not a safe upgrade"],
+          ...installedVersion,
+          capabilitiesAdded: [],
+        };
+      }
       return {
         installedId: installed.id,
         candidateId: candidate.id,
@@ -268,7 +304,7 @@ export function compareLifecycle(input: LifecycleCompareInput): LifecycleRow {
   }
 
   const added = capabilitiesAddedBy(installed, candidate, installedInventory);
-  const freshness = freshnessOf(installed);
+  const freshness = lifecycleFreshness(installed);
 
   if (added.length === 0) {
     return {
@@ -340,7 +376,7 @@ export function compareLifecycle(input: LifecycleCompareInput): LifecycleRow {
     candidateId: candidate.id,
     action: "replace",
     reasons: [
-      `installed status ${freshness} with weaker version evidence`,
+      "installed artifact is outdated",
       `candidate adds ${added.join(", ")}`,
       `candidate score ${score} meets the profile threshold ${threshold}`,
     ],

@@ -88,13 +88,14 @@ test("evidence kind uses the exact ArtifactType values", () => {
     "hook",
     "command",
     "tool",
+    "agent",
   ]) {
     assert.equal(
       ArtifactEvidenceSchema.parse({ ...validEvidence(), kind }).kind,
       kind,
     );
   }
-  for (const kind of ["mcp", "package", "agent"]) {
+  for (const kind of ["mcp", "package"]) {
     assert.throws(() => ArtifactEvidenceSchema.parse({ ...validEvidence(), kind }));
   }
 });
