@@ -1,5 +1,6 @@
 import {
   DEFAULT_REQUIRED_THRESHOLD,
+  lifecycleFreshness,
   scoreBreakdown,
   scoreCandidate,
   type CapabilityRecord,
@@ -120,9 +121,15 @@ export async function explain(
     ) =>
       adapters.find((a) => a.harness === installedRecord.harness)
         ?.compatibility(next) ?? 1;
+    // Match recommend: listing-only records without fetched artifact evidence
+    // are never lifecycle candidates.
+    const probedCandidates = snapshot.candidates.filter(
+      (next) =>
+        next.artifactEvidence !== undefined && next.artifactProbed !== false,
+    );
     const rows = buildLifecycleRows(
       [record],
-      snapshot.candidates.map((next) => ({
+      probedCandidates.map((next) => ({
         candidate: next,
         score: scoreCandidate({
           candidate: next,
@@ -149,7 +156,19 @@ export async function explain(
       console.error(`no lifecycle evidence for installed artifact: ${record.id}`);
       return { exitCode: 1 };
     }
-    const latestVersion = row.latestVersion ?? record.latestVersion;
+    // `latestVersion` is the installed artifact's upstream latest, never the
+    // replacement candidate's version.
+    const latestVersion = record.latestVersion;
+    const replacement =
+      row.candidateId === undefined
+        ? undefined
+        : snapshot.candidates.find((next) => next.id === row.candidateId);
+    const candidateVersion =
+      replacement === undefined
+        ? undefined
+        : replacement.artifactEvidence?.version ?? replacement.pinnedRef;
+    const candidateName = replacement?.name;
+    const updateStatus = lifecycleFreshness(record);
     if (json) {
       printJson(
         {
@@ -165,11 +184,13 @@ export async function explain(
               ? {}
               : { installedVersion: record.version }),
             ...(latestVersion === undefined ? {} : { latestVersion }),
-            updateStatus: record.updateStatus ?? "unknown",
+            updateStatus,
             action: row.action,
             ...(row.candidateId === undefined
               ? {}
               : { candidateId: row.candidateId }),
+            ...(candidateName === undefined ? {} : { candidateName }),
+            ...(candidateVersion === undefined ? {} : { candidateVersion }),
             capabilitiesAdded: row.capabilitiesAdded,
             reasons: row.reasons,
             ...(row.recipe === undefined ? {} : { recipe: row.recipe }),
@@ -191,9 +212,13 @@ export async function explain(
       `harness: ${record.harness} kind: ${record.kind} enabled: ${record.enabled}`,
       `installed-version: ${record.version ?? "unknown"}`,
       `latest-version: ${latestVersion ?? "unknown"}`,
-      `update-status: ${record.updateStatus ?? "unknown"}`,
+      `update-status: ${updateStatus}`,
       `action: ${row.action}`,
       `candidate: ${row.candidateId ?? "(none)"}`,
+      ...(candidateName === undefined ? [] : [`candidate-name: ${candidateName}`]),
+      ...(candidateVersion === undefined
+        ? []
+        : [`candidate-version: ${candidateVersion}`]),
       `capabilities: ${record.capabilities.join(", ") || "(none)"}`,
       `capabilities-added: ${row.capabilitiesAdded.join(", ") || "(none)"}`,
       `snapshot-age: generated ${generatedAt} (${Math.max(0, snapshotAgeDays)}d ago)`,

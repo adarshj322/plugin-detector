@@ -272,10 +272,16 @@ test("explain accepts an installed artifact id and shows lifecycle evidence", as
   assert.equal(parsed.facts.installedId, INSTALLED_ID);
   assert.equal(parsed.facts.artifactKind, "skill");
   assert.equal(parsed.facts.installedVersion, "1.0.0");
-  assert.equal(parsed.facts.latestVersion, "2.0.0");
-  assert.equal(parsed.facts.updateStatus, "unknown");
+  assert.equal(
+    parsed.facts.latestVersion,
+    "1.1.0",
+    "latestVersion is the installed artifact's upstream latest, not the candidate version",
+  );
+  assert.equal(parsed.facts.updateStatus, "outdated");
   assert.equal(parsed.facts.action, "replace");
   assert.equal(parsed.facts.candidateId, "new-review");
+  assert.equal(parsed.facts.candidateName, "new-review");
+  assert.equal(parsed.facts.candidateVersion, "2.0.0");
   assert.deepEqual(parsed.facts.capabilitiesAdded, ["code-review.security"]);
   assert.ok(parsed.facts.reasons.length > 0);
 });
@@ -308,12 +314,14 @@ test("explain text shows installed version, latest, status and action", async ()
   for (const needle of [
     `installed: ${INSTALLED_ID}`,
     "installed-version: 1.0.0",
-    "latest-version: 2.0.0",
-    "update-status: unknown",
+    "latest-version: 1.1.0",
+    "update-status: outdated",
     "action: replace",
     "candidate: new-review",
+    "candidate-name: new-review",
+    "candidate-version: 2.0.0",
     "capabilities-added: code-review.security",
-    "reason:",
+    "reason: installed artifact is outdated",
   ]) {
     assert.ok(text.includes(needle), `missing ${needle}`);
   }
@@ -385,4 +393,61 @@ test("explain resolves a curated external CLI and shows version plus keep", asyn
   assert.match(text.logs.join("\n"), /installed: external:cli:jq/);
   assert.match(text.logs.join("\n"), /installed-version: 1\.7/);
   assert.match(text.logs.join("\n"), /action: keep/);
+});
+
+test("explain installed lifecycle ignores unprobed candidates", async () => {
+  const env = setup();
+  writeInstalledReview(env.root);
+  const unprobed: Candidate = {
+    ...REPLACEMENT,
+    artifactType: "skill",
+    packageName: "old-review",
+    artifactProbed: false,
+  };
+  delete (unprobed as { artifactEvidence?: unknown }).artifactEvidence;
+  writeSnapshot(env.cache, [unprobed]);
+  const logs = await capture(() =>
+    runExplain([
+      INSTALLED_ID,
+      "--cache-dir",
+      env.cache,
+      "--home",
+      env.home,
+      "--root",
+      env.root,
+      "--json",
+    ]),
+  );
+  const parsed = InstalledExplainJsonSchema.parse(
+    JSON.parse(logs.logs.join("\n")),
+  );
+  assert.notEqual(parsed.facts.action, "upgrade");
+  assert.equal(parsed.facts.candidateId, undefined);
+
+  // Explicitly unprobed candidates with retained evidence are filtered too.
+  writeSnapshot(env.cache, [
+    {
+      ...REPLACEMENT,
+      artifactType: "skill",
+      packageName: "old-review",
+      artifactProbed: false,
+    },
+  ]);
+  const second = await capture(() =>
+    runExplain([
+      INSTALLED_ID,
+      "--cache-dir",
+      env.cache,
+      "--home",
+      env.home,
+      "--root",
+      env.root,
+      "--json",
+    ]),
+  );
+  const secondParsed = InstalledExplainJsonSchema.parse(
+    JSON.parse(second.logs.join("\n")),
+  );
+  assert.notEqual(secondParsed.facts.action, "upgrade");
+  assert.equal(secondParsed.facts.candidateId, undefined);
 });

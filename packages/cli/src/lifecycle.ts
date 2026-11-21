@@ -87,8 +87,7 @@ function scopeOf(installed: CapabilityRecord): InstalledScope {
     }
     if (
       installed.harness === "claude-code" &&
-      (normalized.includes("/.claude/") ||
-        normalized.endsWith("/.claude.json"))
+      normalized.endsWith("/.claude.json")
     ) {
       return "user";
     }
@@ -127,10 +126,15 @@ function installSpec(candidate: Candidate): string | undefined {
 }
 
 // Claude marketplace specs are `plugin@marketplace`; a scoped npm name
-// (`@scope/pkg`) is not one.
+// (`@scope/pkg`) is not one, and a version-like suffix (`@1.0.0`, `@v1`) is
+// an npm pin, not a marketplace id.
 function marketplaceSpec(candidate: Candidate): string | undefined {
   const spec = safeArg(candidate.packageName ?? candidate.id);
-  return spec !== undefined && spec.indexOf("@", 1) > 0 ? spec : undefined;
+  if (spec === undefined) return undefined;
+  const at = spec.indexOf("@", 1);
+  if (at <= 0) return undefined;
+  const marketplace = spec.slice(at + 1);
+  return /^v?\d+(?:\.\d+)*$/i.test(marketplace) ? undefined : spec;
 }
 
 function sourceRefOf(candidate: Candidate): string {
@@ -152,8 +156,13 @@ function safeInstalledSource(installed: CapabilityRecord): string | undefined {
   return safeArg(installed.sourceRef);
 }
 
-function withApproval(lines: string[]): string[] {
-  return [...lines, APPROVAL_NOTE];
+function withSafety(target: string, steps: string[]): string[] {
+  return [
+    `Back up ${target} before making changes.`,
+    ...steps,
+    `Rollback: restore ${target} from that backup.`,
+    APPROVAL_NOTE,
+  ];
 }
 
 function githubRepo(value: string | undefined): string | undefined {
@@ -221,12 +230,13 @@ function manualPlan(
 ): string[] {
   const name = quoted(installed.name);
   const harness = plain(installed.harness);
+  const target = quoted(installed.installPath ?? configRefOf(installed));
   if (row.action === "upgrade") {
-    return withApproval([
+    return withSafety(target, [
       `Manual: upgrade "${name}" using the ${harness} documented upgrade procedure; no automatic command is known.`,
     ]);
   }
-  return withApproval([
+  return withSafety(target, [
     `Manual: remove "${name}" using the ${harness} documented uninstall procedure; no automatic removal command is known.`,
     manualInstallLine(candidate, harness),
   ]);
@@ -243,11 +253,11 @@ function localPluginPlan(
     installed.sourceRef ?? installed.installPath ?? installed.name,
   );
   if (row.action === "upgrade") {
-    return withApproval([
+    return withSafety(target, [
       `Manual: update the local plugin at "${target}" using its documented procedure; no automatic command is known.`,
     ]);
   }
-  return withApproval([
+  return withSafety(target, [
     `Manual: delete the local plugin at "${target}" (or remove its config entry); no automatic removal command is known.`,
     manualInstallLine(candidate, installed.harness),
   ]);
@@ -259,6 +269,21 @@ function skillsScopeFlag(scope: InstalledScope): string | undefined {
   return undefined;
 }
 
+// The installed skill directory, used for the backup/rollback prose. A
+// homepage sourceRef is not a directory, so configRefs ending in SKILL.md win
+// over it.
+function skillDirectoryOf(installed: CapabilityRecord): string {
+  const install = installed.installPath ?? installed.sourceRef;
+  if (install !== undefined && !/^https?:\/\//i.test(install)) return install;
+  const skillFile = installed.configRefs.find((ref) =>
+    /[\\/]SKILL\.md$/i.test(ref),
+  );
+  if (skillFile !== undefined) {
+    return skillFile.replace(/[\\/]SKILL\.md$/i, "");
+  }
+  return configRefOf(installed);
+}
+
 function skillsPlan(
   row: LifecycleRow,
   installed: CapabilityRecord,
@@ -266,17 +291,21 @@ function skillsPlan(
 ): string[] {
   const name = installedSkillName(installed);
   const flag = skillsScopeFlag(scopeOf(installed));
-  if (name === undefined || flag === undefined) {
+  const agent = safeSegment(installed.harness);
+  if (name === undefined || flag === undefined || agent === undefined) {
     return manualPlan(row, installed, candidate);
   }
   const scope = flag === "" ? [] : [flag];
-  const update = ["npx", "skills", "update", ...scope, name].join(" ");
-  if (row.action === "upgrade") return withApproval([update]);
+  const target = quoted(skillDirectoryOf(installed));
+  const update = ["npx", "skills", "update", ...scope, "-a", agent, name].join(
+    " ",
+  );
+  if (row.action === "upgrade") return withSafety(target, [update]);
   const spec = candidate === undefined ? undefined : candidateSkillsSpec(candidate);
   if (spec === undefined) return manualPlan(row, installed, candidate);
-  return withApproval([
-    ["npx", "skills", "remove", ...scope, name].join(" "),
-    ["npx", "skills", "add", ...scope, spec].join(" "),
+  return withSafety(target, [
+    ["npx", "skills", "remove", ...scope, "-a", agent, name].join(" "),
+    ["npx", "skills", "add", ...scope, "-a", agent, spec].join(" "),
   ]);
 }
 
@@ -290,12 +319,12 @@ function opencodeConfigPlan(
   const source = safeInstalledSource(installed);
   const spec = candidate === undefined ? undefined : installSpec(candidate);
   if (source === undefined || spec === undefined) return undefined;
-  const config = configRefOf(installed);
+  const config = quoted(configRefOf(installed));
   return row.action === "upgrade"
-    ? withApproval([
+    ? withSafety(config, [
         `Edit ${config}: update the "${quoted(source)}" plugin entry to "${quoted(spec)}".`,
       ])
-    : withApproval([
+    : withSafety(config, [
         `Edit ${config}: remove "${quoted(source)}" from the "plugin" array.`,
         `Edit ${config}: add "${quoted(spec)}" to the "plugin" array.`,
       ]);
@@ -316,18 +345,19 @@ function opencodePluginPlan(
     const configPlan = opencodeConfigPlan(row, installed, candidate);
     return configPlan ?? manualPlan(row, installed, candidate);
   }
+  const config = quoted(configRefOf(installed));
   const source = safeInstalledSource(installed);
   const spec = candidate === undefined ? undefined : installSpec(candidate);
   if (row.action === "upgrade") {
     const updateTarget = source ?? spec;
     return updateTarget === undefined
       ? manualPlan(row, installed, candidate)
-      : withApproval([`opencode plugin update ${updateTarget}`]);
+      : withSafety(config, [`opencode plugin update ${updateTarget}`]);
   }
   if (source === undefined || spec === undefined) {
     return manualPlan(row, installed, candidate);
   }
-  return withApproval([
+  return withSafety(config, [
     `opencode plugin remove ${source}`,
     `opencode plugin add ${spec}`,
   ]);
@@ -346,19 +376,20 @@ function claudePluginPlan(
 ): string[] {
   const scope = claudeScopeArg(scopeOf(installed));
   if (scope === undefined) return manualPlan(row, installed, candidate);
+  const config = quoted(configRefOf(installed));
   const source = safeInstalledSource(installed);
   const spec = candidate === undefined ? undefined : marketplaceSpec(candidate);
   if (row.action === "upgrade") {
     const updateTarget = source ?? spec;
     return updateTarget === undefined
       ? manualPlan(row, installed, candidate)
-      : withApproval([`claude plugin update ${scope} ${updateTarget}`]);
+      : withSafety(config, [`claude plugin update ${scope} ${updateTarget}`]);
   }
   if (source === undefined || spec === undefined) {
     return manualPlan(row, installed, candidate);
   }
-  return withApproval([
-    `claude plugin uninstall ${scope} ${source}`,
+  return withSafety(config, [
+    `claude plugin uninstall ${scope} --keep-data ${source}`,
     `claude plugin install ${scope} ${spec}`,
   ]);
 }
@@ -369,14 +400,14 @@ function mcpPlan(
   candidate: Candidate | undefined,
 ): string[] {
   if (candidate === undefined) return [];
-  const config = configRefOf(installed);
+  const config = quoted(configRefOf(installed));
   const key = quoted(installed.name);
   const source = quoted(sourceRefOf(candidate));
   return row.action === "upgrade"
-    ? withApproval([
+    ? withSafety(config, [
         `Edit ${config}: update the "${key}" server entry to "${source}".`,
       ])
-    : withApproval([
+    : withSafety(config, [
         `Edit ${config}: remove the "${key}" server entry.`,
         `Edit ${config}: add the "${quoted(candidate.id)}" server entry from "${source}".`,
       ]);

@@ -80,6 +80,27 @@ const UPGRADE_CANDIDATE = candidate("upgrade-me", {
   capabilities: [],
 });
 
+const NEW_SKILL = candidate("acme-new-skill", {
+  name: "new-skill",
+  artifactType: "skill",
+  packageName: undefined,
+  capabilities: ["code-review.quality", "code-review.security"],
+  repositoryUrl: "https://github.com/acme/new-skill",
+  sources: ["https://github.com/acme/new-skill"],
+  artifactEvidence: {
+    kind: "skill",
+    sourceUrl: "https://github.com/acme/new-skill/SKILL.md",
+    resolvedRef: "v2.0.0",
+    contentHash: "b".repeat(64),
+    license: "MIT",
+    name: "new-skill",
+    version: "2.0.0",
+    capabilities: [],
+    evidenceSnippets: ["name: new-skill"],
+    retrievedAt: "2026-11-01T00:00:00.000Z",
+  },
+});
+
 const APPROVAL_NOTE =
   "Run only after explicit approval; back up config before editing.";
 
@@ -164,6 +185,26 @@ function harnessFixture(env: Fixture, candidates: Candidate[]): void {
   writeSnapshot(env.cache, candidates);
 }
 
+function writeInstalledSkill(root: string): string {
+  const dir = join(root, ".opencode", "skills", "old-skill");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "SKILL.md"),
+    [
+      "---",
+      "name: old-skill",
+      "version: 1.0.0",
+      "capabilities: [code-review.quality]",
+      "metadata:",
+      "  homepage: https://github.com/acme/old-skill",
+      "---",
+      "# old-skill",
+      "",
+    ].join("\n"),
+  );
+  return dir;
+}
+
 function hashTree(dir: string): string {
   const hash = createHash("sha256");
   const files: string[] = [];
@@ -222,6 +263,9 @@ const resolveLatest = async (input: {
   }
   if (input.sourceRef?.startsWith("superpowers@")) {
     return { version: "2.0.0", sourceUrl: "https://example.com/superpowers" };
+  }
+  if (input.sourceRef === "https://github.com/acme/old-skill") {
+    return { version: "1.1.0", sourceUrl: "https://github.com/acme/old-skill" };
   }
   return null;
 };
@@ -286,11 +330,13 @@ test("acceptance: older review plugin is replaced only by a superset", async () 
   assert.deepEqual(
     row?.recipe,
     [
+      `Back up ${config} before making changes.`,
       `Edit ${config}: remove "code-review@1.0.0" from the "plugin" array.`,
       `Edit ${config}: add "new-review" to the "plugin" array.`,
+      `Rollback: restore ${config} from that backup.`,
       APPROVAL_NOTE,
     ],
-    "replace recipe carries both the exact remove and install steps",
+    "replace recipe carries backup, exact remove and install, then rollback",
   );
 
   // Only the superset candidate claims a replacement; the clone stays keep.
@@ -315,13 +361,38 @@ test("acceptance: same-identity newer candidate upgrades without removal", async
   assert.equal(row?.installedVersion, "1.0.0");
   assert.equal(row?.latestVersion, "2.0.0");
   assert.deepEqual(row?.recipe, [
+    `Back up ${join(env.root, "opencode.json")} before making changes.`,
     `Edit ${join(env.root, "opencode.json")}: update the "upgrade-me@1.0.0" plugin entry to "upgrade-me".`,
+    `Rollback: restore ${join(env.root, "opencode.json")} from that backup.`,
     APPROVAL_NOTE,
   ]);
   assert.ok(
     !(row?.recipe ?? []).some((step) => step.includes("remove")),
     "upgrade recipe must not remove the installed plugin",
   );
+});
+
+test("acceptance: a versioned skill with homepage replaces via skills CLI", async () => {
+  const env = setup();
+  const skillDir = writeInstalledSkill(env.root);
+  writeSnapshot(env.cache, [NEW_SKILL]);
+  const parsed = await runAcceptance(env);
+  const lifecycle = parsed.facts.lifecycle ?? [];
+  const row = lifecycle.find(
+    (entry) => entry.installedId === "opencode:skill:project:old-skill",
+  );
+  assert.equal(row?.action, "replace");
+  assert.equal(row?.candidateId, NEW_SKILL.id);
+  assert.deepEqual(row?.capabilitiesAdded, ["code-review.security"]);
+  assert.equal(row?.installedVersion, "1.0.0");
+  assert.equal(row?.latestVersion, "2.0.0");
+  assert.deepEqual(row?.recipe, [
+    `Back up ${skillDir} before making changes.`,
+    "npx skills remove -a opencode old-skill",
+    "npx skills add -a opencode acme/new-skill@new-skill",
+    `Rollback: restore ${skillDir} from that backup.`,
+    APPROVAL_NOTE,
+  ]);
 });
 
 test("acceptance: curated external CLI stays keep with no candidate", async () => {

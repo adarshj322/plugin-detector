@@ -130,6 +130,8 @@ export const InstalledExplainJsonSchema = z.object({
     updateStatus: UpdateStatus,
     action: LifecycleAction,
     candidateId: z.string().min(1).optional(),
+    candidateName: z.string().min(1).optional(),
+    candidateVersion: z.string().min(1).optional(),
     capabilitiesAdded: z.array(z.string().min(1)),
     reasons: z.array(z.string().min(1)),
     recipe: z.array(z.string().min(1)).optional(),

@@ -130,8 +130,10 @@ test("replace global OpenCode plugin removes the declared spec and adds the cand
   const recipe = lifecyclePlan(row(), record(), candidate());
 
   assert.deepEqual(recipe, [
+    "Back up /home/me/.config/opencode/opencode.json before making changes.",
     "opencode plugin remove old-plugin@1.0.0",
     "opencode plugin add new-plugin",
+    "Rollback: restore /home/me/.config/opencode/opencode.json from that backup.",
     APPROVAL_NOTE,
   ]);
 });
@@ -147,8 +149,10 @@ test("replace skill uses a bare installed name and an owner/repo@skill add spec"
   );
 
   assert.deepEqual(recipe, [
-    "npx skills remove old-review",
-    "npx skills add acme/skills@brainstorming",
+    "Back up /home/me/.config/opencode/skills/old-review before making changes.",
+    "npx skills remove -a opencode old-review",
+    "npx skills add -a opencode acme/skills@brainstorming",
+    "Rollback: restore /home/me/.config/opencode/skills/old-review from that backup.",
     APPROVAL_NOTE,
   ]);
   assert.ok(!recipe.some((line) => line.includes("opencode:skill:")));
@@ -165,12 +169,14 @@ test("skills commands add -g for user-scope installs", () => {
     SKILL_CANDIDATE,
   );
   assert.deepEqual(recipe, [
-    "npx skills remove -g old-review",
-    "npx skills add -g acme/skills@brainstorming",
+    "Back up /home/me/.config/opencode/skills/old-review before making changes.",
+    "npx skills remove -g -a opencode old-review",
+    "npx skills add -g -a opencode acme/skills@brainstorming",
+    "Rollback: restore /home/me/.config/opencode/skills/old-review from that backup.",
     APPROVAL_NOTE,
   ]);
 
-  const user = skillRecord({ id: "claude-code:skill:user:old-review" });
+  const user = skillRecord({ id: "claude-code:skill:user:old-review", harness: "claude-code" });
   assert.deepEqual(
     lifecyclePlan(
       row({ installedId: user.id, candidateId: SKILL_CANDIDATE.id }),
@@ -178,8 +184,10 @@ test("skills commands add -g for user-scope installs", () => {
       SKILL_CANDIDATE,
     ),
     [
-      "npx skills remove -g old-review",
-      "npx skills add -g acme/skills@brainstorming",
+      "Back up /home/me/.config/opencode/skills/old-review before making changes.",
+      "npx skills remove -g -a claude-code old-review",
+      "npx skills add -g -a claude-code acme/skills@brainstorming",
+      "Rollback: restore /home/me/.config/opencode/skills/old-review from that backup.",
       APPROVAL_NOTE,
     ],
   );
@@ -193,8 +201,10 @@ test("project OpenCode plugin replace edits config instead of using global CLI",
   const recipe = lifecyclePlan(row({ installedId: installed.id }), installed, candidate());
 
   assert.deepEqual(recipe, [
+    "Back up /work/opencode.json before making changes.",
     'Edit /work/opencode.json: remove "old-plugin@1.0.0" from the "plugin" array.',
     'Edit /work/opencode.json: add "new-plugin" to the "plugin" array.',
+    "Rollback: restore /work/opencode.json from that backup.",
     APPROVAL_NOTE,
   ]);
   assert.ok(!recipe.some((line) => line.startsWith("opencode plugin")));
@@ -206,8 +216,10 @@ test("project OpenCode plugin replace edits config instead of using global CLI",
   assert.deepEqual(
     lifecyclePlan(row({ installedId: local.id }), local, candidate()),
     [
+      "Back up /work/opencode.jsonc before making changes.",
       'Edit /work/opencode.jsonc: remove "old-plugin@1.0.0" from the "plugin" array.',
       'Edit /work/opencode.jsonc: add "new-plugin" to the "plugin" array.',
+      "Rollback: restore /work/opencode.jsonc from that backup.",
       APPROVAL_NOTE,
     ],
   );
@@ -229,8 +241,10 @@ test("Claude plugin commands carry the installed scope", () => {
   assert.deepEqual(
     lifecyclePlan(row({ installedId: user.id, candidateId: next.id }), user, next),
     [
-      "claude plugin uninstall --scope user old@market",
+      "Back up /home/me/.claude.json before making changes.",
+      "claude plugin uninstall --scope user --keep-data old@market",
       "claude plugin install --scope user new@market",
+      "Rollback: restore /home/me/.claude.json from that backup.",
       APPROVAL_NOTE,
     ],
   );
@@ -247,11 +261,26 @@ test("Claude plugin commands carry the installed scope", () => {
       next,
     ),
     [
-      "claude plugin uninstall --scope project old@market",
+      "Back up /work/.claude/settings.json before making changes.",
+      "claude plugin uninstall --scope project --keep-data old@market",
       "claude plugin install --scope project new@market",
+      "Rollback: restore /work/.claude/settings.json from that backup.",
       APPROVAL_NOTE,
     ],
   );
+
+  for (const packageName of ["new@1.0.0", "new@v1"]) {
+    const pinned = lifecyclePlan(
+      row({ installedId: user.id, candidateId: next.id }),
+      user,
+      candidate({ id: "new@market", name: "new", packageName }),
+    );
+    assert.ok(
+      isManualOnly(pinned),
+      `${packageName} is an npm pin, not a marketplace id`,
+    );
+    assert.ok(!pinned.some((line) => line.startsWith("claude plugin")));
+  }
 
   const unknown = record({
     ...user,
@@ -288,7 +317,7 @@ test("unknown installed scope falls back to manual", () => {
     name: "old",
     harness: "claude-code",
     sourceRef: "old@market",
-    configRefs: [],
+    configRefs: ["/work/.claude/settings.json"],
   });
   const pluginRecipe = lifecyclePlan(
     row({
@@ -312,7 +341,9 @@ test("upgrade recipes use update commands without removal", () => {
     candidate(),
   );
   assert.deepEqual(plugin, [
+    "Back up /home/me/.config/opencode/opencode.json before making changes.",
     "opencode plugin update old-plugin@1.0.0",
+    "Rollback: restore /home/me/.config/opencode/opencode.json from that backup.",
     APPROVAL_NOTE,
   ]);
 
@@ -321,16 +352,26 @@ test("upgrade recipes use update commands without removal", () => {
     skillRecord(),
     SKILL_CANDIDATE,
   );
-  assert.deepEqual(skill, ["npx skills update old-review", APPROVAL_NOTE]);
+  assert.deepEqual(skill, [
+    "Back up /home/me/.config/opencode/skills/old-review before making changes.",
+    "npx skills update -a opencode old-review",
+    "Rollback: restore /home/me/.config/opencode/skills/old-review from that backup.",
+    APPROVAL_NOTE,
+  ]);
 
-  const userSkill = skillRecord({ id: "claude-code:skill:user:old-review" });
+  const userSkill = skillRecord({ id: "claude-code:skill:user:old-review", harness: "claude-code" });
   assert.deepEqual(
     lifecyclePlan(
       row({ action: "upgrade", installedId: userSkill.id }),
       userSkill,
       SKILL_CANDIDATE,
     ),
-    ["npx skills update -g old-review", APPROVAL_NOTE],
+    [
+      "Back up /home/me/.config/opencode/skills/old-review before making changes.",
+      "npx skills update -g -a claude-code old-review",
+      "Rollback: restore /home/me/.config/opencode/skills/old-review from that backup.",
+      APPROVAL_NOTE,
+    ],
   );
 
   const claude = lifecyclePlan(
@@ -345,7 +386,9 @@ test("upgrade recipes use update commands without removal", () => {
     candidate({ id: "new@market", name: "new", packageName: "new@market" }),
   );
   assert.deepEqual(claude, [
+    "Back up /home/me/.claude.json before making changes.",
     "claude plugin update --scope user old@market",
+    "Rollback: restore /home/me/.claude.json from that backup.",
     APPROVAL_NOTE,
   ]);
   for (const recipe of [plugin, skill, claude]) {
@@ -361,9 +404,14 @@ test("local installed plugin removal is manual, never a CLI path argument", () =
   });
   const recipe = lifecyclePlan(row(), installed, candidate());
 
-  assert.match(recipe[0] ?? "", /Manual: delete the local plugin/);
+  assert.match(recipe[0] ?? "", /Back up .*local-plugin/);
   assert.ok(recipe[0]?.includes(localPath));
+  assert.match(recipe[1] ?? "", /Manual: delete the local plugin/);
   assert.ok(recipe.some((line) => line.startsWith("Manual: install")));
+  assert.match(
+    recipe.at(-2) ?? "",
+    /Rollback: restore .*local-plugin from that backup\./,
+  );
   assert.ok(!recipe.some((line) => line.startsWith("opencode plugin")));
 
   const upgrade = lifecyclePlan(
@@ -371,7 +419,7 @@ test("local installed plugin removal is manual, never a CLI path argument", () =
     installed,
     candidate(),
   );
-  assert.match(upgrade[0] ?? "", /Manual: update the local plugin/);
+  assert.match(upgrade[1] ?? "", /Manual: update the local plugin/);
   assert.ok(!upgrade.some((line) => line.startsWith("opencode plugin")));
 });
 
@@ -390,8 +438,10 @@ test("external CLI and unknown-harness replacements stay manual", () => {
     external,
     candidate({ artifactType: "tool", packageName: undefined }),
   );
-  assert.ok(recipe[0]?.startsWith("Manual: remove"));
+  assert.match(recipe[0] ?? "", /^Back up /);
+  assert.ok(recipe.some((line) => line.startsWith("Manual: remove")));
   assert.ok(recipe.some((line) => line.startsWith("Manual: install")));
+  assert.ok(recipe.some((line) => line.startsWith("Rollback: restore ")));
   assert.ok(isManualOnly(recipe));
   assert.ok(
     !recipe.some((line) => /\b(?:npm|pnpm|yarn|pip|brew|apt)\b/.test(line)),
@@ -410,7 +460,7 @@ test("external CLI and unknown-harness replacements stay manual", () => {
     candidate({ artifactType: "tool" }),
   );
   assert.ok(isManualOnly(upgrade));
-  assert.ok(upgrade[0]?.startsWith("Manual: upgrade"));
+  assert.match(upgrade[1] ?? "", /^Manual: upgrade/);
 });
 
 test("shell metacharacters and control characters force manual recipes", () => {
@@ -473,11 +523,16 @@ test("MCP recipes escape server keys and emit no shell command", () => {
   });
   const recipe = lifecyclePlan(row({ installedId: installed.id }), installed, next);
 
+  assert.match(recipe[0] ?? "", /^Back up \/work\/opencode\.json/);
   assert.equal(
-    recipe[0],
+    recipe[1],
     'Edit /work/opencode.json: remove the "bad\\"key" server entry.',
   );
-  assert.ok(recipe[1]?.includes('"next\\"key"'));
+  assert.ok(recipe[2]?.includes('"next\\"key"'));
+  assert.match(
+    recipe.at(-2) ?? "",
+    /^Rollback: restore \/work\/opencode\.json from that backup\.$/,
+  );
   assert.equal(recipe.at(-1), APPROVAL_NOTE);
   assert.ok(!recipe.some((line) => line.startsWith("opencode ")));
 });
@@ -495,7 +550,11 @@ test("keep and review rows produce no recipe", () => {
 
 function isManualOnly(lines: string[]): boolean {
   return lines.every(
-    (line) => line.startsWith("Manual:") || line === APPROVAL_NOTE,
+    (line) =>
+      line.startsWith("Manual:") ||
+      line.startsWith("Back up ") ||
+      line.startsWith("Rollback: restore ") ||
+      line === APPROVAL_NOTE,
   );
 }
 
@@ -622,9 +681,12 @@ test("recommend JSON includes CLI-shaped recipes only on actionable rows", async
     (entry) => entry.installedId === INSTALLED_SKILL_ID,
   );
   assert.equal(replaced?.action, "replace");
+  const skillDir = join(env.root, ".opencode", "skills", "old-review");
   assert.deepEqual(replaced?.recipe, [
-    "npx skills remove old-review",
-    "npx skills add acme/new-review@new-review",
+    `Back up ${skillDir} before making changes.`,
+    "npx skills remove -a opencode old-review",
+    "npx skills add -a opencode acme/new-review@new-review",
+    `Rollback: restore ${skillDir} from that backup.`,
     APPROVAL_NOTE,
   ]);
 });
@@ -651,9 +713,12 @@ test("explain JSON includes the recipe for an installed artifact", async () => {
   );
   const parsed = InstalledExplainJsonSchema.parse(JSON.parse(logs.join("\n")));
   assert.equal(parsed.facts.action, "replace");
+  const skillDir = join(env.root, ".opencode", "skills", "old-review");
   assert.deepEqual(parsed.facts.recipe, [
-    "npx skills remove old-review",
-    "npx skills add acme/new-review@new-review",
+    `Back up ${skillDir} before making changes.`,
+    "npx skills remove -a opencode old-review",
+    "npx skills add -a opencode acme/new-review@new-review",
+    `Rollback: restore ${skillDir} from that backup.`,
     APPROVAL_NOTE,
   ]);
 });

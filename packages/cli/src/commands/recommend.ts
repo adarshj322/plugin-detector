@@ -275,7 +275,9 @@ export async function recommend(
   // manifest instead. Legacy snapshots that predate artifactEvidence are
   // treated as unprobed.
   const probed = snapshot.candidates.filter(
-    (candidate) => candidate.artifactEvidence !== undefined,
+    (candidate) =>
+      candidate.artifactEvidence !== undefined &&
+      candidate.artifactProbed !== false,
   );
   const scored = scoreCandidateSet(probed, {
     installedCapabilities: installedRecords,
