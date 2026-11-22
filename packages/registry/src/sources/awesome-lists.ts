@@ -7,7 +7,7 @@ import {
 
 export const AWESOME_LISTS_ID = "awesome-lists";
 export const AWESOME_LISTS_URL =
-  "https://raw.githubusercontent.com/anthropics/awesome-claude-plugins/main/README.md";
+  "https://raw.githubusercontent.com/quemsah/awesome-claude-plugins/main/README.md";
 
 const GITHUB_LINK = /https?:\/\/github\.com\/([\w.-]+\/[\w.-]+)/g;
 
