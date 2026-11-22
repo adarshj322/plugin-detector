@@ -15,8 +15,9 @@ through the consent path.
 The unbounded refresh probes roughly 1,000 listings and exceeded a 45-minute
 run on this host. This snapshot was refreshed with `--limit 400` (100 listings
 per source) so the release operation stays bounded. That cap is the main reason
-the corpus is 35 rather than the 166-candidate unbounded result; the accepted
-records are the highest-popularity/highest-signal listings from each source.
+the corpus is 35 rather than the 166-candidate unbounded result. The cap keeps
+the highest-popularity listings where a source supplies popularity, and the
+source's own ordering otherwise.
 
 ## Source health
 
