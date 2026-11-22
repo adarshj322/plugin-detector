@@ -302,14 +302,24 @@ export async function recommend(
         : 1
       : b.rec.score - a.rec.score,
   );
-  const top = scored.filter((s) => s.rec.verdict !== "risky").slice(0, 5);
+  // Registry mirrors and re-listings must not consume top-5 slots: keep the
+  // best-scored record per artifact name and kind. `scored` is already sorted
+  // best-first, so the first occurrence wins.
+  const seenNames = new Set<string>();
+  const ranked = scored.filter(({ rec }) => {
+    const key = `${rec.candidate.artifactType}:${rec.candidate.name.trim().toLowerCase()}`;
+    if (seenNames.has(key)) return false;
+    seenNames.add(key);
+    return true;
+  });
+  const top = ranked.filter((s) => s.rec.verdict !== "risky").slice(0, 5);
   const verdict = decideVerdict({
-    recommendations: scored.map((s) => s.rec),
+    recommendations: ranked.map((s) => s.rec),
     requiredThreshold: effectiveThreshold,
   });
   const lifecycle = buildLifecycleRows(
     installedRecords,
-    scored.map((s) => ({
+    ranked.map((s) => ({
       candidate: s.rec.candidate,
       score: s.rec.score,
     })),

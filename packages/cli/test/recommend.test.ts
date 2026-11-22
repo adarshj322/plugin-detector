@@ -176,6 +176,35 @@ test("seven eligible candidates emit at most five, sorted, with zero writes", as
   assert.equal(hashTree(env.home) + hashTree(env.root) + hashTree(env.cache), before);
 });
 
+test("mirror candidates with the same name keep one top-5 slot", async () => {
+  const env = setup();
+  const duplicated = candidate("dup-a");
+  const mirror = candidate("dup-b", {
+    name: duplicated.name,
+    capabilities: ["testing.runner", "code-review.quality"],
+  });
+  writeSnapshot(env.cache, [
+    duplicated,
+    mirror,
+    ...Array.from({ length: 4 }, (_, i) => candidate(`cand-${i + 2}`)),
+  ]);
+  let code = -1;
+  const { logs } = await capture(async () => {
+    code = (await runRecommend([...baseArgs(env), "--json"])).exitCode;
+  });
+  assert.equal(code, 0);
+  const parsed = RecommendJsonSchema.parse(JSON.parse(logs.join("\n")));
+  assert.equal(parsed.facts.recommendations.length, 5);
+  const names = parsed.facts.recommendations.map((r) => r.name.toLowerCase());
+  assert.equal(new Set(names).size, names.length);
+  assert.equal(
+    parsed.facts.recommendations.filter(
+      (r) => r.name === duplicated.name,
+    ).length,
+    1,
+  );
+});
+
 test("empty snapshot emits the exact no-good-candidates verdict", async () => {
   const env = setup();
   writeSnapshot(env.cache, []);
