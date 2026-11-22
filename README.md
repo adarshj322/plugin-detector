@@ -9,9 +9,13 @@ Codex, and Cursor, compares candidates against your declared use case, and
 returns a short, explained recommendation set instead of a star-count dump.
 
 > **Status: 0.1.0 alpha.** The CLI, adapters, consent gate, and recommendation
-> benchmark are implemented and tested. The bundled registry snapshot is still a
-> **seed/placeholder**; v1.0 cannot ship until a live refresh is reviewed and
-> committed. See [Registry snapshot status](#registry-snapshot-status) and
+> benchmark are implemented and tested. The bundled registry snapshot was
+> refreshed and reviewed on **2026-11-22** (166 evidence-backed candidates from
+> live public sources), but it remains a seed for v1.0: every candidate is
+> community/unverified, license and maintenance coverage are partial, and some
+> profiles still return `no-good-candidates`. See
+> [Registry snapshot status](#registry-snapshot-status),
+> [the review record](docs/registry-review-2026-11-22.md), and
 > [CHANGELOG.md](CHANGELOG.md#unresolved-v10-gates).
 
 - Node.js **>= 22**
@@ -289,13 +293,22 @@ The skill requires the `plugin-detector` binary on `PATH` (or resolves it throug
 
 ## Registry snapshot status
 
-The repository currently ships a **seed snapshot** at
+The repository ships a refreshed **seed snapshot** at
 `packages/registry/data/registry-snapshot.json`: `schemaVersion: 1`,
-`generatedAt: 2026-11-08T00:00:00.000Z`, zero candidates. It exists so the loader,
-schema, and offline behavior are exercised; it is not a recommendation corpus.
+`generatedAt: 2026-11-22T06:10:26.929Z`, **166 evidence-backed candidates**.
+All four sources were healthy; 166 candidates were probed, 398 listings were
+unprobed, and 445 were rejected with recorded reasons. Every candidate is
+community/unverified, license coverage is 61/166, and maintenance evidence is
+22/166, so this is progress toward v1.0 rather than a release corpus. The
+detailed review is in
+[`docs/registry-review-2026-11-22.md`](docs/registry-review-2026-11-22.md).
 
-With the seed snapshot, `recommend` honestly returns `no-good-candidates` rather
-than inventing output. Live refresh fetches each listed artifact (SKILL.md /
+Mirror records from different listings are kept in the snapshot as source
+evidence, but `recommend` and lifecycle candidate selection collapse them to one
+record per artifact name and kind. `recommend` can still honestly return
+`no-good-candidates` for a profile (currently data-analysis, research-writing,
+and devops-infrastructure) rather than inventing output. Live refresh fetches
+each listed artifact (SKILL.md /
 plugin.json, or npm/PyPI metadata) before accepting it: only candidates with
 real artifact evidence enter the snapshot. Listing-only records and probe
 failures stay visible in `registry-manifest.json` (`unprobed` and `rejected`)

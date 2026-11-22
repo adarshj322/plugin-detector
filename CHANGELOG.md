@@ -52,6 +52,13 @@ Release stages: `0.1` alpha, `0.5` beta, `1.0` stable.
   latest-version evidence from npm, PyPI, or GitHub where a source mapping
   exists. The default path stays offline; PATH-sourced CLIs and failed lookups
   remain `unknown` rather than being called outdated.
+- The bundled registry snapshot was refreshed against live sources and reviewed
+  on 2026-11-22: 166 evidence-backed candidates from skills.sh, GitHub, and a
+  live awesome list (the dead `anthropics/awesome-claude-plugins` URL was
+  replaced). All candidates remain community/unverified, and license and
+  maintenance coverage are partial; see the review record. `recommend` now
+  collapses mirror listings to one top-5/lifecycle slot per artifact name and
+  kind, keeping the best-scored record.
 - Lifecycle recipe tests cover OpenCode/Claude plugin and skill commands,
   user/global `-g` scope, project config edits, local plugins, MCP entries,
   external CLIs, unknown harness/scope fallback, shell-metacharacter rejection,

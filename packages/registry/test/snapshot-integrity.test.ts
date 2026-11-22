@@ -9,7 +9,9 @@ import { parseSnapshot } from "../src/index.js";
 const SNAPSHOT_URL = new URL("../../data/registry-snapshot.json", import.meta.url);
 const SEED_GENERATED_AT = "2026-11-08T00:00:00.000Z";
 const MUTABLE_REFS = new Set(["0.0.0", "main", "master", "head", "latest"]);
-const MAX_CANDIDATES = 120;
+// Reviewed cap raised from 120 for the 2026-11-22 refresh (166 evidence-backed
+// candidates). Recommendation output collapses mirror records by name/kind.
+const MAX_CANDIDATES = 200;
 
 const snapshot = parseSnapshot(readFileSync(SNAPSHOT_URL, "utf8"));
 const canonical = new Set<string>(CANONICAL_CAPABILITY_IDS);
