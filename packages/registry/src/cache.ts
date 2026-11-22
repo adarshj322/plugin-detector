@@ -13,6 +13,7 @@ import {
   type PackageProbeResult,
 } from "./probe-package.js";
 import { probeSkillsSh, SkillsShProbeError } from "./probe-skills-sh.js";
+import { enrichPublisherCandidate } from "./publisher-metadata.js";
 import {
   buildSnapshot,
   parseSnapshot,
@@ -685,7 +686,9 @@ export async function refreshSnapshot(
 
       let probed: RawCandidate;
       try {
-        probed = await probeOnce(stamped, fetcher.id);
+        probed = await enrichPublisherCandidate(
+          await probeOnce(stamped, fetcher.id),
+        );
       } catch (err) {
         // Probe refusal is recorded. Only a source that could not answer
         // (network/timeout/5xx/unavailable) preserves prior evidence; a hard

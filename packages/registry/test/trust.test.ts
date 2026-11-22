@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   classifyTrust,
+  detectDrift,
   normalizeCandidate,
   publisherMatchesProbe,
   type RawCandidate,
@@ -213,6 +214,33 @@ test("popularity and stars never promote trust", () => {
     }),
   );
   assert.equal(classifyTrust(candidate, evidence()), "unverified");
+});
+
+test("publisher enrichment from unknown is not drift", () => {
+  const previous = normalizeCandidate(
+    rawCandidate({ license: "unknown", maintenance: "unknown" }),
+  );
+  const current = normalizeCandidate(
+    rawCandidate({ license: "MIT", maintenance: "active" }),
+  );
+  assert.deepEqual(detectDrift(previous, current), {
+    drifted: false,
+    reasons: ["no manifest change under the same tag"],
+  });
+});
+
+test("known license or maintenance changes under one pin still drift", () => {
+  const previous = normalizeCandidate(
+    rawCandidate({ license: "MIT", maintenance: "active" }),
+  );
+  const licenseChange = normalizeCandidate(
+    rawCandidate({ license: "Apache-2.0", maintenance: "active" }),
+  );
+  assert.equal(detectDrift(previous, licenseChange).drifted, true);
+  const maintenanceChange = normalizeCandidate(
+    rawCandidate({ license: "MIT", maintenance: "unknown" }),
+  );
+  assert.equal(detectDrift(previous, maintenanceChange).drifted, true);
 });
 
 test("drift and shell/exec copy suppress trust", () => {

@@ -374,7 +374,12 @@ export function detectDrift(
       `capabilities changed [${previous.capabilities.join(", ")}] -> [${current.capabilities.join(", ")}] under unchanged tag ${current.pinnedRef}`,
     );
   }
-  if (previous.license !== current.license) {
+  // Publisher metadata enrichment legitimately fills unknown license/activity
+  // from the repository API. That is new evidence, not silent manifest drift;
+  // a known value changing under the same pin still drifts.
+  const enrichedLicense =
+    previous.license === "unknown" && current.license !== "unknown";
+  if (previous.license !== current.license && !enrichedLicense) {
     reasons.push(
       `license changed ${previous.license} -> ${current.license} under unchanged tag ${current.pinnedRef}`,
     );
@@ -389,7 +394,12 @@ export function detectDrift(
       `packageName changed ${previous.packageName ?? "(none)"} -> ${current.packageName ?? "(none)"} under unchanged tag ${current.pinnedRef}`,
     );
   }
-  if (previous.maintenance !== current.maintenance) {
+  const enrichedMaintenance =
+    previous.maintenance === "unknown" && current.maintenance !== "unknown";
+  if (
+    previous.maintenance !== current.maintenance &&
+    !enrichedMaintenance
+  ) {
     reasons.push(
       `maintenance changed ${previous.maintenance} -> ${current.maintenance} under unchanged tag ${current.pinnedRef}`,
     );
