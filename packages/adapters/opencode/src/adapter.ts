@@ -28,6 +28,7 @@ import {
   readSkillVersion,
   skillCapabilitiesFromFrontmatter,
   skillDescriptionFromFrontmatter,
+  skillInstallSpec,
   skillNameFromFrontmatter,
   stripJsonc,
 } from "@plugin-detector/adapter-shared";
@@ -399,7 +400,9 @@ export class OpenCodeAdapter implements HarnessAdapter {
   // yields a manual recipe; nothing here touches the filesystem.
   installPlan(candidate: Candidate, trust: TrustLabel = "unverified"): InstallPlan {
     const source =
-      candidate.packageName ?? candidate.repositoryUrl ?? candidate.id;
+      candidate.artifactType === "skill"
+        ? skillInstallSpec(candidate)
+        : candidate.packageName ?? candidate.repositoryUrl ?? candidate.id;
     const supported =
       candidate.artifactType === "skill" ||
       candidate.artifactType === "plugin" ||

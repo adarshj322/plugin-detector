@@ -25,6 +25,7 @@ import {
   readSkillHomepage,
   readSkillVersion,
   skillCapabilitiesFromFrontmatter,
+  skillInstallSpec,
   skillNameFromFrontmatter,
   stripJsonc,
 } from "@plugin-detector/adapter-shared";
@@ -213,7 +214,9 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
   // nothing here touches the filesystem.
   installPlan(candidate: Candidate, trust: TrustLabel = "unverified"): InstallPlan {
     const source =
-      candidate.packageName ?? candidate.repositoryUrl ?? candidate.id;
+      candidate.artifactType === "skill"
+        ? skillInstallSpec(candidate)
+        : candidate.packageName ?? candidate.repositoryUrl ?? candidate.id;
     const supported =
       candidate.artifactType === "skill" ||
       candidate.artifactType === "plugin" ||

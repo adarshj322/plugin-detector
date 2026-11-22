@@ -3,3 +3,4 @@ export * from "./jsonc.js";
 export * from "./frontmatter.js";
 export * from "./versions.js";
 export * from "./external-tools.js";
+export * from "./install-source.js";

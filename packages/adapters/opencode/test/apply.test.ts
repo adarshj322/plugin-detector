@@ -122,6 +122,33 @@ test("unverified candidate yields a recipe-only plan that apply refuses", async 
   assert.equal(existsSync(join(root, "opencode.json")), before);
 });
 
+test("skill plan names the single skill in a repository", () => {
+  const plan = adapter().installPlan(
+    candidate({
+      id: "owner/repo/my-skill",
+      artifactType: "skill",
+      packageName: undefined,
+      repositoryUrl: "https://github.com/owner/repo",
+      artifactEvidence: {
+        kind: "skill",
+        sourceUrl: "https://skills.sh/api/download/owner/repo/my-skill",
+        resolvedRef: "main",
+        contentHash: "a".repeat(64),
+        license: "MIT",
+        name: "my-skill",
+        capabilities: [],
+        evidenceSnippets: ["name: my-skill"],
+        retrievedAt: "2026-11-01T00:00:00.000Z",
+      },
+    }),
+    "verified",
+  );
+  assert.match(
+    plan.operations[0]?.summary ?? "",
+    /npx skills add owner\/repo@my-skill/,
+  );
+});
+
 test("skill run uses the injected runner only after verification", async () => {
   const seen: string[][] = [];
   const plan = adapter().installPlan(
