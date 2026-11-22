@@ -10,10 +10,11 @@ returns a short, explained recommendation set instead of a star-count dump.
 
 > **Status: 0.1.0 alpha.** The CLI, adapters, consent gate, and recommendation
 > benchmark are implemented and tested. The bundled registry snapshot was
-> refreshed and reviewed on **2026-11-22** (166 evidence-backed candidates from
-> live public sources), but it remains a seed for v1.0: every candidate is
-> community/unverified, license and maintenance coverage are partial, and some
-> profiles still return `no-good-candidates`. See
+> refreshed and reviewed on **2026-11-22** (35 evidence-backed candidates from
+> live public sources, including **4 verified official publisher skills**), but
+> it remains a seed for v1.0: most candidates are community/unverified, license
+> and maintenance coverage are partial, and some profiles still return
+> `no-good-candidates`. See
 > [Registry snapshot status](#registry-snapshot-status),
 > [the review record](docs/registry-review-2026-11-22.md), and
 > [CHANGELOG.md](CHANGELOG.md#unresolved-v10-gates).
@@ -295,12 +296,14 @@ The skill requires the `plugin-detector` binary on `PATH` (or resolves it throug
 
 The repository ships a refreshed **seed snapshot** at
 `packages/registry/data/registry-snapshot.json`: `schemaVersion: 1`,
-`generatedAt: 2026-11-22T06:10:26.929Z`, **166 evidence-backed candidates**.
-All four sources were healthy; 166 candidates were probed, 398 listings were
-unprobed, and 445 were rejected with recorded reasons. Every candidate is
-community/unverified, license coverage is 61/166, and maintenance evidence is
-22/166, so this is progress toward v1.0 rather than a release corpus. The
-detailed review is in
+`generatedAt: 2026-11-22T10:50:45.869Z`, **35 evidence-backed candidates**.
+The refresh was bounded to 100 listings per source to keep the release
+operation under an hour. All four sources were healthy; 35 candidates were
+probed, 99 listings were unprobed, and 95 were rejected with recorded reasons.
+Four official publisher skills are `verified`; the other 31 candidates are
+community/unverified. License coverage is 21/35 and maintenance evidence is
+8/35, so this is progress toward v1.0 rather than a release corpus. The detailed
+review is in
 [`docs/registry-review-2026-11-22.md`](docs/registry-review-2026-11-22.md).
 
 Mirror records from different listings are kept in the snapshot as source

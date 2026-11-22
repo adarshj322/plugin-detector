@@ -113,7 +113,10 @@ A candidate is acceptable for the curated snapshot when all of these hold:
   evidence source is a canonical, expected location for that artifact type.
 - The publisher claim binds to the evidence: the source URL owner/repository or
   package scope matches the claimed publisher. A listing name alone is not
-  identity.
+  identity. For allowlisted publisher orgs, the refresh may fill a missing
+  license, push activity, and star count from the public GitHub repository
+  endpoint; that metadata never replaces the artifact probe and a failed lookup
+  leaves the candidate unverified.
 - `pinnedRef` is immutable (tag, version, or digest), not `main`, `latest`,
   `HEAD`, or a `0.0.0` placeholder.
 - The probed license is present and compatible with how the artifact will be

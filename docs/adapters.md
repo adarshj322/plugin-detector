@@ -58,7 +58,7 @@ inventory or invents records.
 
 | Artifact | Operation | Rollback |
 | --- | --- | --- |
-| Skill | `npx skills add <source>` into the OpenCode user skill root | Remove the installed skill directory |
+| Skill | `npx skills add owner/repo@skill` into the OpenCode user skill root | Remove the installed skill directory |
 | Plugin | Append/merge the source into the `plugin` array in `opencode.json` | Restore the backed-up config |
 | MCP server | Merge the server into the `mcp` object in `opencode.json` | Restore the backed-up config |
 
@@ -88,7 +88,7 @@ skill/MCP cost classes are kept distinct.
 
 | Artifact | Operation | Rollback |
 | --- | --- | --- |
-| Skill | `npx skills add <source>` into `~/.claude/skills` | Remove the installed skill directory |
+| Skill | `npx skills add owner/repo@skill` into `~/.claude/skills` | Remove the installed skill directory |
 | MCP server | Merge into `mcpServers` in project `.mcp.json` | Restore the backed-up config |
 
 **Plugins are recipe-only.** Claude's plugin install is the documented
